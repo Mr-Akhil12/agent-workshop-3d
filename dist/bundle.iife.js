@@ -27857,6 +27857,59 @@ void main() {
       joystickActive = false;
       moveState.forward = moveState.backward = moveState.left = moveState.right = false;
     });
+    var btnGas = document.getElementById("btn-gas");
+    var btnLaptop = document.getElementById("btn-laptop");
+    if (btnGas) {
+      btnGas.addEventListener("touchstart", function(e) {
+        e.preventDefault();
+        flameActive = !flameActive;
+        gasIndicator.style.color = flameActive ? "rgba(255,102,0,1)" : "rgba(255,102,0,0)";
+      });
+      btnGas.addEventListener("click", function() {
+        flameActive = !flameActive;
+        gasIndicator.style.color = flameActive ? "rgba(255,102,0,1)" : "rgba(255,102,0,0)";
+      });
+    }
+    if (btnLaptop) {
+      btnLaptop.addEventListener("touchstart", function(e) {
+        e.preventDefault();
+        showDetail({ label: "LAPTOP" });
+      });
+      btnLaptop.addEventListener("click", function() {
+        showDetail({ label: "LAPTOP" });
+      });
+    }
+    var joystickZone = document.getElementById("joystick-zone");
+    var joystickKnob = document.getElementById("joystick-knob");
+    if (joystickZone) {
+      joystickZone.addEventListener("touchstart", function(e) {
+        e.preventDefault();
+        joystickActive = true;
+        var t = e.touches[0];
+        joystickStart = { x: t.clientX, y: t.clientY };
+      });
+      joystickZone.addEventListener("touchmove", function(e) {
+        e.preventDefault();
+        if (!joystickActive) return;
+        var t = e.touches[0];
+        var dx = t.clientX - joystickStart.x, dy = t.clientY - joystickStart.y;
+        var maxDist = 30, dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > maxDist) {
+          dx = dx / dist * maxDist;
+          dy = dy / dist * maxDist;
+        }
+        joystickKnob.style.transform = "translate(calc(-50% + " + dx + "px), calc(-50% + " + dy + "px))";
+        moveState.forward = dy < -10;
+        moveState.backward = dy > 10;
+        moveState.left = dx < -10;
+        moveState.right = dx > 10;
+      });
+      joystickZone.addEventListener("touchend", function() {
+        joystickActive = false;
+        moveState.forward = moveState.backward = moveState.left = moveState.right = false;
+        joystickKnob.style.transform = "translate(-50%,-50%)";
+      });
+    }
     function typewriteText(el, text, speed = 15) {
       el.innerHTML = "";
       let i = 0;

@@ -39,6 +39,15 @@
         @keyframes blink{0%,50%{opacity:1}51%,100%{opacity:0}}
         #gas-indicator{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);font-family:'JetBrains Mono',monospace;font-size:12px;color:rgba(255,102,0,0);z-index:10;pointer-events:none;transition:color 0.2s}
         @media(max-width:600px){.detail-card{padding:24px 20px;margin:10px}#info-bar{font-size:11px;padding:8px 16px;max-width:90vw;white-space:normal}}
+
+        /* Mobile Controls */
+        #mobile-controls{display:none;position:fixed;bottom:0;left:0;right:0;height:140px;z-index:50;pointer-events:none;}
+        @media(max-width:768px){#mobile-controls{display:flex;}}
+        #joystick-zone{position:absolute;bottom:20px;left:20px;width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,0.08);border:2px solid rgba(255,255,255,0.15);pointer-events:auto;}
+        #joystick-knob{position:absolute;width:40px;height:40px;border-radius:50%;background:rgba(0,204,255,0.5);border:2px solid rgba(0,204,255,0.8);top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;}
+        #action-buttons{position:absolute;bottom:20px;right:20px;display:flex;flex-direction:column;gap:10px;pointer-events:auto;}
+        .action-btn{width:56px;height:56px;border-radius:50%;background:rgba(0,0,0,0.6);border:2px solid rgba(255,255,255,0.2);color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;}
+        .action-btn:active{background:rgba(0,204,255,0.3);border-color:#00ccff;}
     </style>
 </head>
 <body>
@@ -47,9 +56,23 @@
         <div class="bar-wrap"><div class="bar" id="load-bar"></div></div>
         <p class="status" id="load-status">Initializing...</p>
     </div>
-    <div id="hint">drag to orbit · scroll to zoom · click signs · hold SPACE to gas it 🔥</div>
-    <div id="info-bar">The Agent's Workshop — click the signs to explore</div>
+    <div id="hint">WASD to move · drag to orbit · tap objects to interact</div>
+    <div id="info-bar">The Agent's Workshop — explore the garage</div>
     <div id="gas-indicator">🔥 GAS IT 🔥</div>
+
+    <!-- Mobile Controls -->
+    <div id="mobile-controls">
+        <!-- Joystick pad (left side) -->
+        <div id="joystick-zone">
+            <div id="joystick-knob"></div>
+        </div>
+        <!-- Action buttons (right side) -->
+        <div id="action-buttons">
+            <button id="btn-gas" class="action-btn">🔥 GAS</button>
+            <button id="btn-laptop" class="action-btn">💻 LAPTOP</button>
+        </div>
+    </div>
+
     <div id="detail-overlay" onclick="closeDetail()">
         <div class="detail-card" onclick="event.stopPropagation()">
             <button class="detail-close" onclick="closeDetail()">&times;</button>
