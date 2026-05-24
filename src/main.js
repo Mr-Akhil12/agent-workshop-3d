@@ -70,9 +70,9 @@ export function start() {
 
     setProgress(10, 'Scene initialized');
 
-    // ── Lighting ──
-    scene.add(new THREE.AmbientLight(0x111118, 0.4));
-    const keyLight = new THREE.DirectionalLight(0xffeedd, 0.5);
+    // ── Lighting (realistic garage, warm, bright enough) ──
+    scene.add(new THREE.AmbientLight(0x2a2a33, 0.8));
+    const keyLight = new THREE.DirectionalLight(0xfff5e6, 2.0);
     keyLight.position.set(3, 8, 4);
     keyLight.castShadow = true;
     keyLight.shadow.mapSize.set(1024, 1024);
@@ -81,9 +81,13 @@ export function start() {
     keyLight.shadow.camera.top = 8; keyLight.shadow.camera.bottom = -8;
     keyLight.shadow.bias = -0.001;
     scene.add(keyLight);
-    const fillLight = new THREE.DirectionalLight(0x4466ff, 0.15);
+    const fillLight = new THREE.DirectionalLight(0xffddaa, 0.6);
     fillLight.position.set(-4, 3, -2);
     scene.add(fillLight);
+    // Ceiling point light
+    const plCeiling = new THREE.PointLight(0xfff8f0, 10, 25, 1.5);
+    plCeiling.position.set(0, 3.2, 0);
+    scene.add(plCeiling);
 
     // ── Ground (dark concrete, no grid) ──
     const ground = new THREE.Mesh(
@@ -179,16 +183,6 @@ export function start() {
     border.position.copy(neonSign1.position); border.position.z += 0.01; scene.add(border);
     const neonSign2 = createNeonText('⚡ HERMES AGENT', '#ff0088', 40, 2.8, 0.6);
     neonSign2.position.set(0, 2.0, -3.85); scene.add(neonSign2);
-
-    // ── Garage Lighting (realistic) ──
-    // Warm overhead key
-    const plKey = new THREE.PointLight(0xfff5e6, 3, 15, 2);
-    plKey.position.set(0, 3.2, 0);
-    scene.add(plKey);
-    // Subtle warm fill from garage door side
-    const plFill = new THREE.PointLight(0xffddaa, 1, 12, 2);
-    plFill.position.set(-3, 2.5, 1);
-    scene.add(plFill);
 
     setProgress(50, 'Scene built');
     function createWire(p1, p2, sag = 0.3) {

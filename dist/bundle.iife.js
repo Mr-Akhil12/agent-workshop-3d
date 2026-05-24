@@ -27993,8 +27993,8 @@ void main() {
     composer.addPass(bloom);
     composer.addPass(new OutputPass());
     setProgress(10, "Scene initialized");
-    scene.add(new AmbientLight(1118488, 0.4));
-    const keyLight = new DirectionalLight(16772829, 0.5);
+    scene.add(new AmbientLight(2763315, 0.8));
+    const keyLight = new DirectionalLight(16774630, 2);
     keyLight.position.set(3, 8, 4);
     keyLight.castShadow = true;
     keyLight.shadow.mapSize.set(1024, 1024);
@@ -28006,9 +28006,12 @@ void main() {
     keyLight.shadow.camera.bottom = -8;
     keyLight.shadow.bias = -1e-3;
     scene.add(keyLight);
-    const fillLight = new DirectionalLight(4482815, 0.15);
+    const fillLight = new DirectionalLight(16768426, 0.6);
     fillLight.position.set(-4, 3, -2);
     scene.add(fillLight);
+    const plCeiling = new PointLight(16775408, 10, 25, 1.5);
+    plCeiling.position.set(0, 3.2, 0);
+    scene.add(plCeiling);
     const ground = new Mesh(
       new PlaneGeometry(40, 40),
       new MeshStandardMaterial({ color: 1118481, metalness: 0.15, roughness: 0.75 })
@@ -28136,12 +28139,6 @@ void main() {
     const neonSign2 = createNeonText("⚡ HERMES AGENT", "#ff0088", 40, 2.8, 0.6);
     neonSign2.position.set(0, 2, -3.85);
     scene.add(neonSign2);
-    const plKey = new PointLight(16774630, 3, 15, 2);
-    plKey.position.set(0, 3.2, 0);
-    scene.add(plKey);
-    const plFill = new PointLight(16768426, 1, 12, 2);
-    plFill.position.set(-3, 2.5, 1);
-    scene.add(plFill);
     setProgress(50, "Scene built");
     setProgress(50, "Scene built");
     const barrelGeo = new CylinderGeometry(0.35, 0.35, 0.9, 12);
