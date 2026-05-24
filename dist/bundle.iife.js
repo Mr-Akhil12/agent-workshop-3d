@@ -27973,7 +27973,7 @@ void main() {
     renderer.outputColorSpace = SRGBColorSpace;
     document.body.appendChild(renderer.domElement);
     const scene = new Scene();
-    scene.background = new Color(131590);
+    scene.background = new Color(1381656);
     const camera = new PerspectiveCamera(50, W / H, 0.1, 200);
     camera.position.set(6, 4, 8);
     const controls = new OrbitControls(camera, renderer.domElement);
@@ -27994,7 +27994,7 @@ void main() {
     composer.addPass(new OutputPass());
     setProgress(10, "Scene initialized");
     scene.add(new AmbientLight(2763315, 0.8));
-    const keyLight = new DirectionalLight(16774630, 2);
+    const keyLight = new DirectionalLight(16774630, 4);
     keyLight.position.set(3, 8, 4);
     keyLight.castShadow = true;
     keyLight.shadow.mapSize.set(1024, 1024);
@@ -28006,13 +28006,13 @@ void main() {
     keyLight.shadow.camera.bottom = -8;
     keyLight.shadow.bias = -1e-3;
     scene.add(keyLight);
-    const fillLight = new DirectionalLight(16768426, 0.6);
+    const fillLight = new DirectionalLight(16768426, 1.5);
     fillLight.position.set(-4, 3, -2);
     scene.add(fillLight);
     const plCeiling = new PointLight(16775408, 10, 25, 1.5);
     plCeiling.position.set(0, 3.2, 0);
     scene.add(plCeiling);
-    const spotCar = new SpotLight(16777215, 15, 20, Math.PI / 6, 0.5, 1);
+    const spotCar = new SpotLight(16777215, 30, 25, Math.PI / 6, 0.3, 1);
     spotCar.position.set(2, 5, 4);
     spotCar.target.position.set(0, 0, 0);
     scene.add(spotCar);
@@ -28377,11 +28377,6 @@ void main() {
       renderStreamlitDashboard();
       setProgress(100, `Car loaded • ${paintCount} panels resprayed 🖤`);
       setTimeout(hideLoad, 600);
-      var dbg = document.createElement("div");
-      dbg.id = "debug-info";
-      dbg.style.cssText = "position:fixed;top:40px;left:10px;color:#0f0;font-family:monospace;font-size:11px;z-index:999;background:rgba(0,0,0,0.7);padding:8px;border-radius:4px;white-space:pre-line;";
-      dbg.textContent = "Camera: " + camera.position.x.toFixed(1) + "," + camera.position.y.toFixed(1) + "," + camera.position.z.toFixed(1) + "\nCar: " + carModel.position.x.toFixed(1) + "," + carModel.position.y.toFixed(1) + "," + carModel.position.z.toFixed(1) + "\nDist: " + camera.position.distanceTo(carModel.position).toFixed(1);
-      document.body.appendChild(dbg);
     }, (xhr) => {
       if (xhr.total > 0) setProgress(60 + Math.round(xhr.loaded / xhr.total * 35), `Loading car: ${Math.round(xhr.loaded / xhr.total * 100)}%`);
     }, (err) => {

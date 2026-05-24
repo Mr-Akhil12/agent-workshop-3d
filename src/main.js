@@ -42,7 +42,7 @@ export function start() {
 
     // ── Scene + Camera ──
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x020206);
+    scene.background = new THREE.Color(0x151518);
 
     const camera = new THREE.PerspectiveCamera(50, W / H, 0.1, 200);
     camera.position.set(6, 4, 8);
@@ -72,7 +72,7 @@ export function start() {
 
     // ── Lighting (realistic garage, warm, bright enough) ──
     scene.add(new THREE.AmbientLight(0x2a2a33, 0.8));
-    const keyLight = new THREE.DirectionalLight(0xfff5e6, 2.0);
+    const keyLight = new THREE.DirectionalLight(0xfff5e6, 4.0);
     keyLight.position.set(3, 8, 4);
     keyLight.castShadow = true;
     keyLight.shadow.mapSize.set(1024, 1024);
@@ -81,7 +81,7 @@ export function start() {
     keyLight.shadow.camera.top = 8; keyLight.shadow.camera.bottom = -8;
     keyLight.shadow.bias = -0.001;
     scene.add(keyLight);
-    const fillLight = new THREE.DirectionalLight(0xffddaa, 0.6);
+    const fillLight = new THREE.DirectionalLight(0xffddaa, 1.5);
     fillLight.position.set(-4, 3, -2);
     scene.add(fillLight);
     // Ceiling point light
@@ -89,7 +89,7 @@ export function start() {
     plCeiling.position.set(0, 3.2, 0);
     scene.add(plCeiling);
     // Strong spotlight on the car
-    const spotCar = new THREE.SpotLight(0xffffff, 15, 20, Math.PI/6, 0.5, 1);
+    const spotCar = new THREE.SpotLight(0xffffff, 30, 25, Math.PI/6, 0.3, 1);
     spotCar.position.set(2, 5, 4);
     spotCar.target.position.set(0, 0, 0);
     scene.add(spotCar);
@@ -407,13 +407,6 @@ export function start() {
 
         setProgress(100, `Car loaded • ${paintCount} panels resprayed 🖤`);
         setTimeout(hideLoad, 600);
-
-        // Debug: add visible info overlay
-        var dbg = document.createElement('div');
-        dbg.id = 'debug-info';
-        dbg.style.cssText = 'position:fixed;top:40px;left:10px;color:#0f0;font-family:monospace;font-size:11px;z-index:999;background:rgba(0,0,0,0.7);padding:8px;border-radius:4px;white-space:pre-line;';
-        dbg.textContent = 'Camera: ' + camera.position.x.toFixed(1) + ',' + camera.position.y.toFixed(1) + ',' + camera.position.z.toFixed(1) + '\nCar: ' + carModel.position.x.toFixed(1) + ',' + carModel.position.y.toFixed(1) + ',' + carModel.position.z.toFixed(1) + '\nDist: ' + camera.position.distanceTo(carModel.position).toFixed(1);
-        document.body.appendChild(dbg);
     }, (xhr) => {
         if (xhr.total > 0) setProgress(60 + Math.round(xhr.loaded/xhr.total*35), `Loading car: ${Math.round(xhr.loaded/xhr.total*100)}%`);
     }, (err) => {
