@@ -20460,92 +20460,6 @@ void main() {
       return new CylinderGeometry(data.radiusTop, data.radiusBottom, data.height, data.radialSegments, data.heightSegments, data.openEnded, data.thetaStart, data.thetaLength);
     }
   }
-  const _v0 = /* @__PURE__ */ new Vector3();
-  const _v1$1 = /* @__PURE__ */ new Vector3();
-  const _normal = /* @__PURE__ */ new Vector3();
-  const _triangle = /* @__PURE__ */ new Triangle();
-  class EdgesGeometry extends BufferGeometry {
-    constructor(geometry = null, thresholdAngle = 1) {
-      super();
-      this.type = "EdgesGeometry";
-      this.parameters = {
-        geometry,
-        thresholdAngle
-      };
-      if (geometry !== null) {
-        const precisionPoints = 4;
-        const precision = Math.pow(10, precisionPoints);
-        const thresholdDot = Math.cos(DEG2RAD * thresholdAngle);
-        const indexAttr = geometry.getIndex();
-        const positionAttr = geometry.getAttribute("position");
-        const indexCount = indexAttr ? indexAttr.count : positionAttr.count;
-        const indexArr = [0, 0, 0];
-        const vertKeys = ["a", "b", "c"];
-        const hashes = new Array(3);
-        const edgeData = {};
-        const vertices = [];
-        for (let i = 0; i < indexCount; i += 3) {
-          if (indexAttr) {
-            indexArr[0] = indexAttr.getX(i);
-            indexArr[1] = indexAttr.getX(i + 1);
-            indexArr[2] = indexAttr.getX(i + 2);
-          } else {
-            indexArr[0] = i;
-            indexArr[1] = i + 1;
-            indexArr[2] = i + 2;
-          }
-          const { a, b, c } = _triangle;
-          a.fromBufferAttribute(positionAttr, indexArr[0]);
-          b.fromBufferAttribute(positionAttr, indexArr[1]);
-          c.fromBufferAttribute(positionAttr, indexArr[2]);
-          _triangle.getNormal(_normal);
-          hashes[0] = `${Math.round(a.x * precision)},${Math.round(a.y * precision)},${Math.round(a.z * precision)}`;
-          hashes[1] = `${Math.round(b.x * precision)},${Math.round(b.y * precision)},${Math.round(b.z * precision)}`;
-          hashes[2] = `${Math.round(c.x * precision)},${Math.round(c.y * precision)},${Math.round(c.z * precision)}`;
-          if (hashes[0] === hashes[1] || hashes[1] === hashes[2] || hashes[2] === hashes[0]) {
-            continue;
-          }
-          for (let j = 0; j < 3; j++) {
-            const jNext = (j + 1) % 3;
-            const vecHash0 = hashes[j];
-            const vecHash1 = hashes[jNext];
-            const v0 = _triangle[vertKeys[j]];
-            const v1 = _triangle[vertKeys[jNext]];
-            const hash = `${vecHash0}_${vecHash1}`;
-            const reverseHash = `${vecHash1}_${vecHash0}`;
-            if (reverseHash in edgeData && edgeData[reverseHash]) {
-              if (_normal.dot(edgeData[reverseHash].normal) <= thresholdDot) {
-                vertices.push(v0.x, v0.y, v0.z);
-                vertices.push(v1.x, v1.y, v1.z);
-              }
-              edgeData[reverseHash] = null;
-            } else if (!(hash in edgeData)) {
-              edgeData[hash] = {
-                index0: indexArr[j],
-                index1: indexArr[jNext],
-                normal: _normal.clone()
-              };
-            }
-          }
-        }
-        for (const key in edgeData) {
-          if (edgeData[key]) {
-            const { index0, index1 } = edgeData[key];
-            _v0.fromBufferAttribute(positionAttr, index0);
-            _v1$1.fromBufferAttribute(positionAttr, index1);
-            vertices.push(_v0.x, _v0.y, _v0.z);
-            vertices.push(_v1$1.x, _v1$1.y, _v1$1.z);
-          }
-        }
-        this.setAttribute("position", new Float32BufferAttribute(vertices, 3));
-      }
-    }
-    copy(source) {
-      super.copy(source);
-      this.parameters = Object.assign({}, source.parameters);
-      return this;
-    }
-  }
   class Shape extends Path {
     constructor(points) {
       super(points);
@@ -21418,76 +21332,6 @@ void main() {
     data.options = Object.assign({}, options);
     if (options.extrudePath !== void 0) data.options.extrudePath = options.extrudePath.toJSON();
     return data;
-  }
-  class SphereGeometry extends BufferGeometry {
-    constructor(radius = 1, widthSegments = 32, heightSegments = 16, phiStart = 0, phiLength = Math.PI * 2, thetaStart = 0, thetaLength = Math.PI) {
-      super();
-      this.type = "SphereGeometry";
-      this.parameters = {
-        radius,
-        widthSegments,
-        heightSegments,
-        phiStart,
-        phiLength,
-        thetaStart,
-        thetaLength
-      };
-      widthSegments = Math.max(3, Math.floor(widthSegments));
-      heightSegments = Math.max(2, Math.floor(heightSegments));
-      const thetaEnd = Math.min(thetaStart + thetaLength, Math.PI);
-      let index = 0;
-      const grid = [];
-      const vertex2 = new Vector3();
-      const normal = new Vector3();
-      const indices = [];
-      const vertices = [];
-      const normals = [];
-      const uvs = [];
-      for (let iy = 0; iy <= heightSegments; iy++) {
-        const verticesRow = [];
-        const v = iy / heightSegments;
-        let uOffset = 0;
-        if (iy === 0 && thetaStart === 0) {
-          uOffset = 0.5 / widthSegments;
-        } else if (iy === heightSegments && thetaEnd === Math.PI) {
-          uOffset = -0.5 / widthSegments;
-        }
-        for (let ix = 0; ix <= widthSegments; ix++) {
-          const u = ix / widthSegments;
-          vertex2.x = -radius * Math.cos(phiStart + u * phiLength) * Math.sin(thetaStart + v * thetaLength);
-          vertex2.y = radius * Math.cos(thetaStart + v * thetaLength);
-          vertex2.z = radius * Math.sin(phiStart + u * phiLength) * Math.sin(thetaStart + v * thetaLength);
-          vertices.push(vertex2.x, vertex2.y, vertex2.z);
-          normal.copy(vertex2).normalize();
-          normals.push(normal.x, normal.y, normal.z);
-          uvs.push(u + uOffset, 1 - v);
-          verticesRow.push(index++);
-        }
-        grid.push(verticesRow);
-      }
-      for (let iy = 0; iy < heightSegments; iy++) {
-        for (let ix = 0; ix < widthSegments; ix++) {
-          const a = grid[iy][ix + 1];
-          const b = grid[iy][ix];
-          const c = grid[iy + 1][ix];
-          const d = grid[iy + 1][ix + 1];
-          if (iy !== 0 || thetaStart > 0) indices.push(a, b, d);
-          if (iy !== heightSegments - 1 || thetaEnd < Math.PI) indices.push(b, c, d);
-        }
-      }
-      this.setIndex(indices);
-      this.setAttribute("position", new Float32BufferAttribute(vertices, 3));
-      this.setAttribute("normal", new Float32BufferAttribute(normals, 3));
-      this.setAttribute("uv", new Float32BufferAttribute(uvs, 2));
-    }
-    copy(source) {
-      super.copy(source);
-      this.parameters = Object.assign({}, source.parameters);
-      return this;
-    }
-    static fromJSON(data) {
-      return new SphereGeometry(data.radius, data.widthSegments, data.heightSegments, data.phiStart, data.phiLength, data.thetaStart, data.thetaLength);
-    }
   }
   class RawShaderMaterial extends ShaderMaterial {
     static get type() {
@@ -27938,15 +27782,6 @@ void main() {
       sheenColor: new Color(4473958)
     });
   }
-  function makeNeonMaterial(color, intensity = 2.5) {
-    return new MeshStandardMaterial({
-      color,
-      emissive: color,
-      emissiveIntensity: intensity,
-      metalness: 0.1,
-      roughness: 0.3
-    });
-  }
   function start() {
     const $ = (s) => document.getElementById(s);
     const barEl = $("load-bar"), statusEl = $("load-status");
@@ -28017,6 +27852,47 @@ void main() {
     spotCar.target.position.set(0, 0, 0);
     scene.add(spotCar);
     scene.add(spotCar.target);
+    function createHexLight(x, z) {
+      const group = new Group();
+      const sides = 6, radius = 0.3;
+      const hexShape = new Shape();
+      for (let i = 0; i <= sides; i++) {
+        const a = i / sides * Math.PI * 2 - Math.PI / 6;
+        const px2 = Math.cos(a) * radius;
+        const py2 = Math.sin(a) * radius;
+        if (i === 0) hexShape.moveTo(px2, py2);
+        else hexShape.lineTo(px2, py2);
+      }
+      const frameGeo = new ExtrudeGeometry(hexShape, { depth: 0.02, bevelEnabled: false });
+      const frameMat = new MeshStandardMaterial({ color: 2763306, metalness: 0.7, roughness: 0.3 });
+      const frame = new Mesh(frameGeo, frameMat);
+      frame.rotation.x = -Math.PI / 2;
+      group.add(frame);
+      const panelShape = new Shape();
+      for (let i = 0; i <= sides; i++) {
+        const a = i / sides * Math.PI * 2 - Math.PI / 6;
+        const px2 = Math.cos(a) * (radius - 0.03);
+        const py2 = Math.sin(a) * (radius - 0.03);
+        if (i === 0) panelShape.moveTo(px2, py2);
+        else panelShape.lineTo(px2, py2);
+      }
+      const panelGeo = new ExtrudeGeometry(panelShape, { depth: 0.01, bevelEnabled: false });
+      const panelMat = new MeshStandardMaterial({ color: 16775408, emissive: 16774630, emissiveIntensity: 0.4, metalness: 0.1, roughness: 0.4 });
+      const panel = new Mesh(panelGeo, panelMat);
+      panel.rotation.x = -Math.PI / 2;
+      panel.position.y = 0.01;
+      group.add(panel);
+      const light = new PointLight(16774630, 2, 5, 2);
+      light.position.set(0, -0.05, 0);
+      group.add(light);
+      group.position.set(x, 3.4, z);
+      return group;
+    }
+    for (let gx = -2; gx <= 2; gx += 2) {
+      for (let gz = -1; gz <= 1; gz += 2) {
+        scene.add(createHexLight(gx, gz));
+      }
+    }
     const ground = new Mesh(
       new PlaneGeometry(40, 40),
       new MeshStandardMaterial({ color: 1118481, metalness: 0.15, roughness: 0.75 })
@@ -28025,67 +27901,6 @@ void main() {
     ground.receiveShadow = true;
     scene.add(ground);
     setProgress(20, "Ground and lighting ready");
-    const signData = [
-      { label: "PROJECTS", color: 16711816 },
-      { label: "HUSH", color: 65416 },
-      { label: "GARAGE", color: 16737792 },
-      { label: "AGENTS", color: 52479 },
-      { label: "CONTACT", color: 16711935 }
-    ];
-    const signObjects = [];
-    const signpostGroup = new Group();
-    signpostGroup.position.set(-3.5, 0, 1.5);
-    const poleMesh = new Mesh(
-      new CylinderGeometry(0.06, 0.06, 5, 8),
-      new MeshStandardMaterial({ color: 2236968, metalness: 0.7, roughness: 0.3 })
-    );
-    poleMesh.position.y = 2.5;
-    poleMesh.castShadow = true;
-    signpostGroup.add(poleMesh);
-    const capMesh = new Mesh(new SphereGeometry(0.15, 12, 12), makeNeonMaterial(52479, 3));
-    capMesh.position.y = 5.1;
-    signpostGroup.add(capMesh);
-    signData.forEach((s, i) => {
-      const y = 4.2 - i * 0.8;
-      const sg = new Group();
-      sg.position.set(0, y, 0);
-      const body = new Mesh(
-        new BoxGeometry(1.6, 0.35, 0.08),
-        new MeshStandardMaterial({ color: 789522, emissive: s.color, emissiveIntensity: 0.4, metalness: 0.2, roughness: 0.5 })
-      );
-      body.position.x = 0.9;
-      body.castShadow = true;
-      sg.add(body);
-      const tipShape = new Shape();
-      tipShape.moveTo(0, 0.2);
-      tipShape.lineTo(0.35, 0);
-      tipShape.lineTo(0, -0.2);
-      tipShape.closePath();
-      const tip = new Mesh(new ExtrudeGeometry(tipShape, { depth: 0.08, bevelEnabled: false }), makeNeonMaterial(s.color, 2));
-      tip.position.set(2.1, 0, -0.04);
-      sg.add(tip);
-      const canvas = document.createElement("canvas");
-      canvas.width = 256;
-      canvas.height = 64;
-      const ctx = canvas.getContext("2d");
-      ctx.clearRect(0, 0, 256, 64);
-      ctx.fillStyle = "#" + new Color(s.color).getHexString();
-      ctx.font = 'bold 36px "JetBrains Mono", monospace';
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(s.label, 128, 32);
-      const textMesh = new Mesh(
-        new PlaneGeometry(1.4, 0.28),
-        new MeshBasicMaterial({ map: new CanvasTexture(canvas), transparent: true, depthWrite: false })
-      );
-      textMesh.position.set(0.9, 0, 0.05);
-      sg.add(textMesh);
-      signpostGroup.add(sg);
-      signObjects.push({ mesh: body, data: s });
-      signObjects.push({ mesh: tip, data: s });
-    });
-    scene.add(signpostGroup);
-    setProgress(30, "Signpost built");
     const wallMat = new MeshStandardMaterial({ color: 789524, metalness: 0.15, roughness: 0.85 });
     const backWall = new Mesh(new BoxGeometry(8, 3.5, 0.2), wallMat);
     backWall.position.set(0, 1.75, -4);
@@ -28116,35 +27931,6 @@ void main() {
       scene.add(b);
     }
     setProgress(40, "Workshop structure built");
-    function createNeonText(text, color, fontSize, width, height) {
-      const canvas = document.createElement("canvas");
-      canvas.width = 512;
-      canvas.height = 128;
-      const ctx = canvas.getContext("2d");
-      ctx.clearRect(0, 0, 512, 128);
-      ctx.fillStyle = color;
-      ctx.font = `bold ${fontSize}px "JetBrains Mono", monospace`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(text, 256, 64);
-      const tex = new CanvasTexture(canvas);
-      tex.minFilter = LinearFilter;
-      return new Mesh(new PlaneGeometry(width, height), new MeshBasicMaterial({ map: tex, transparent: true }));
-    }
-    const neonSign1 = createNeonText("AGENTIC BIZ", "#00ccff", 52, 3, 0.75);
-    neonSign1.position.set(0, 2.8, -3.85);
-    scene.add(neonSign1);
-    const border = new LineSegments(
-      new EdgesGeometry(new PlaneGeometry(3.2, 0.95)),
-      new LineBasicMaterial({ color: 52479 })
-    );
-    border.position.copy(neonSign1.position);
-    border.position.z += 0.01;
-    scene.add(border);
-    const neonSign2 = createNeonText("⚡ HERMES AGENT", "#ff0088", 40, 2.8, 0.6);
-    neonSign2.position.set(0, 2, -3.85);
-    scene.add(neonSign2);
-    setProgress(50, "Scene built");
     setProgress(50, "Scene built");
     const barrelGeo = new CylinderGeometry(0.35, 0.35, 0.9, 12);
     const barrelMat = new MeshStandardMaterial({ color: 1118481, metalness: 0.5, roughness: 0.5 });
@@ -28323,7 +28109,7 @@ void main() {
     }
     setProgress(60, "Particle systems ready");
     let carModel = null;
-    const interactive = signObjects.slice();
+    const interactive = [];
     const loader = new GLTFLoader();
     loader.load("assets/models/runx.glb", (gltf) => {
       carModel = gltf.scene;
@@ -28369,10 +28155,11 @@ void main() {
       scene.add(carModel);
       interactive.push({ mesh: carModel, data: { label: "GARAGE", color: 16737792 } });
       const laptop = buildLaptop();
-      laptop.position.set(carModel.position.x + 0.45 * S, carModel.position.y + 0.55 * S, carModel.position.z - 0.3 * S);
-      laptop.rotation.y = -0.3;
-      laptop.scale.setScalar(0.4);
+      laptop.position.set(carModel.position.x + 0.1 * S, carModel.position.y + 0.15 * S, carModel.position.z + 2.2 * S);
+      laptop.rotation.y = 0.2;
+      laptop.scale.setScalar(0.5);
       scene.add(laptop);
+      interactive.push({ mesh: laptop, data: { label: "LAPTOP", color: 52479 } });
       exhaustPos.set(carModel.position.x, carModel.position.y + 0.2 * S, carModel.position.z - 1.8 * S);
       renderStreamlitDashboard();
       setProgress(100, `Car loaded • ${paintCount} panels resprayed 🖤`);
@@ -28454,18 +28241,25 @@ void main() {
       }, speed);
     }
     const detailContent = {
+      GARAGE: { title: "🔧 The Garage", body: '$ runx --info\n\n140rt Toyota Runx\nColor: Gloss black w/ metallic flake\nTrans: Manual\nFuel: 95 + NOS 😏\n\nTap the laptop to explore:\n• Projects — What I build\n• Garage — The car & setup\n• Agents — Hermes AI system\n• Contact — Get in touch\n\n> "Where AI agents meet engine oil."' },
+      LAPTOP: { title: "💻 Akhil's Desk", body: "$ whoami → akhil.pillay\n$ pwd → /home/akhil/workshop\n\n═══════════════════════\n SELECT AN OPTION:\n═══════════════════════\n\n[1] 🚀 Projects\n    agenticbiz.vercel.app\n    hush-v1.vercel.app\n    dirt-hands-crew\n    ventrix-petroleum-2\n\n[2] 🏎️ The Garage\n    140rt Toyota Runx\n    Full black w/ metallic flake\n    Manual | Link Road drags\n    Exhaust: Flame-capable 🔥\n\n[3] ⚡ Hermes Agent\n    AI agent system v2.4.0\n    Provider: OpenRouter\n    Wix→WhatsApp pipeline\n    XAUUSD trading analysis\n    Video production (HyperFrames)\n\n[4] 📬 Contact\n    akhilpillay2.0@gmail.com\n    067 865 9396\n    wa.me/27678659396\n    @That-IT-Dude\n\n═══════════════════════\n Tap a number to select →" },
       PROJECTS: { title: "🚀 Projects", body: "$ ls -la /home/akhil/projects/\n\nagenticbiz.vercel.app\n→ AI agent deployment for businesses\n→ Next.js 15 | Resend forms\n\nhush-v1.vercel.app\n→ Private car social platform (SA)\n→ React 19 PWA | Real-time chat\n\ndirt-hands-crew (github)\n→ JDM mobile game — Godot 4.4+\n→ Supabase backend | Freemium\n\nventrix-petroleum-2.vercel.app\n→ Industrial fuel company website\n→ React + Vite | Parallax imagery" },
-      HUSH: { title: "🏎️ Hush", body: '$ cat /projects/hush/README.md\n\n> "Time to take it off WhatsApp."\n\nPrivate social platform for SA car\nenthusiasts. React 19 PWA.\n\nFeatures:\n• Live Meet Map (real-time)\n• Crews & profiles\n• Event coordination\n• Car culture, not criminals\n\n→ hush-v1.vercel.app' },
-      GARAGE: { title: "🔧 The Garage", body: '$ runx --info\n\n140rt Toyota Runx\nColor: Gloss black w/ metallic flake\nTrans: Manual\nFuel: 95 + attitude\n\nExhaust: Flame-capable 🔥\nDrags: Link Road (weekly)\nStrip: King Shaka Airport Rd\n\n> "Where AI agents meet engine oil."' },
-      AGENTS: { title: "⚡ Hermes Agent", body: '$ hermes --version && hermes --status\n\nHermes Agent v2.4.0\nProvider: OpenRouter (free tier)\n\nCapabilities:\n• Wix form → WhatsApp pipeline\n• XAUUSD trading analysis\n• Video production (HyperFrames)\n• Client mgmt automation\n• Cron-based monitoring\n\n"I help people stop thinking in\nendless manual implementation\nand start thinking in outcomes,\nsystems, and intelligent execution."' },
-      CONTACT: { title: "📬 Get In Touch", body: '$ cat contact.json\n\n{\n  "name":    "Akhil Pillay",\n  "location": "Tongaat, KZN, SA",\n  "email":   "akhilpillay2.0@gmail.com",\n  "phone":   "067 865 9396",\n  "whatsapp": "wa.me/27678659396",\n  "youtube":  "youtube.com/@that-it-dude",\n  "tiktok":   "tiktok.com/@that_it_.guy",\n  "web":      "agenticbiz.vercel.app"\n}\n\n→ Response time: Fast ⚡' }
+      AGENTS: { title: "⚡ Hermes Agent", body: '$ hermes --version && hermes --status\n\nHermes Agent v2.4.0\nProvider: OpenRouter (free tier)\n\n═══════════════════════\n CAPABILITIES:\n═══════════════════════\n• Wix form → WhatsApp pipeline\n• XAUUSD trading analysis\n  (morning + evening cron)\n• Video production (HyperFrames)\n• Client management automation\n• Cron-based monitoring & alerts\n\n═══════════════════════\n INFRASTRUCTURE:\n═══════════════════════\n→ Local: Lenovo IdeaPad 3\n  32GB RAM | RTX 3050\n→ Cloud: Daytona + Orgo\n→ Memory: Obsidian + Honcho\n\n"I help people stop thinking in\nendless manual implementation\nand start thinking in outcomes,\nsystems, and intelligent execution."' },
+      CONTACT: { title: "📬 Get In Touch", body: '$ cat /home/akhil/contact.json\n\n{\n  "name":    "Akhil Pillay",\n  "location": "Tongaat, KZN, SA",\n  "email":   "akhilpillay2.0@gmail.com",\n  "phone":   "067 865 9396",\n  "whatsapp": "wa.me/27678659396",\n  "youtube":  "youtube.com/@that-it-dude",\n  "tiktok":   "tiktok.com/@that_it_.guy",\n  "web":      "agenticbiz.vercel.app"\n}\n\n$ ping akhil\n→ response: fast ⚡' }
     };
     function showDetail(data) {
       const content = detailContent[data.label] || { title: data.label, body: "Coming soon." };
       $("d-title").textContent = content.title;
-      typewriteText($("d-body"), content.body, 15);
+      typewriteText($("d-body"), content.body, 12);
       $("detail-overlay").classList.add("show");
       $("info-bar").textContent = data.label;
+      if (data.label === "LAPTOP") {
+        $("d-body").style.maxHeight = "70vh";
+        $("d-body").style.overflow = "auto";
+      } else {
+        $("d-body").style.maxHeight = "";
+        $("d-body").style.overflow = "";
+      }
     }
     window.closeDetail = function() {
       $("detail-overlay").classList.remove("show");
