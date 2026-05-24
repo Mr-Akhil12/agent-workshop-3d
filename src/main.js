@@ -503,10 +503,9 @@ export function start() {
         const now = performance.now(), dt = (now - prevTime) * 0.001; prevTime = now;
         const t = now * 0.001;
         controls.update();
-        plCyan.intensity = 6 + Math.sin(t*1.8)*1.5;
-        plPink.intensity = 4 + Math.cos(t*1.5)*1;
-        plOrange.intensity = 3 + Math.sin(t*2.2)*0.8;
-        plPurple.intensity = 3 + Math.cos(t*1.2)*0.8;
+        // Subtle pulsing on lights
+        plCeiling.intensity = 10 + Math.sin(t*1.8)*2;
+        spotCar.intensity = 30 + Math.sin(t*2)*5;
         capMesh.material.emissiveIntensity = 3 + Math.sin(t*2)*0.5;
         if (flameActive) emitFlame();
         updateFlame(dt);
