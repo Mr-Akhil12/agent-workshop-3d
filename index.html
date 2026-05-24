@@ -60,13 +60,24 @@
 
     <script src="dist/bundle.iife.js"></script>
     <script>
-    document.fonts.ready.then(function() {
+    function boot() {
         if (typeof AgentWorkshop !== 'undefined') {
             AgentWorkshop.start();
         } else {
             document.getElementById('load-status').textContent = 'ERROR: Bundle not loaded';
         }
-    });
+    }
+    // Try fonts first, but always boot within 3s max
+    var fontTimeout = setTimeout(boot, 3000);
+    if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(function() {
+            clearTimeout(fontTimeout);
+            boot();
+        }).catch(function() { clearTimeout(fontTimeout); boot(); });
+    } else {
+        clearTimeout(fontTimeout);
+        boot();
+    }
     </script>
 </body>
 </html>
