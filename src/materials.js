@@ -31,7 +31,7 @@ export function createEnvMap(renderer) {
 
 export function makeFlakeBlackPaint(envMap) {
     return new THREE.MeshPhysicalMaterial({
-        color: 0x0a0a0a,
+        color: 0x050505,
         metalness: 0.92,
         roughness: 0.06,
         clearcoat: 1.0,

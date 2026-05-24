@@ -42,7 +42,7 @@ export function start() {
 
     // ── Scene + Camera ──
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x151518);
+    scene.background = new THREE.Color(0x020206);
 
     const camera = new THREE.PerspectiveCamera(50, W / H, 0.1, 200);
     camera.position.set(6, 4, 8);
@@ -64,15 +64,15 @@ export function start() {
     // ── Post-Processing ──
     const composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
-    const bloom = new UnrealBloomPass(new THREE.Vector2(W, H), 0.15, 0.85, 0.01);
+    const bloom = new UnrealBloomPass(new THREE.Vector2(W, H), 0.7, 0.4, 0.3);
     composer.addPass(bloom);
     composer.addPass(new OutputPass());
 
     setProgress(10, 'Scene initialized');
 
-    // ── Lighting (realistic garage, warm, bright enough) ──
-    scene.add(new THREE.AmbientLight(0x2a2a33, 0.8));
-    const keyLight = new THREE.DirectionalLight(0xfff5e6, 4.0);
+    // ── Lighting ──
+    scene.add(new THREE.AmbientLight(0x111118, 0.4));
+    const keyLight = new THREE.DirectionalLight(0xffeedd, 0.5);
     keyLight.position.set(3, 8, 4);
     keyLight.castShadow = true;
     keyLight.shadow.mapSize.set(1024, 1024);
@@ -81,28 +81,18 @@ export function start() {
     keyLight.shadow.camera.top = 8; keyLight.shadow.camera.bottom = -8;
     keyLight.shadow.bias = -0.001;
     scene.add(keyLight);
-    const fillLight = new THREE.DirectionalLight(0xffddaa, 1.5);
+    const fillLight = new THREE.DirectionalLight(0x4466ff, 0.15);
     fillLight.position.set(-4, 3, -2);
     scene.add(fillLight);
-    // Ceiling point light
-    const plCeiling = new THREE.PointLight(0xfff8f0, 10, 25, 1.5);
-    plCeiling.position.set(0, 3.2, 0);
-    scene.add(plCeiling);
-    // Strong spotlight on the car
-    const spotCar = new THREE.SpotLight(0xffffff, 30, 25, Math.PI/6, 0.3, 1);
-    spotCar.position.set(2, 5, 4);
-    spotCar.target.position.set(0, 0, 0);
-    scene.add(spotCar);
-    scene.add(spotCar.target);
 
-    // ── Hexagon overhead LED panels ── (simplified — just point lights)
-
-    // ── Ground (dark concrete, no grid) ──
+    // ── Ground ──
     const ground = new THREE.Mesh(
         new THREE.PlaneGeometry(40, 40),
-        new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.15, roughness: 0.75 })
+        new THREE.MeshStandardMaterial({ color: 0x08080c, metalness: 0.85, roughness: 0.25 })
     );
     ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+    const gridHelper = new THREE.GridHelper(40, 80, 0x111120, 0x0a0a14);
+    gridHelper.position.y = 0.003; scene.add(gridHelper);
 
     setProgress(20, 'Ground and lighting ready');
 
@@ -112,7 +102,10 @@ export function start() {
         { label: 'HUSH',     color: 0x00ff88 },
         { label: 'GARAGE',   color: 0xff6600 },
         { label: 'AGENTS',   color: 0x00ccff },
+        { label: 'CONTACT',  color: 0xff00ff },
     ];
+    // Signpost removed — navigation now through laptop only
+    const signObjects = [];
 
     // ── Workshop ──
     const wallMat = new THREE.MeshStandardMaterial({ color: 0x0c0c14, metalness: 0.15, roughness: 0.85 });
@@ -131,7 +124,45 @@ export function start() {
     for (let bx = -3; bx <= 3; bx += 2) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 5), beamMat); b.position.set(bx, 3.45, -1.5); scene.add(b); }
     setProgress(40, 'Workshop structure built');
 
+    // ── Neon Signs ──
+    function createNeonText(text, color, fontSize, width, height) {
+        const canvas = document.createElement('canvas'); canvas.width = 512; canvas.height = 128;
+        const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, 512, 128);
+        ctx.fillStyle = color; ctx.font = `bold ${fontSize}px "JetBrains Mono", monospace`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, 256, 64);
+        const tex = new THREE.CanvasTexture(canvas); tex.minFilter = THREE.LinearFilter;
+        return new THREE.Mesh(new THREE.PlaneGeometry(width, height), new THREE.MeshBasicMaterial({ map: tex, transparent: true }));
+    }
+    const neonSign1 = createNeonText('AGENTIC BIZ', '#00ccff', 52, 3, 0.75);
+    neonSign1.position.set(0, 2.8, -3.85); scene.add(neonSign1);
+    const border = new THREE.LineSegments(
+        new THREE.EdgesGeometry(new THREE.PlaneGeometry(3.2, 0.95)),
+        new THREE.LineBasicMaterial({ color: 0x00ccff })
+    );
+    border.position.copy(neonSign1.position); border.position.z += 0.01; scene.add(border);
+    const neonSign2 = createNeonText('⚡ HERMES AGENT', '#ff0088', 40, 2.8, 0.6);
+    neonSign2.position.set(0, 2.0, -3.85); scene.add(neonSign2);
+
     // ── Point Lights ──
+    const plCyan = new THREE.PointLight(0x00ccff, 6, 12, 2); plCyan.position.set(0, 2.8, -3.2); scene.add(plCyan);
+    const plPink = new THREE.PointLight(0xff0088, 4, 10, 2); plPink.position.set(0, 2.0, -3.2); scene.add(plPink);
+    const plOrange = new THREE.PointLight(0xff6600, 3, 8, 2); plOrange.position.set(3.8, 2, 0); scene.add(plOrange);
+    const plPurple = new THREE.PointLight(0x9900ff, 3, 8, 2); plPurple.position.set(-3.5, 4.5, 1.5); scene.add(plPurple);
+    setProgress(45, 'Neon lighting done');
+
+    // ── Cityscape ──
+    const bldgMat1 = new THREE.MeshStandardMaterial({ color: 0x060610, metalness: 0.2, roughness: 0.8 });
+    const bldgMat2 = new THREE.MeshStandardMaterial({ color: 0x060610, emissive: 0x0a0a20, emissiveIntensity: 0.3, metalness: 0.2, roughness: 0.8 });
+    [
+        {x:-10,z:-14,w:2.5,h:8,d:2},{x:-6,z:-16,w:1.8,h:12,d:1.5},{x:-3,z:-18,w:3,h:6,d:2},
+        {x:1,z:-15,w:2,h:10,d:1.8},{x:5,z:-17,w:2.5,h:7,d:2},{x:8,z:-14,w:1.5,h:14,d:1.5},
+        {x:12,z:-16,w:3,h:9,d:2.5},{x:-12,z:-18,w:2,h:11,d:2},{x:14,z:-19,w:2.8,h:6.5,d:2}
+    ].forEach(b => {
+        const mesh = new THREE.Mesh(new THREE.BoxGeometry(b.w, b.h, b.d), Math.random() > 0.5 ? bldgMat1 : bldgMat2);
+        mesh.position.set(b.x, b.h / 2, b.z); scene.add(mesh);
+    });
+
+    // ── Power Lines ──
     function createWire(p1, p2, sag = 0.3) {
         const pts = [];
         for (let t = 0; t <= 1; t += 0.05) {
@@ -146,7 +177,11 @@ export function start() {
             new THREE.MeshStandardMaterial({ color: 0x1a1a1a, metalness: 0.4, roughness: 0.6 })
         );
     }
-    setProgress(50, 'Scene built');
+    scene.add(createWire(new THREE.Vector3(-4, 3.5, -1.5), new THREE.Vector3(-10, 7, -14)));
+    scene.add(createWire(new THREE.Vector3(4, 3.5, -1.5), new THREE.Vector3(8, 9, -14)));
+    scene.add(createWire(new THREE.Vector3(-4, 3.5, -1.5), new THREE.Vector3(-6, 8, -16), 0.5));
+    scene.add(createWire(new THREE.Vector3(0, 3.55, -4), new THREE.Vector3(1, 7, -15), 0.4));
+    setProgress(50, 'City backdrop and wires added');
 
     // ── Props ──
     const barrelGeo = new THREE.CylinderGeometry(0.35, 0.35, 0.9, 12);
@@ -156,9 +191,57 @@ export function start() {
     });
     const shelf = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.08, 2), new THREE.MeshStandardMaterial({ color: 0x1a1a1a, metalness: 0.4, roughness: 0.5 }));
     shelf.position.set(-3.8, 1.5, -2); scene.add(shelf);
+    scene.add(new THREE.PointLight(0x00ff88, 2, 3, 2)).position.set(-3.6, 1.7, -2);
     setProgress(55, 'Props placed');
 
-    // ── Laptop (on passenger seat) ──
+    // ── Hexagon overhead LED panels (simple point lights in hex pattern) ──
+    for (let gx = -2; gx <= 2; gx += 2) {
+        for (let gz = -1; gz <= 1; gz += 2) {
+            const pl = new THREE.PointLight(0xfff5e6, 3, 6, 2);
+            pl.position.set(gx, 3.3, gz);
+            scene.add(pl);
+        }
+    }
+
+    // ── 3rd Person Character Controller ──
+    const character = new THREE.Group();
+    // Body
+    const bodyGeo = new THREE.CapsuleGeometry(0.25, 0.6, 4, 8);
+    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x222233, metalness: 0.1, roughness: 0.8 });
+    const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
+    bodyMesh.position.y = 0.55;
+    character.add(bodyMesh);
+    // Head
+    const headGeo = new THREE.SphereGeometry(0.15, 8, 8);
+    const headMat = new THREE.MeshStandardMaterial({ color: 0xddbb99, metalness: 0.1, roughness: 0.7 });
+    const headMesh = new THREE.Mesh(headGeo, headMat);
+    headMesh.position.y = 1.1;
+    character.add(headMesh);
+    // Indicator light on character
+    const charLight = new THREE.PointLight(0x4488ff, 2, 4, 2);
+    charLight.position.y = 1.5;
+    character.add(charLight);
+    character.position.set(3, 0, 3);
+    scene.add(character);
+
+    // Character movement state
+    const moveState = { forward: false, backward: false, left: false, right: false };
+    const characterSpeed = 3;
+    const characterAngle = { yaw: 0 };
+
+    // Keyboard controls
+    document.addEventListener('keydown', (e) => {
+        if (e.code === 'KeyW' || e.code === 'ArrowUp') moveState.forward = true;
+        if (e.code === 'KeyS' || e.code === 'ArrowDown') moveState.backward = true;
+        if (e.code === 'KeyA' || e.code === 'ArrowLeft') moveState.left = true;
+        if (e.code === 'KeyD' || e.code === 'ArrowRight') moveState.right = true;
+    });
+    document.addEventListener('keyup', (e) => {
+        if (e.code === 'KeyW' || e.code === 'ArrowUp') moveState.forward = false;
+        if (e.code === 'KeyS' || e.code === 'ArrowDown') moveState.backward = false;
+        if (e.code === 'KeyA' || e.code === 'ArrowLeft') moveState.left = false;
+        if (e.code === 'KeyD' || e.code === 'ArrowRight') moveState.right = false;
+    });
     let laptopScreenCanvas = null;
     let laptopScreenTexture = null;
     const streamlitState = { sidebarOpen: true, activePage: 'dashboard' };
@@ -338,13 +421,28 @@ export function start() {
         scene.add(carModel);
         interactive.push({ mesh: carModel, data: { label: 'GARAGE', color: 0xff6600 } });
 
-        // Laptop on front bumper area
+        // Laptop on passenger seat
         const laptop = buildLaptop();
-        laptop.position.set(carModel.position.x + 0.1*S, carModel.position.y + 0.15*S, carModel.position.z + 2.2*S);
-        laptop.rotation.y = 0.2; laptop.scale.setScalar(0.5); scene.add(laptop);
+        laptop.position.set(carModel.position.x + 0.45*S, carModel.position.y + 0.55*S, carModel.position.z - 0.3*S);
+        laptop.rotation.y = -0.3; laptop.scale.setScalar(0.4); scene.add(laptop);
         interactive.push({ mesh: laptop, data: { label: 'LAPTOP', color: 0x00ccff } });
 
-        exhaustPos.set(carModel.position.x, carModel.position.y + 0.2*S, carModel.position.z - 1.8*S);
+        // Find exhaust pipe meshes for flame positioning
+        let exhaustFound = false;
+        carModel.traverse(child => {
+            if (!child.isMesh) return;
+            const mn = (child.name || '').toLowerCase();
+            if (mn.includes('exhaust') || mn.includes('pipe') || mn.includes('muffler')) {
+                const worldPos = new THREE.Vector3();
+                child.getWorldPosition(worldPos);
+                exhaustPos.copy(worldPos);
+                exhaustFound = true;
+            }
+        });
+        if (!exhaustFound) {
+            // Fallback: rear of car, low
+            exhaustPos.set(carModel.position.x, carModel.position.y + 0.15*S, carModel.position.z - 1.8*S);
+        }
         renderStreamlitDashboard();
 
         setProgress(100, `Car loaded • ${paintCount} panels resprayed 🖤`);
@@ -368,19 +466,36 @@ export function start() {
         if (e.code === 'Space') { e.preventDefault(); flameActive = false; gasIndicator.style.color = 'rgba(255,102,0,0)'; }
     });
 
-    // ── Raycaster ──
+    // ── Touch/Mouse Raycaster ──
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
     let dragged = false, pointerDown = { x: 0, y: 0 };
 
-    renderer.domElement.addEventListener('pointerdown', e => { pointerDown = { x: e.clientX, y: e.clientY }; dragged = false; });
-    renderer.domElement.addEventListener('pointermove', e => {
-        const dx = e.clientX - pointerDown.x, dy = e.clientY - pointerDown.y;
+    function handlePointerDown(e) {
+        const t = e.touches ? e.touches[0] : e;
+        pointerDown = { x: t.clientX, y: t.clientY };
+        dragged = false;
+    }
+    function handlePointerMove(e) {
+        const t = e.touches ? e.touches[0] : e;
+        const dx = t.clientX - pointerDown.x, dy = t.clientY - pointerDown.y;
         if (Math.sqrt(dx*dx+dy*dy) > 5) dragged = true;
-    });
-    renderer.domElement.addEventListener('pointerup', e => {
+    }
+    function handlePointerUp(e) {
         if (dragged) return;
-        pointer.x = (e.clientX/innerWidth)*2-1; pointer.y = -(e.clientY/innerHeight)*2+1;
+
+        // Check if tap is on the left/right side for movement (mobile joystick)
+        const t = e.changedTouches ? e.changedTouches[0] : e;
+        const screenX = t.clientX / innerWidth;
+
+        // Right side of screen = move forward
+        if (screenX > 0.6) moveState.forward = true;
+        if (screenX < 0.3) moveState.backward = true;
+        // Reset after short delay
+        setTimeout(() => { moveState.forward = false; moveState.backward = false; }, 200);
+
+        // Raycast for object interaction
+        pointer.x = (t.clientX/innerWidth)*2-1; pointer.y = -(t.clientY/innerHeight)*2+1;
         raycaster.setFromCamera(pointer, camera);
         const hits = raycaster.intersectObjects(interactive.map(i => i.mesh), true);
         if (hits.length) {
@@ -397,7 +512,7 @@ export function start() {
                 showDetail(item.data);
             }
         }
-    });
+    }
 
     // ── Typewriter ──
     function typewriteText(el, text, speed = 15) {
@@ -411,27 +526,19 @@ export function start() {
 
     // ── Detail Panels ──
     const detailContent = {
-        GARAGE: { title: '🔧 The Garage', body: '$ runx --info\n\n140rt Toyota Runx\nColor: Gloss black w/ metallic flake\nTrans: Manual\nFuel: 95 + NOS 😏\n\nTap the laptop to explore:\n• Projects — What I build\n• Garage — The car & setup\n• Agents — Hermes AI system\n• Contact — Get in touch\n\n> "Where AI agents meet engine oil."' },
-        LAPTOP: { title: "💻 Akhil's Desk", body: '$ whoami → akhil.pillay\n$ pwd → /home/akhil/workshop\n\n═══════════════════════\n SELECT AN OPTION:\n═══════════════════════\n\n[1] 🚀 Projects\n    agenticbiz.vercel.app\n    hush-v1.vercel.app\n    dirt-hands-crew\n    ventrix-petroleum-2\n\n[2] 🏎️ The Garage\n    140rt Toyota Runx\n    Full black w/ metallic flake\n    Manual | Link Road drags\n    Exhaust: Flame-capable 🔥\n\n[3] ⚡ Hermes Agent\n    AI agent system v2.4.0\n    Provider: OpenRouter\n    Wix→WhatsApp pipeline\n    XAUUSD trading analysis\n    Video production (HyperFrames)\n\n[4] 📬 Contact\n    akhilpillay2.0@gmail.com\n    067 865 9396\n    wa.me/27678659396\n    @That-IT-Dude\n\n═══════════════════════\n Tap a number to select →' },
         PROJECTS: { title: '🚀 Projects', body: '$ ls -la /home/akhil/projects/\n\nagenticbiz.vercel.app\n→ AI agent deployment for businesses\n→ Next.js 15 | Resend forms\n\nhush-v1.vercel.app\n→ Private car social platform (SA)\n→ React 19 PWA | Real-time chat\n\ndirt-hands-crew (github)\n→ JDM mobile game — Godot 4.4+\n→ Supabase backend | Freemium\n\nventrix-petroleum-2.vercel.app\n→ Industrial fuel company website\n→ React + Vite | Parallax imagery' },
-        AGENTS: { title: '⚡ Hermes Agent', body: '$ hermes --version && hermes --status\n\nHermes Agent v2.4.0\nProvider: OpenRouter (free tier)\n\n═══════════════════════\n CAPABILITIES:\n═══════════════════════\n• Wix form → WhatsApp pipeline\n• XAUUSD trading analysis\n  (morning + evening cron)\n• Video production (HyperFrames)\n• Client management automation\n• Cron-based monitoring & alerts\n\n═══════════════════════\n INFRASTRUCTURE:\n═══════════════════════\n→ Local: Lenovo IdeaPad 3\n  32GB RAM | RTX 3050\n→ Cloud: Daytona + Orgo\n→ Memory: Obsidian + Honcho\n\n"I help people stop thinking in\nendless manual implementation\nand start thinking in outcomes,\nsystems, and intelligent execution."' },
-        CONTACT: { title: '📬 Get In Touch', body: '$ cat /home/akhil/contact.json\n\n{\n  "name":    "Akhil Pillay",\n  "location": "Tongaat, KZN, SA",\n  "email":   "akhilpillay2.0@gmail.com",\n  "phone":   "067 865 9396",\n  "whatsapp": "wa.me/27678659396",\n  "youtube":  "youtube.com/@that-it-dude",\n  "tiktok":   "tiktok.com/@that_it_.guy",\n  "web":      "agenticbiz.vercel.app"\n}\n\n$ ping akhil\n→ response: fast ⚡' }
+        HUSH: { title: '🏎️ Hush', body: '$ cat /projects/hush/README.md\n\n> "Time to take it off WhatsApp."\n\nPrivate social platform for SA car\nenthusiasts. React 19 PWA.\n\nFeatures:\n• Live Meet Map (real-time)\n• Crews & profiles\n• Event coordination\n• Car culture, not criminals\n\n→ hush-v1.vercel.app' },
+        GARAGE: { title: '🔧 The Garage', body: '$ runx --info\n\n140rt Toyota Runx\nColor: Gloss black w/ metallic flake\nTrans: Manual\nFuel: 95 + attitude\n\nExhaust: Flame-capable 🔥\nDrags: Link Road (weekly)\nStrip: King Shaka Airport Rd\n\n> "Where AI agents meet engine oil."' },
+        AGENTS: { title: '⚡ Hermes Agent', body: '$ hermes --version && hermes --status\n\nHermes Agent v2.4.0\nProvider: OpenRouter (free tier)\n\nCapabilities:\n• Wix form → WhatsApp pipeline\n• XAUUSD trading analysis\n• Video production (HyperFrames)\n• Client mgmt automation\n• Cron-based monitoring\n\n"I help people stop thinking in\nendless manual implementation\nand start thinking in outcomes,\nsystems, and intelligent execution."' },
+        CONTACT: { title: '📬 Get In Touch', body: '$ cat contact.json\n\n{\n  "name":    "Akhil Pillay",\n  "location": "Tongaat, KZN, SA",\n  "email":   "akhilpillay2.0@gmail.com",\n  "phone":   "067 865 9396",\n  "whatsapp": "wa.me/27678659396",\n  "youtube":  "youtube.com/@that-it-dude",\n  "tiktok":   "tiktok.com/@that_it_.guy",\n  "web":      "agenticbiz.vercel.app"\n}\n\n→ Response time: Fast ⚡' }
     };
 
     function showDetail(data) {
         const content = detailContent[data.label] || { title: data.label, body: 'Coming soon.' };
         $('d-title').textContent = content.title;
-        typewriteText($('d-body'), content.body, 12);
+        typewriteText($('d-body'), content.body, 15);
         $('detail-overlay').classList.add('show');
         $('info-bar').textContent = data.label;
-        // Make laptop detail almost full screen
-        if (data.label === 'LAPTOP') {
-            $('d-body').style.maxHeight = '70vh';
-            $('d-body').style.overflow = 'auto';
-        } else {
-            $('d-body').style.maxHeight = '';
-            $('d-body').style.overflow = '';
-        }
     }
 
     window.closeDetail = function() {
@@ -452,11 +559,37 @@ export function start() {
         requestAnimationFrame(animate);
         const now = performance.now(), dt = (now - prevTime) * 0.001; prevTime = now;
         const t = now * 0.001;
+
+        // Character movement
+        const moveDir = new THREE.Vector3();
+        if (moveState.forward) moveDir.z -= 1;
+        if (moveState.backward) moveDir.z += 1;
+        if (moveState.left) moveDir.x -= 1;
+        if (moveState.right) moveDir.x += 1;
+        if (moveDir.length() > 0) {
+            moveDir.normalize();
+            // Rotate movement by camera yaw
+            const yaw = controls.getAzimuthalAngle();
+            moveDir.applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+            character.position.x += moveDir.x * characterSpeed * dt;
+            character.position.z += moveDir.z * characterSpeed * dt;
+            // Keep character on ground
+            character.position.y = 0;
+            // Rotate character to face movement direction
+            if (moveDir.length() > 0.1) {
+                character.rotation.y = Math.atan2(moveDir.x, moveDir.z);
+            }
+        }
+        // Camera follows character
+        const camOffset = new THREE.Vector3(0, 3, -6);
+        camera.position.lerp(character.position.clone().add(camOffset), 0.05);
+        controls.target.lerp(character.position.clone().add(new THREE.Vector3(0, 1, 0)), 0.1);
+
         controls.update();
-        // Subtle pulsing on lights
-        plCeiling.intensity = 10 + Math.sin(t*1.8)*2;
-        spotCar.intensity = 30 + Math.sin(t*2)*5;
-        capMesh.material.emissiveIntensity = 3 + Math.sin(t*2)*0.5;
+        plCyan.intensity = 6 + Math.sin(t*1.8)*1.5;
+        plPink.intensity = 4 + Math.cos(t*1.5)*1;
+        plOrange.intensity = 3 + Math.sin(t*2.2)*0.8;
+        plPurple.intensity = 3 + Math.cos(t*1.2)*0.8;
         if (flameActive) emitFlame();
         updateFlame(dt);
         if (Math.floor(t*2) !== Math.floor((t-dt)*2)) renderStreamlitDashboard();
