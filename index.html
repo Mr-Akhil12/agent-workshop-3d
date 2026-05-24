@@ -47,7 +47,7 @@
         <div class="bar-wrap"><div class="bar" id="load-bar"></div></div>
         <p class="status" id="load-status">Initializing...</p>
     </div>
-    <div id="hint">drag to orbit · scroll to zoom · click signs · tap car for flames 🔥</div>
+    <div id="hint">drag to orbit · scroll to zoom · click signs · hold SPACE to gas it 🔥</div>
     <div id="info-bar">The Agent's Workshop — click the signs to explore</div>
     <div id="gas-indicator">🔥 GAS IT 🔥</div>
     <div id="detail-overlay" onclick="closeDetail()">
@@ -58,13 +58,15 @@
         </div>
     </div>
 
-    <!-- Three.js from CDN — Vite can't bundle JSM addons properly -->
-    <script type="importmap">
-    {"imports":{
-        "three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
-        "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
-    }}
+    <script src="dist/bundle.iife.js"></script>
+    <script>
+    document.fonts.ready.then(function() {
+        if (typeof AgentWorkshop !== 'undefined') {
+            AgentWorkshop.start();
+        } else {
+            document.getElementById('load-status').textContent = 'ERROR: Bundle not loaded';
+        }
+    });
     </script>
-    <script type="module" src="./src/main.js"></script>
 </body>
 </html>

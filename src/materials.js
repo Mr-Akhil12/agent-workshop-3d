@@ -5,48 +5,26 @@ export function createEnvMap(renderer) {
     pmrem.compileEquirectangularShader();
 
     const envScene = new THREE.Scene();
-    envScene.background = new THREE.Color(0x08080c);
+    envScene.background = new THREE.Color(0x0a0a14);
 
-    // Warm ceiling strip (simulates overhead garage light)
-    const ceilLight = new THREE.PointLight(0xfff5e6, 60, 30);
-    ceilLight.position.set(0, 8, 0);
-    envScene.add(ceilLight);
+    const l1 = new THREE.PointLight(0x00ccff, 100, 50);
+    l1.position.set(5, 8, 5);
+    envScene.add(l1);
 
-    // Side accent (warm, dim)
-    const sideLight = new THREE.PointLight(0xffddaa, 30, 25);
-    sideLight.position.set(4, 5, 2);
-    envScene.add(sideLight);
+    const l2 = new THREE.PointLight(0xff0088, 80, 50);
+    l2.position.set(-5, 6, -5);
+    envScene.add(l2);
 
-    // Floor (dark)
+    const l3 = new THREE.PointLight(0xffffff, 60, 50);
+    l3.position.set(0, 10, 0);
+    envScene.add(l3);
+
     const floor = new THREE.Mesh(
-        new THREE.PlaneGeometry(20, 20),
-        new THREE.MeshBasicMaterial({ color: 0x0a0a0a })
+        new THREE.PlaneGeometry(30, 30),
+        new THREE.MeshBasicMaterial({ color: 0x050508 })
     );
     floor.rotation.x = -Math.PI / 2;
     envScene.add(floor);
-
-    // Back wall (slightly warm)
-    const backWall = new THREE.Mesh(
-        new THREE.PlaneGeometry(10, 6),
-        new THREE.MeshBasicMaterial({ color: 0x0c0c10 })
-    );
-    backWall.position.set(0, 3, -5);
-    envScene.add(backWall);
-
-    // Small bright spots for reflection highlights
-    const h1 = new THREE.Mesh(
-        new THREE.BoxGeometry(0.3, 0.02, 0.3),
-        new THREE.MeshBasicMaterial({ color: 0xfff8f0 })
-    );
-    h1.position.set(0, 4, -4.9);
-    envScene.add(h1);
-
-    const h2 = new THREE.Mesh(
-        new THREE.BoxGeometry(0.2, 0.2, 0.02),
-        new THREE.MeshBasicMaterial({ color: 0xeeeeff })
-    );
-    h2.position.set(-2, 3, -4.9);
-    envScene.add(h2);
 
     return pmrem.fromScene(envScene, 0.04).texture;
 }
@@ -54,18 +32,18 @@ export function createEnvMap(renderer) {
 export function makeFlakeBlackPaint(envMap) {
     return new THREE.MeshPhysicalMaterial({
         color: 0x050505,
-        metalness: 0.95,
-        roughness: 0.04,
+        metalness: 0.92,
+        roughness: 0.06,
         clearcoat: 1.0,
-        clearcoatRoughness: 0.02,
+        clearcoatRoughness: 0.03,
         envMap: envMap,
-        envMapIntensity: 2.0,
+        envMapIntensity: 2.5,
         reflectivity: 1.0,
         specularIntensity: 1.0,
         specularColor: new THREE.Color(0xffffff),
-        sheen: 0.5,
-        sheenRoughness: 0.15,
-        sheenColor: new THREE.Color(0x666688),
+        sheen: 0.3,
+        sheenRoughness: 0.2,
+        sheenColor: new THREE.Color(0x444466),
     });
 }
 
