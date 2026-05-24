@@ -1,14 +1,4 @@
-/**
- * The Agent's Workshop — Interactive 3D Portfolio
- * Main entry point for Vite IIFE bundle
- */
 import { THREE } from './three-setup.js';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
-import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { createEnvMap, makeFlakeBlackPaint, makeNeonMaterial } from './materials.js';
 
 export function start() {
@@ -28,126 +18,140 @@ export function start() {
         setTimeout(() => { $('hint').style.opacity = '0'; }, 8000);
     }
 
-    // ── Renderer ──
+    // ── Renderer (mobile-optimized) ──
     const W = innerWidth, H = innerHeight;
     const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     renderer.setSize(W, H);
-    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5)); // cap at 1.5 for mobile perf
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 0.9;
+    renderer.toneMappingExposure = 1.1;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     document.body.appendChild(renderer.domElement);
 
     // ── Scene + Camera ──
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x020206);
+    scene.background = new THREE.Color(0x06060a);
+    scene.fog = new THREE.FogExp2(0x06060a, 0.06);
 
-    const camera = new THREE.PerspectiveCamera(50, W / H, 0.1, 200);
-    camera.position.set(6, 4, 8);
+    const camera = new THREE.PerspectiveCamera(45, W / H, 0.1, 100);
+    camera.position.set(7, 3.5, 9);
 
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.target.set(0, 0.8, 0);
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.target.set(0, 0.6, 0);
     controls.enableDamping = true;
-    controls.dampingFactor = 0.06;
-    controls.minDistance = 3;
-    controls.maxDistance = 16;
-    controls.maxPolarAngle = Math.PI * 0.48;
-    controls.minPolarAngle = Math.PI * 0.08;
+    controls.dampingFactor = 0.08;
+    controls.minDistance = 4;
+    controls.maxDistance = 18;
+    controls.maxPolarAngle = Math.PI * 0.45;
+    controls.minPolarAngle = Math.PI * 0.1;
     controls.enablePan = false;
     controls.update();
 
-    // ── Environment Map ──
+    // ── Environment Map (dark garage — warm highlights, dark surroundings) ──
     const envMap = createEnvMap(renderer);
 
-    // ── Post-Processing ──
-    const composer = new EffectComposer(renderer);
-    composer.addPass(new RenderPass(scene, camera));
-    const bloom = new UnrealBloomPass(new THREE.Vector2(W, H), 0.7, 0.4, 0.3);
+    // ── Post-Processing (subtle bloom only for emissives) ──
+    const composer = new THREE.EffectComposer(renderer);
+    composer.addPass(new THREE.RenderPass(scene, camera));
+    const bloom = new THREE.UnrealBloomPass(new THREE.Vector2(W, H), 0.15, 0.85, 0.01);
     composer.addPass(bloom);
-    composer.addPass(new OutputPass());
+    composer.addPass(new THREE.OutputPass());
 
     setProgress(10, 'Scene initialized');
 
-    // ── Lighting ──
-    scene.add(new THREE.AmbientLight(0x111118, 0.4));
-    const keyLight = new THREE.DirectionalLight(0xffeedd, 0.5);
-    keyLight.position.set(3, 8, 4);
+    // ── REALISTIC GARAGE LIGHTING ──
+    scene.add(new THREE.AmbientLight(0x1a1a22, 0.3));
+
+    // Key: warm overhead (main garage light)
+    const keyLight = new THREE.DirectionalLight(0xfff5e6, 1.2);
+    keyLight.position.set(2, 8, 3);
     keyLight.castShadow = true;
     keyLight.shadow.mapSize.set(1024, 1024);
-    keyLight.shadow.camera.near = 0.5; keyLight.shadow.camera.far = 20;
-    keyLight.shadow.camera.left = -8; keyLight.shadow.camera.right = 8;
-    keyLight.shadow.camera.top = 8; keyLight.shadow.camera.bottom = -8;
+    keyLight.shadow.camera.near = 0.5; keyLight.shadow.camera.far = 25;
+    keyLight.shadow.camera.left = -10; keyLight.shadow.camera.right = 10;
+    keyLight.shadow.camera.top = 10; keyLight.shadow.camera.bottom = -10;
     keyLight.shadow.bias = -0.001;
     scene.add(keyLight);
-    const fillLight = new THREE.DirectionalLight(0x4466ff, 0.15);
-    fillLight.position.set(-4, 3, -2);
+
+    // Fill: subtle cool from garage door side
+    const fillLight = new THREE.DirectionalLight(0x8899bb, 0.2);
+    fillLight.position.set(-5, 4, -3);
     scene.add(fillLight);
 
-    // ── Ground ──
-    const ground = new THREE.Mesh(
-        new THREE.PlaneGeometry(40, 40),
-        new THREE.MeshStandardMaterial({ color: 0x08080c, metalness: 0.85, roughness: 0.25 })
-    );
-    ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
-    const gridHelper = new THREE.GridHelper(40, 80, 0x111120, 0x0a0a14);
-    gridHelper.position.y = 0.003; scene.add(gridHelper);
+    // Rim: very subtle warm from behind
+    const rimLight = new THREE.DirectionalLight(0xffddaa, 0.15);
+    rimLight.position.set(0, 3, -6);
+    scene.add(rimLight);
 
-    setProgress(20, 'Ground and lighting ready');
+    // ── HEXAGON OVERHEAD LIGHTS (honeycomb LED panels) ──
+    function createHexLight(x, y, z) {
+        const group = new THREE.Group();
+        // Hexagonal frame
+        const hexShape = new THREE.Shape();
+        const sides = 6, radius = 0.35;
+        for (let i = 0; i <= sides; i++) {
+            const angle = (i / sides) * Math.PI * 2 - Math.PI / 6;
+            const px = Math.cos(angle) * radius;
+            const py = Math.sin(angle) * radius;
+            if (i === 0) hexShape.moveTo(px, py); else hexShape.lineTo(px, py);
+        }
+        const hexGeo = new THREE.ExtrudeGeometry(hexShape, { depth: 0.03, bevelEnabled: false });
+        const frameMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2a, metalness: 0.8, roughness: 0.3 });
+        const frame = new THREE.Mesh(hexGeo, frameMat);
+        frame.rotation.x = -Math.PI / 2;
+        group.add(frame);
 
-    // ── Signpost ──
-    const signData = [
-        { label: 'PROJECTS', color: 0xff0088 },
-        { label: 'HUSH',     color: 0x00ff88 },
-        { label: 'GARAGE',   color: 0xff6600 },
-        { label: 'AGENTS',   color: 0x00ccff },
-        { label: 'CONTACT',  color: 0xff00ff },
-    ];
-    const signObjects = [];
-    const signpostGroup = new THREE.Group();
-    signpostGroup.position.set(-3.5, 0, 1.5);
+        // Light panel (slightly smaller hex, emissive)
+        const panelShape = new THREE.Shape();
+        for (let i = 0; i <= sides; i++) {
+            const angle = (i / sides) * Math.PI * 2 - Math.PI / 6;
+            const px = Math.cos(angle) * (radius - 0.04);
+            const py = Math.sin(angle) * (radius - 0.04);
+            if (i === 0) panelShape.moveTo(px, py); else panelShape.lineTo(px, py);
+        }
+        const panelGeo = new THREE.ExtrudeGeometry(panelShape, { depth: 0.01, bevelEnabled: false });
+        const panelMat = new THREE.MeshStandardMaterial({
+            color: 0xfff8f0, emissive: 0xfff5e6, emissiveIntensity: 0.6,
+            metalness: 0.1, roughness: 0.4
+        });
+        const panel = new THREE.Mesh(panelGeo, panelMat);
+        panel.rotation.x = -Math.PI / 2;
+        panel.position.y = 0.015;
+        group.add(panel);
 
-    const poleMesh = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.06, 0.06, 5, 8),
-        new THREE.MeshStandardMaterial({ color: 0x222228, metalness: 0.7, roughness: 0.3 })
-    );
-    poleMesh.position.y = 2.5; poleMesh.castShadow = true; signpostGroup.add(poleMesh);
+        // Point light for actual illumination
+        const light = new THREE.PointLight(0xfff5e6, 1.5, 6, 2);
+        light.position.set(0, -0.1, 0);
+        group.add(light);
 
-    const capMesh = new THREE.Mesh(new THREE.SphereGeometry(0.15, 12, 12), makeNeonMaterial(0x00ccff, 3));
-    capMesh.position.y = 5.1; signpostGroup.add(capMesh);
+        group.position.set(x, y, z);
+        return group;
+    }
 
-    signData.forEach((s, i) => {
-        const y = 4.2 - i * 0.8;
-        const sg = new THREE.Group(); sg.position.set(0, y, 0);
-        const body = new THREE.Mesh(
-            new THREE.BoxGeometry(1.6, 0.35, 0.08),
-            new THREE.MeshStandardMaterial({ color: 0x0c0c12, emissive: s.color, emissiveIntensity: 0.4, metalness: 0.2, roughness: 0.5 })
-        );
-        body.position.x = 0.9; body.castShadow = true; sg.add(body);
-        const tipShape = new THREE.Shape();
-        tipShape.moveTo(0, 0.2); tipShape.lineTo(0.35, 0); tipShape.lineTo(0, -0.2); tipShape.closePath();
-        const tip = new THREE.Mesh(new THREE.ExtrudeGeometry(tipShape, { depth: 0.08, bevelEnabled: false }), makeNeonMaterial(s.color, 2));
-        tip.position.set(2.1, 0, -0.04); sg.add(tip);
-        const canvas = document.createElement('canvas'); canvas.width = 256; canvas.height = 64;
-        const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, 256, 64);
-        ctx.fillStyle = '#' + new THREE.Color(s.color).getHexString();
-        ctx.font = 'bold 36px "JetBrains Mono", monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText(s.label, 128, 32);
-        const textMesh = new THREE.Mesh(
-            new THREE.PlaneGeometry(1.4, 0.28),
-            new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(canvas), transparent: true, depthWrite: false })
-        );
-        textMesh.position.set(0.9, 0, 0.05); sg.add(textMesh);
-        signpostGroup.add(sg);
-        signObjects.push({ mesh: body, data: s });
-        signObjects.push({ mesh: tip, data: s });
+    // 3x2 grid of hex lights on ceiling
+    for (let gx = -2; gx <= 2; gx += 2) {
+        for (let gz = -1; gz <= 1; gz += 2) {
+            scene.add(createHexLight(gx, 3.4, gz));
+        }
+    }
+
+    setProgress(20, 'Lighting ready');
+
+    // ── FLOOR (dark concrete, no grid) ──
+    const floorMat = new THREE.MeshStandardMaterial({
+        color: 0x111111,
+        metalness: 0.15,
+        roughness: 0.75
     });
-    scene.add(signpostGroup);
-    setProgress(30, 'Signpost built');
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(30, 30), floorMat);
+    floor.rotation.x = -Math.PI / 2;
+    floor.receiveShadow = true;
+    scene.add(floor);
 
-    // ── Workshop ──
-    const wallMat = new THREE.MeshStandardMaterial({ color: 0x0c0c14, metalness: 0.15, roughness: 0.85 });
+    // ── Workshop Structure ──
+    const wallMat = new THREE.MeshStandardMaterial({ color: 0x0c0c12, metalness: 0.1, roughness: 0.9 });
     const backWall = new THREE.Mesh(new THREE.BoxGeometry(8, 3.5, 0.2), wallMat);
     backWall.position.set(0, 1.75, -4); backWall.castShadow = true; backWall.receiveShadow = true; scene.add(backWall);
     const leftWall = new THREE.Mesh(new THREE.BoxGeometry(0.2, 3.5, 5), wallMat);
@@ -156,82 +160,131 @@ export function start() {
     rightWall.position.set(4, 1.75, -1.5); rightWall.castShadow = true; rightWall.receiveShadow = true; scene.add(rightWall);
     const roof = new THREE.Mesh(
         new THREE.BoxGeometry(8.4, 0.15, 5.4),
-        new THREE.MeshStandardMaterial({ color: 0x0a0a10, metalness: 0.3, roughness: 0.7 })
+        new THREE.MeshStandardMaterial({ color: 0x0a0a10, metalness: 0.2, roughness: 0.8 })
     );
     roof.position.set(0, 3.55, -1.5); roof.castShadow = true; scene.add(roof);
-    const beamMat = new THREE.MeshStandardMaterial({ color: 0x1a1a22, metalness: 0.5, roughness: 0.4 });
-    for (let bx = -3; bx <= 3; bx += 2) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 5), beamMat); b.position.set(bx, 3.45, -1.5); scene.add(b); }
-    setProgress(40, 'Workshop structure built');
 
-    // ── Neon Signs ──
-    function createNeonText(text, color, fontSize, width, height) {
-        const canvas = document.createElement('canvas'); canvas.width = 512; canvas.height = 128;
-        const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, 512, 128);
-        ctx.fillStyle = color; ctx.font = `bold ${fontSize}px "JetBrains Mono", monospace`;
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, 256, 64);
-        const tex = new THREE.CanvasTexture(canvas); tex.minFilter = THREE.LinearFilter;
-        return new THREE.Mesh(new THREE.PlaneGeometry(width, height), new THREE.MeshBasicMaterial({ map: tex, transparent: true }));
+    // Overhead beams
+    const beamMat = new THREE.MeshStandardMaterial({ color: 0x1a1a20, metalness: 0.4, roughness: 0.5 });
+    for (let bx = -3; bx <= 3; bx += 2) {
+        const b = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 5), beamMat);
+        b.position.set(bx, 3.45, -1.5); scene.add(b);
     }
-    const neonSign1 = createNeonText('AGENTIC BIZ', '#00ccff', 52, 3, 0.75);
-    neonSign1.position.set(0, 2.8, -3.85); scene.add(neonSign1);
-    const border = new THREE.LineSegments(
-        new THREE.EdgesGeometry(new THREE.PlaneGeometry(3.2, 0.95)),
-        new THREE.LineBasicMaterial({ color: 0x00ccff })
-    );
-    border.position.copy(neonSign1.position); border.position.z += 0.01; scene.add(border);
-    const neonSign2 = createNeonText('⚡ HERMES AGENT', '#ff0088', 40, 2.8, 0.6);
-    neonSign2.position.set(0, 2.0, -3.85); scene.add(neonSign2);
 
-    // ── Point Lights ──
-    const plCyan = new THREE.PointLight(0x00ccff, 6, 12, 2); plCyan.position.set(0, 2.8, -3.2); scene.add(plCyan);
-    const plPink = new THREE.PointLight(0xff0088, 4, 10, 2); plPink.position.set(0, 2.0, -3.2); scene.add(plPink);
-    const plOrange = new THREE.PointLight(0xff6600, 3, 8, 2); plOrange.position.set(3.8, 2, 0); scene.add(plOrange);
-    const plPurple = new THREE.PointLight(0x9900ff, 3, 8, 2); plPurple.position.set(-3.5, 4.5, 1.5); scene.add(plPurple);
-    setProgress(45, 'Neon lighting done');
+    setProgress(30, 'Workshop built');
 
-    // ── Cityscape ──
-    const bldgMat1 = new THREE.MeshStandardMaterial({ color: 0x060610, metalness: 0.2, roughness: 0.8 });
-    const bldgMat2 = new THREE.MeshStandardMaterial({ color: 0x060610, emissive: 0x0a0a20, emissiveIntensity: 0.3, metalness: 0.2, roughness: 0.8 });
-    [
-        {x:-10,z:-14,w:2.5,h:8,d:2},{x:-6,z:-16,w:1.8,h:12,d:1.5},{x:-3,z:-18,w:3,h:6,d:2},
-        {x:1,z:-15,w:2,h:10,d:1.8},{x:5,z:-17,w:2.5,h:7,d:2},{x:8,z:-14,w:1.5,h:14,d:1.5},
-        {x:12,z:-16,w:3,h:9,d:2.5},{x:-12,z:-18,w:2,h:11,d:2},{x:14,z:-19,w:2.8,h:6.5,d:2}
-    ].forEach(b => {
-        const mesh = new THREE.Mesh(new THREE.BoxGeometry(b.w, b.h, b.d), Math.random() > 0.5 ? bldgMat1 : bldgMat2);
-        mesh.position.set(b.x, b.h / 2, b.z); scene.add(mesh);
-    });
-
-    // ── Power Lines ──
-    function createWire(p1, p2, sag = 0.3) {
-        const pts = [];
-        for (let t = 0; t <= 1; t += 0.05) {
-            pts.push(new THREE.Vector3(
-                p1.x + (p2.x - p1.x) * t,
-                p1.y + (p2.y - p1.y) * t - sag * Math.sin(Math.PI * t),
-                p1.z + (p2.z - p1.z) * t
-            ));
-        }
+    // ── Neon Signs on back wall (subtle, not overpowering) ──
+    function createNeonText(text, color, fontSize, width, height) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 512; canvas.height = 128;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, 512, 128);
+        ctx.fillStyle = color;
+        ctx.font = `bold ${fontSize}px monospace`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, 256, 64);
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.minFilter = THREE.LinearFilter;
         return new THREE.Mesh(
-            new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 12, 0.015, 4, false),
-            new THREE.MeshStandardMaterial({ color: 0x1a1a1a, metalness: 0.4, roughness: 0.6 })
+            new THREE.PlaneGeometry(width, height),
+            new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false })
         );
     }
-    scene.add(createWire(new THREE.Vector3(-4, 3.5, -1.5), new THREE.Vector3(-10, 7, -14)));
-    scene.add(createWire(new THREE.Vector3(4, 3.5, -1.5), new THREE.Vector3(8, 9, -14)));
-    scene.add(createWire(new THREE.Vector3(-4, 3.5, -1.5), new THREE.Vector3(-6, 8, -16), 0.5));
-    scene.add(createWire(new THREE.Vector3(0, 3.55, -4), new THREE.Vector3(1, 7, -15), 0.4));
-    setProgress(50, 'City backdrop and wires added');
+    const neonSign1 = createNeonText('AGENTIC BIZ', '#44aaff', 48, 3, 0.7);
+    neonSign1.position.set(0, 2.8, -3.85); scene.add(neonSign1);
+    const border = new THREE.LineSegments(
+        new THREE.EdgesGeometry(new THREE.PlaneGeometry(3.15, 0.85)),
+        new THREE.LineBasicMaterial({ color: 0x44aaff })
+    );
+    border.position.copy(neonSign1.position); border.position.z += 0.01; scene.add(border);
+    const neonSign2 = createNeonText('HERMES AGENT', '#cc44aa', 36, 2.6, 0.55);
+    neonSign2.position.set(0, 2.0, -3.85); scene.add(neonSign2);
 
-    // ── Props ──
-    const barrelGeo = new THREE.CylinderGeometry(0.35, 0.35, 0.9, 12);
-    const barrelMat = new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.5, roughness: 0.5 });
+    // ── Signpost Navigation (solid panels, not neon blobs) ──
+    const signData = [
+        { label: 'PROJECTS', color: 0xcc4488 },
+        { label: 'HUSH',     color: 0x44cc88 },
+        { label: 'GARAGE',   color: 0xcc8844 },
+        { label: 'AGENTS',   color: 0x4488cc },
+        { label: 'CONTACT',  color: 0xcc44cc },
+    ];
+    const signObjects = [];
+    const signpostGroup = new THREE.Group();
+    signpostGroup.position.set(-3.5, 0, 1.5);
+
+    const poleMesh = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.05, 0.05, 5, 8),
+        new THREE.MeshStandardMaterial({ color: 0x222228, metalness: 0.7, roughness: 0.3 })
+    );
+    poleMesh.position.y = 2.5; poleMesh.castShadow = true; signpostGroup.add(poleMesh);
+
+    const capMesh = new THREE.Mesh(
+        new THREE.SphereGeometry(0.12, 12, 12),
+        new THREE.MeshStandardMaterial({ color: 0x888899, metalness: 0.8, roughness: 0.2 })
+    );
+    capMesh.position.y = 5.1; signpostGroup.add(capMesh);
+
+    signData.forEach((s, i) => {
+        const y = 4.2 - i * 0.8;
+        const sg = new THREE.Group();
+        sg.position.set(0, y, 0);
+
+        // Solid sign body
+        const body = new THREE.Mesh(
+            new THREE.BoxGeometry(1.5, 0.35, 0.06),
+            new THREE.MeshStandardMaterial({ color: 0x1a1a20, metalness: 0.3, roughness: 0.6 })
+        );
+        body.position.x = 0.85; body.castShadow = true; sg.add(body);
+
+        // Arrow tip
+        const tipShape = new THREE.Shape();
+        tipShape.moveTo(0, 0.18); tipShape.lineTo(0.3, 0); tipShape.lineTo(0, -0.18); tipShape.closePath();
+        const tip = new THREE.Mesh(
+            new THREE.ExtrudeGeometry(tipShape, { depth: 0.06, bevelEnabled: false }),
+            new THREE.MeshStandardMaterial({ color: 0x1a1a20, metalness: 0.3, roughness: 0.6 })
+        );
+        tip.position.set(2.0, 0, -0.03); sg.add(tip);
+
+        // Colored edge strip (subtle, not full neon)
+        const edge = new THREE.Mesh(
+            new THREE.BoxGeometry(1.5, 0.02, 0.07),
+            new THREE.MeshStandardMaterial({ color: s.color, emissive: s.color, emissiveIntensity: 0.3, metalness: 0.2, roughness: 0.4 })
+        );
+        edge.position.set(0.85, 0.17, 0); sg.add(edge);
+
+        // Text label (small, clean)
+        const canvas = document.createElement('canvas');
+        canvas.width = 256; canvas.height = 64;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, 256, 64);
+        ctx.fillStyle = '#cccccc';
+        ctx.font = 'bold 28px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(s.label, 128, 32);
+        const textMesh = new THREE.Mesh(
+            new THREE.PlaneGeometry(1.3, 0.25),
+            new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(canvas), transparent: true, depthWrite: false })
+        );
+        textMesh.position.set(0.85, 0, 0.04); sg.add(textMesh);
+
+        signpostGroup.add(sg);
+        signObjects.push({ mesh: body, data: s });
+        signObjects.push({ mesh: tip, data: s });
+    });
+    scene.add(signpostGroup);
+    setProgress(40, 'Signpost built');
+
+    // ── Props (barrels, shelf) ──
+    const barrelGeo = new THREE.CylinderGeometry(0.35, 0.35, 0.9, 8);
+    const barrelMat = new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.4, roughness: 0.6 });
     [[3.2,0.45,-2.5],[3.7,0.45,-2.2],[3.4,0.45,-1.8]].forEach(p => {
         const b = new THREE.Mesh(barrelGeo, barrelMat); b.position.set(p[0], p[1], p[2]); b.castShadow = true; b.receiveShadow = true; scene.add(b);
     });
-    const shelf = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.08, 2), new THREE.MeshStandardMaterial({ color: 0x1a1a1a, metalness: 0.4, roughness: 0.5 }));
+    const shelf = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.06, 1.8), new THREE.MeshStandardMaterial({ color: 0x1a1a1a, metalness: 0.3, roughness: 0.6 }));
     shelf.position.set(-3.8, 1.5, -2); scene.add(shelf);
-    scene.add(new THREE.PointLight(0x00ff88, 2, 3, 2)).position.set(-3.6, 1.7, -2);
-    setProgress(55, 'Props placed');
+    setProgress(45, 'Props placed');
 
     // ── Laptop (on passenger seat) ──
     let laptopScreenCanvas = null;
@@ -278,28 +331,28 @@ export function start() {
         const sbW = streamlitState.sidebarOpen ? 120 : 0;
         if (streamlitState.sidebarOpen) {
             ctx.fillStyle = '#1a1d27'; ctx.fillRect(0, 0, sbW, H);
-            ctx.fillStyle = '#00ccff'; ctx.font = 'bold 11px "JetBrains Mono", monospace'; ctx.fillText('⚡ HERMES', 8, 24);
-            ctx.fillStyle = '#666'; ctx.font = '9px "JetBrains Mono", monospace'; ctx.fillText('v2.4.0 — free', 8, 38);
+            ctx.fillStyle = '#4488cc'; ctx.font = 'bold 11px monospace'; ctx.fillText('⚡ HERMES', 8, 24);
+            ctx.fillStyle = '#555'; ctx.font = '9px monospace'; ctx.fillText('v2.4.0 — free', 8, 38);
             ['dashboard','projects','garage','agents','contact'].forEach((p, i) => {
                 const y = 60 + i * 28;
-                if (streamlitState.activePage === p) { ctx.fillStyle = 'rgba(0,204,255,0.1)'; ctx.fillRect(0, y-12, sbW, 24); ctx.fillStyle = '#00ccff'; }
-                else ctx.fillStyle = '#888';
-                ctx.font = '10px "JetBrains Mono", monospace';
+                if (streamlitState.activePage === p) { ctx.fillStyle = 'rgba(68,136,204,0.1)'; ctx.fillRect(0, y-12, sbW, 24); ctx.fillStyle = '#4488cc'; }
+                else ctx.fillStyle = '#666';
+                ctx.font = '10px monospace';
                 ctx.fillText(['📊','🚀','🏎️','⚡','📬'][i] + ' ' + p, 8, y);
             });
-            ctx.fillStyle = '#444'; ctx.font = '8px "JetBrains Mono", monospace'; ctx.fillText('[◀] collapse', 8, H-10);
+            ctx.fillStyle = '#333'; ctx.font = '8px monospace'; ctx.fillText('[◀] collapse', 8, H-10);
         } else {
             ctx.fillStyle = '#1a1d27'; ctx.fillRect(0, 0, 24, H);
-            ctx.fillStyle = '#00ccff'; ctx.font = '14px monospace'; ctx.fillText('▶', 6, 24);
+            ctx.fillStyle = '#4488cc'; ctx.font = '14px monospace'; ctx.fillText('▶', 6, 24);
         }
         const mx = sbW + 12;
-        ctx.fillStyle = '#fff'; ctx.font = 'bold 14px "JetBrains Mono", monospace'; ctx.fillText(getPageTitle(streamlitState.activePage), mx, 30);
+        ctx.fillStyle = '#fff'; ctx.font = 'bold 14px monospace'; ctx.fillText(getPageTitle(streamlitState.activePage), mx, 30);
         ctx.strokeStyle = '#333'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(mx, 40); ctx.lineTo(W-12, 40); ctx.stroke();
-        ctx.fillStyle = '#ccc'; ctx.font = '10px "JetBrains Mono", monospace';
+        ctx.fillStyle = '#ccc'; ctx.font = '10px monospace';
         getPageContent(streamlitState.activePage).forEach((line, i) => { ctx.fillText(line, mx, 58 + i * 16); });
         ctx.fillStyle = '#0a0c12'; ctx.fillRect(0, H-20, W, 20);
-        ctx.fillStyle = '#00ff88'; ctx.font = '9px "JetBrains Mono", monospace'; ctx.fillText('● ONLINE', 8, H-7);
-        ctx.fillStyle = '#666'; ctx.fillText('OpenRouter // free tier', sbW+8, H-7);
+        ctx.fillStyle = '#44aa66'; ctx.font = '9px monospace'; ctx.fillText('● ONLINE', 8, H-7);
+        ctx.fillStyle = '#555'; ctx.fillText('OpenRouter // free tier', sbW+8, H-7);
         if (laptopScreenTexture) laptopScreenTexture.needsUpdate = true;
     }
 
@@ -311,7 +364,7 @@ export function start() {
     let flameEmitIndex = 0;
 
     function createFlameSystem() {
-        const count = 60;
+        const count = 40;
         const geo = new THREE.BufferGeometry();
         const positions = new Float32Array(count * 3);
         const velocities = new Float32Array(count * 3);
@@ -320,11 +373,11 @@ export function start() {
         geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
         geo.setAttribute('velocity', new THREE.BufferAttribute(velocities, 3));
         geo.setAttribute('lifetime', new THREE.BufferAttribute(lifetimes, 1));
-        const mat = new THREE.PointsMaterial({ color: 0xff6600, size: 0.12, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true });
+        const mat = new THREE.PointsMaterial({ color: 0xff6600, size: 0.1, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true });
         flameParticles = new THREE.Points(geo, mat);
         flameParticles.userData = { velocities, lifetimes };
         scene.add(flameParticles);
-        flameLight = new THREE.PointLight(0xff4400, 0, 5, 2);
+        flameLight = new THREE.PointLight(0xff4400, 0, 4, 2);
         scene.add(flameLight);
     }
     createFlameSystem();
@@ -336,14 +389,14 @@ export function start() {
         const vel = flameParticles.userData.velocities;
         const life = flameParticles.userData.lifetimes;
         const count = pos.length / 3;
-        for (let n = 0; n < 3; n++) {
+        for (let n = 0; n < 2; n++) {
             const i = flameEmitIndex % count;
-            pos[i*3]   = exhaustPos.x + (Math.random()-0.5)*0.15;
-            pos[i*3+1] = exhaustPos.y + Math.random()*0.05;
-            pos[i*3+2] = exhaustPos.z + (Math.random()-0.5)*0.1 - 0.3;
-            vel[i*3]   = (Math.random()-0.5)*0.02;
-            vel[i*3+1] = Math.random()*0.06+0.03;
-            vel[i*3+2] = -Math.random()*0.08-0.04;
+            pos[i*3]   = exhaustPos.x + (Math.random()-0.5)*0.12;
+            pos[i*3+1] = exhaustPos.y + Math.random()*0.04;
+            pos[i*3+2] = exhaustPos.z + (Math.random()-0.5)*0.08 - 0.25;
+            vel[i*3]   = (Math.random()-0.5)*0.015;
+            vel[i*3+1] = Math.random()*0.05+0.02;
+            vel[i*3+2] = -Math.random()*0.06-0.03;
             life[i] = 1.0;
             flameEmitIndex++;
         }
@@ -364,20 +417,20 @@ export function start() {
             pos[i*3] += vel[i*3]*dt;
             pos[i*3+1] += vel[i*3+1]*dt;
             pos[i*3+2] += vel[i*3+2]*dt;
-            vel[i*3+1] *= 0.98;
+            vel[i*3+1] *= 0.97;
             if (life[i] <= 0) pos[i*3+1] = -1000;
         }
         geo.attributes.position.needsUpdate = true;
         geo.attributes.lifetime.needsUpdate = true;
-        if (flameLight) flameLight.intensity = flameActive ? (3 + Math.sin(performance.now()*0.02)*1.5) : 0;
+        if (flameLight) flameLight.intensity = flameActive ? (2 + Math.sin(performance.now()*0.02)*1) : 0;
     }
 
-    setProgress(60, 'Particle systems ready');
+    setProgress(50, 'Effects ready');
 
     // ── Car Loading ──
     let carModel = null;
     const interactive = signObjects.slice();
-    const loader = new GLTFLoader();
+    const loader = new THREE.GLTFLoader();
 
     loader.load('assets/models/runx.glb', (gltf) => {
         carModel = gltf.scene;
@@ -387,7 +440,7 @@ export function start() {
         const S = 3.5 / maxDim;
         carModel.scale.setScalar(S);
         const center = new THREE.Vector3(); box.getCenter(center);
-        carModel.position.set(-center.x*S, -box.min.y*S, 1.0 - center.z*S);
+        carModel.position.set(-center.x*S, -box.min.y*S, 0.5 - center.z*S);
 
         let paintCount = 0;
         carModel.traverse(child => {
@@ -403,28 +456,36 @@ export function start() {
             if (mn.includes('chrome') || mn === 'silver_metallic_199') {
                 if (mat.color) mat.color.setHex(0xcccccc);
                 mat.metalness = 1.0; mat.roughness = 0.05;
-                mat.envMap = envMap; mat.envMapIntensity = 2.0; mat.needsUpdate = true;
+                mat.envMap = envMap; mat.envMapIntensity = 1.5; mat.needsUpdate = true;
             }
             if (mn.includes('glass') || mn.includes('translucent')) {
-                mat.envMap = envMap; mat.envMapIntensity = 1.5; mat.needsUpdate = true;
+                mat.envMap = envMap; mat.envMapIntensity = 1.0; mat.needsUpdate = true;
+            }
+            // Fix wheel rim materials — remove any stray emissive
+            if (mn.includes('rim') || mn.includes('tyre') || mn.includes('tire')) {
+                if (mat.emissive) mat.emissive.setHex(0x000000);
+                mat.emissiveIntensity = 0;
+                mat.needsUpdate = true;
             }
         });
 
         scene.add(carModel);
-        interactive.push({ mesh: carModel, data: { label: 'GARAGE', color: 0xff6600 } });
+        interactive.push({ mesh: carModel, data: { label: 'GARAGE', color: 0xcc8844 } });
 
-        // Laptop on passenger seat
+        // Laptop on passenger seat — larger, clearly visible
         const laptop = buildLaptop();
-        laptop.position.set(carModel.position.x + 0.45*S, carModel.position.y + 0.55*S, carModel.position.z - 0.3*S);
-        laptop.rotation.y = -0.3; laptop.scale.setScalar(0.4); scene.add(laptop);
+        laptop.position.set(carModel.position.x + 0.5*S, carModel.position.y + 0.52*S, carModel.position.z - 0.2*S);
+        laptop.rotation.y = -0.5;
+        laptop.scale.setScalar(0.7);
+        scene.add(laptop);
 
-        exhaustPos.set(carModel.position.x, carModel.position.y + 0.2*S, carModel.position.z - 1.8*S);
+        exhaustPos.set(carModel.position.x, carModel.position.y + 0.15*S, carModel.position.z - 1.7*S);
         renderStreamlitDashboard();
 
         setProgress(100, `Car loaded • ${paintCount} panels resprayed 🖤`);
         setTimeout(hideLoad, 600);
     }, (xhr) => {
-        if (xhr.total > 0) setProgress(60 + Math.round(xhr.loaded/xhr.total*35), `Loading car: ${Math.round(xhr.loaded/xhr.total*100)}%`);
+        if (xhr.total > 0) setProgress(50 + Math.round(xhr.loaded/xhr.total*45), `Loading car: ${Math.round(xhr.loaded/xhr.total*100)}%`);
     }, (err) => {
         console.error('GLB error:', err);
         setProgress(100, 'Car load error');
@@ -442,19 +503,25 @@ export function start() {
         if (e.code === 'Space') { e.preventDefault(); flameActive = false; gasIndicator.style.color = 'rgba(255,102,0,0)'; }
     });
 
-    // ── Raycaster ──
+    // ── Raycaster (mobile-friendly) ──
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
     let dragged = false, pointerDown = { x: 0, y: 0 };
 
-    renderer.domElement.addEventListener('pointerdown', e => { pointerDown = { x: e.clientX, y: e.clientY }; dragged = false; });
-    renderer.domElement.addEventListener('pointermove', e => {
-        const dx = e.clientX - pointerDown.x, dy = e.clientY - pointerDown.y;
+    function handlePointerDown(e) {
+        const t = e.touches ? e.touches[0] : e;
+        pointerDown = { x: t.clientX, y: t.clientY };
+        dragged = false;
+    }
+    function handlePointerMove(e) {
+        const t = e.touches ? e.touches[0] : e;
+        const dx = t.clientX - pointerDown.x, dy = t.clientY - pointerDown.y;
         if (Math.sqrt(dx*dx+dy*dy) > 5) dragged = true;
-    });
-    renderer.domElement.addEventListener('pointerup', e => {
+    }
+    function handlePointerUp(e) {
         if (dragged) return;
-        pointer.x = (e.clientX/innerWidth)*2-1; pointer.y = -(e.clientY/innerHeight)*2+1;
+        const t = e.changedTouches ? e.changedTouches[0] : e;
+        pointer.x = (t.clientX/W)*2-1; pointer.y = -(t.clientY/H)*2+1;
         raycaster.setFromCamera(pointer, camera);
         const hits = raycaster.intersectObjects(interactive.map(i => i.mesh), true);
         if (hits.length) {
@@ -471,7 +538,14 @@ export function start() {
                 showDetail(item.data);
             }
         }
-    });
+    }
+
+    renderer.domElement.addEventListener('pointerdown', handlePointerDown, { passive: true });
+    renderer.domElement.addEventListener('pointermove', handlePointerMove, { passive: true });
+    renderer.domElement.addEventListener('pointerup', handlePointerUp, { passive: true });
+    renderer.domElement.addEventListener('touchstart', handlePointerDown, { passive: true });
+    renderer.domElement.addEventListener('touchmove', handlePointerMove, { passive: true });
+    renderer.domElement.addEventListener('touchend', handlePointerUp, { passive: true });
 
     // ── Typewriter ──
     function typewriteText(el, text, speed = 15) {
@@ -519,16 +593,12 @@ export function start() {
         const now = performance.now(), dt = (now - prevTime) * 0.001; prevTime = now;
         const t = now * 0.001;
         controls.update();
-        plCyan.intensity = 6 + Math.sin(t*1.8)*1.5;
-        plPink.intensity = 4 + Math.cos(t*1.5)*1;
-        plOrange.intensity = 3 + Math.sin(t*2.2)*0.8;
-        plPurple.intensity = 3 + Math.cos(t*1.2)*0.8;
-        capMesh.material.emissiveIntensity = 3 + Math.sin(t*2)*0.5;
+        // Subtle hex light flicker
         if (flameActive) emitFlame();
         updateFlame(dt);
         if (Math.floor(t*2) !== Math.floor((t-dt)*2)) renderStreamlitDashboard();
         composer.render();
     }
     animate();
-    setProgress(65, 'Scene complete');
+    setProgress(55, 'Scene complete');
 }
