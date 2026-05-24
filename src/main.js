@@ -466,36 +466,22 @@ export function start() {
         if (e.code === 'Space') { e.preventDefault(); flameActive = false; gasIndicator.style.color = 'rgba(255,102,0,0)'; }
     });
 
-    // ── Touch/Mouse Raycaster ──
+    // ── Touch/Mouse Object Interaction ── (OrbitControls handles camera orbit separately)
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
-    let dragged = false, pointerDown = { x: 0, y: 0 };
+    let tapStart = { x: 0, y: 0, time: 0 };
 
-    function handlePointerDown(e) {
-        const t = e.touches ? e.touches[0] : e;
-        pointerDown = { x: t.clientX, y: t.clientY };
-        dragged = false;
-    }
-    function handlePointerMove(e) {
-        const t = e.touches ? e.touches[0] : e;
-        const dx = t.clientX - pointerDown.x, dy = t.clientY - pointerDown.y;
-        if (Math.sqrt(dx*dx+dy*dy) > 5) dragged = true;
-    }
-    function handlePointerUp(e) {
-        if (dragged) return;
+    renderer.domElement.addEventListener('pointerdown', e => {
+        tapStart = { x: e.clientX, y: e.clientY, time: Date.now() };
+    });
+    renderer.domElement.addEventListener('pointerup', e => {
+        // Only process as tap if it was short and didn't move much
+        const dx = e.clientX - tapStart.x, dy = e.clientY - tapStart.y;
+        const dist = Math.sqrt(dx*dx+dy*dy);
+        const elapsed = Date.now() - tapStart.time;
+        if (dist > 8 || elapsed > 500) return; // was a drag, not a tap
 
-        // Check if tap is on the left/right side for movement (mobile joystick)
-        const t = e.changedTouches ? e.changedTouches[0] : e;
-        const screenX = t.clientX / innerWidth;
-
-        // Right side of screen = move forward
-        if (screenX > 0.6) moveState.forward = true;
-        if (screenX < 0.3) moveState.backward = true;
-        // Reset after short delay
-        setTimeout(() => { moveState.forward = false; moveState.backward = false; }, 200);
-
-        // Raycast for object interaction
-        pointer.x = (t.clientX/innerWidth)*2-1; pointer.y = -(t.clientY/innerHeight)*2+1;
+        pointer.x = (e.clientX/innerWidth)*2-1; pointer.y = -(e.clientY/innerHeight)*2+1;
         raycaster.setFromCamera(pointer, camera);
         const hits = raycaster.intersectObjects(interactive.map(i => i.mesh), true);
         if (hits.length) {
@@ -512,7 +498,33 @@ export function start() {
                 showDetail(item.data);
             }
         }
-    }
+    });
+
+    // Mobile joystick: touch and hold on left side = move, right side = orbit handled by OrbitControls
+    let joystickActive = false;
+    let joystickStart = { x: 0, y: 0 };
+    renderer.domElement.addEventListener('touchstart', e => {
+        if (e.touches.length !== 1) return;
+        const t = e.touches[0];
+        if (t.clientX / innerWidth < 0.4) {
+            joystickActive = true;
+            joystickStart = { x: t.clientX, y: t.clientY };
+        }
+    }, { passive: true });
+    renderer.domElement.addEventListener('touchmove', (e) => {
+        if (!joystickActive || e.touches.length !== 1) return;
+        const t = e.touches[0];
+        const dx = (t.clientX - joystickStart.x) / 50;
+        const dy = (t.clientY - joystickStart.y) / 50;
+        moveState.forward = dy < -0.3;
+        moveState.backward = dy > 0.3;
+        moveState.left = dx < -0.3;
+        moveState.right = dx > 0.3;
+    }, { passive: true });
+    renderer.domElement.addEventListener('touchend', () => {
+        joystickActive = false;
+        moveState.forward = moveState.backward = moveState.left = moveState.right = false;
+    });
 
     // ── Typewriter ──
     function typewriteText(el, text, speed = 15) {
@@ -568,22 +580,25 @@ export function start() {
         if (moveState.right) moveDir.x += 1;
         if (moveDir.length() > 0) {
             moveDir.normalize();
-            // Rotate movement by camera yaw
-            const yaw = controls.getAzimuthalAngle();
-            moveDir.applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
-            character.position.x += moveDir.x * characterSpeed * dt;
-            character.position.z += moveDir.z * characterSpeed * dt;
-            // Keep character on ground
+            // Use camera direction for movement
+            const camDir = new THREE.Vector3();
+            camera.getWorldDirection(camDir);
+            camDir.y = 0; camDir.normalize();
+            const camRight = new THREE.Vector3();
+            camRight.crossVectors(camDir, new THREE.Vector3(0, 1, 0)).normalize();
+            const finalMove = new THREE.Vector3();
+            finalMove.addScaledVector(camDir, -moveDir.z);
+            finalMove.addScaledVector(camRight, moveDir.x);
+            character.position.x += finalMove.x * characterSpeed * dt;
+            character.position.z += finalMove.z * characterSpeed * dt;
             character.position.y = 0;
-            // Rotate character to face movement direction
-            if (moveDir.length() > 0.1) {
-                character.rotation.y = Math.atan2(moveDir.x, moveDir.z);
-            }
+            character.rotation.y = Math.atan2(finalMove.x, finalMove.z);
         }
-        // Camera follows character
-        const camOffset = new THREE.Vector3(0, 3, -6);
-        camera.position.lerp(character.position.clone().add(camOffset), 0.05);
-        controls.target.lerp(character.position.clone().add(new THREE.Vector3(0, 1, 0)), 0.1);
+        // Gently nudge camera target toward character when far
+        const distToChar = camera.position.distanceTo(character.position);
+        if (distToChar > 12) {
+            controls.target.lerp(character.position.clone().add(new THREE.Vector3(0, 1, 0)), 0.02);
+        }
 
         controls.update();
         plCyan.intensity = 6 + Math.sin(t*1.8)*1.5;

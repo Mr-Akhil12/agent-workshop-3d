@@ -27706,6 +27706,7 @@ void main() {
     }
     setProgress(60, "Particle systems ready");
     let carModel = null;
+    const interactive = [];
     const loader = new GLTFLoader();
     loader.load("assets/models/runx.glb", (gltf) => {
       carModel = gltf.scene;
@@ -27749,11 +27750,13 @@ void main() {
         }
       });
       scene.add(carModel);
+      interactive.push({ mesh: carModel, data: { label: "GARAGE", color: 16737792 } });
       const laptop = buildLaptop();
       laptop.position.set(carModel.position.x + 0.45 * S, carModel.position.y + 0.55 * S, carModel.position.z - 0.3 * S);
       laptop.rotation.y = -0.3;
       laptop.scale.setScalar(0.4);
       scene.add(laptop);
+      interactive.push({ mesh: laptop, data: { label: "LAPTOP", color: 52479 } });
       let exhaustFound = false;
       carModel.traverse((child) => {
         if (!child.isMesh) return;
@@ -27779,6 +27782,7 @@ void main() {
       setTimeout(hideLoad, 600);
     });
     const gasIndicator = $("gas-indicator");
+    let gasClickActive = false;
     document.addEventListener("keydown", (e) => {
       if (e.code === "Space" && !flameActive) {
         e.preventDefault();
@@ -27793,8 +27797,95 @@ void main() {
         gasIndicator.style.color = "rgba(255,102,0,0)";
       }
     });
-    new Raycaster();
-    new Vector2();
+    const raycaster = new Raycaster();
+    const pointer = new Vector2();
+    let tapStart = { x: 0, y: 0, time: 0 };
+    renderer.domElement.addEventListener("pointerdown", (e) => {
+      tapStart = { x: e.clientX, y: e.clientY, time: Date.now() };
+    });
+    renderer.domElement.addEventListener("pointerup", (e) => {
+      const dx = e.clientX - tapStart.x, dy = e.clientY - tapStart.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const elapsed = Date.now() - tapStart.time;
+      if (dist > 8 || elapsed > 500) return;
+      pointer.x = e.clientX / innerWidth * 2 - 1;
+      pointer.y = -(e.clientY / innerHeight) * 2 + 1;
+      raycaster.setFromCamera(pointer, camera);
+      const hits = raycaster.intersectObjects(interactive.map((i) => i.mesh), true);
+      if (hits.length) {
+        const hit = hits[0].object;
+        const item = interactive.find((i) => {
+          if (i.mesh === hit) return true;
+          let p = hit.parent;
+          while (p) {
+            if (i.mesh === p) return true;
+            p = p.parent;
+          }
+          return false;
+        });
+        if (item) {
+          if (item.data.label === "GARAGE") {
+            gasClickActive = !gasClickActive;
+            flameActive = gasClickActive;
+            gasIndicator.style.color = flameActive ? "rgba(255,102,0,1)" : "rgba(255,102,0,0)";
+          }
+          showDetail(item.data);
+        }
+      }
+    });
+    let joystickActive = false;
+    let joystickStart = { x: 0, y: 0 };
+    renderer.domElement.addEventListener("touchstart", (e) => {
+      if (e.touches.length !== 1) return;
+      const t = e.touches[0];
+      if (t.clientX / innerWidth < 0.4) {
+        joystickActive = true;
+        joystickStart = { x: t.clientX, y: t.clientY };
+      }
+    }, { passive: true });
+    renderer.domElement.addEventListener("touchmove", (e) => {
+      if (!joystickActive || e.touches.length !== 1) return;
+      const t = e.touches[0];
+      const dx = (t.clientX - joystickStart.x) / 50;
+      const dy = (t.clientY - joystickStart.y) / 50;
+      moveState.forward = dy < -0.3;
+      moveState.backward = dy > 0.3;
+      moveState.left = dx < -0.3;
+      moveState.right = dx > 0.3;
+    }, { passive: true });
+    renderer.domElement.addEventListener("touchend", () => {
+      joystickActive = false;
+      moveState.forward = moveState.backward = moveState.left = moveState.right = false;
+    });
+    function typewriteText(el, text, speed = 15) {
+      el.innerHTML = "";
+      let i = 0;
+      const interval = setInterval(() => {
+        if (i < text.length) {
+          el.innerHTML = text.substring(0, i + 1) + '<span class="cursor"></span>';
+          i++;
+        } else {
+          clearInterval(interval);
+          setTimeout(() => {
+            el.innerHTML = text;
+          }, 800);
+        }
+      }, speed);
+    }
+    const detailContent = {
+      PROJECTS: { title: "🚀 Projects", body: "$ ls -la /home/akhil/projects/\n\nagenticbiz.vercel.app\n→ AI agent deployment for businesses\n→ Next.js 15 | Resend forms\n\nhush-v1.vercel.app\n→ Private car social platform (SA)\n→ React 19 PWA | Real-time chat\n\ndirt-hands-crew (github)\n→ JDM mobile game — Godot 4.4+\n→ Supabase backend | Freemium\n\nventrix-petroleum-2.vercel.app\n→ Industrial fuel company website\n→ React + Vite | Parallax imagery" },
+      HUSH: { title: "🏎️ Hush", body: '$ cat /projects/hush/README.md\n\n> "Time to take it off WhatsApp."\n\nPrivate social platform for SA car\nenthusiasts. React 19 PWA.\n\nFeatures:\n• Live Meet Map (real-time)\n• Crews & profiles\n• Event coordination\n• Car culture, not criminals\n\n→ hush-v1.vercel.app' },
+      GARAGE: { title: "🔧 The Garage", body: '$ runx --info\n\n140rt Toyota Runx\nColor: Gloss black w/ metallic flake\nTrans: Manual\nFuel: 95 + attitude\n\nExhaust: Flame-capable 🔥\nDrags: Link Road (weekly)\nStrip: King Shaka Airport Rd\n\n> "Where AI agents meet engine oil."' },
+      AGENTS: { title: "⚡ Hermes Agent", body: '$ hermes --version && hermes --status\n\nHermes Agent v2.4.0\nProvider: OpenRouter (free tier)\n\nCapabilities:\n• Wix form → WhatsApp pipeline\n• XAUUSD trading analysis\n• Video production (HyperFrames)\n• Client mgmt automation\n• Cron-based monitoring\n\n"I help people stop thinking in\nendless manual implementation\nand start thinking in outcomes,\nsystems, and intelligent execution."' },
+      CONTACT: { title: "📬 Get In Touch", body: '$ cat contact.json\n\n{\n  "name":    "Akhil Pillay",\n  "location": "Tongaat, KZN, SA",\n  "email":   "akhilpillay2.0@gmail.com",\n  "phone":   "067 865 9396",\n  "whatsapp": "wa.me/27678659396",\n  "youtube":  "youtube.com/@that-it-dude",\n  "tiktok":   "tiktok.com/@that_it_.guy",\n  "web":      "agenticbiz.vercel.app"\n}\n\n→ Response time: Fast ⚡' }
+    };
+    function showDetail(data) {
+      const content = detailContent[data.label] || { title: data.label, body: "Coming soon." };
+      $("d-title").textContent = content.title;
+      typewriteText($("d-body"), content.body, 15);
+      $("detail-overlay").classList.add("show");
+      $("info-bar").textContent = data.label;
+    }
     window.closeDetail = function() {
       $("detail-overlay").classList.remove("show");
       $("info-bar").textContent = "The Agent's Workshop — click the signs to explore";
@@ -27819,18 +27910,24 @@ void main() {
       if (moveState.right) moveDir.x += 1;
       if (moveDir.length() > 0) {
         moveDir.normalize();
-        const yaw = controls.getAzimuthalAngle();
-        moveDir.applyAxisAngle(new Vector3(0, 1, 0), yaw);
-        character.position.x += moveDir.x * characterSpeed * dt;
-        character.position.z += moveDir.z * characterSpeed * dt;
+        const camDir = new Vector3();
+        camera.getWorldDirection(camDir);
+        camDir.y = 0;
+        camDir.normalize();
+        const camRight = new Vector3();
+        camRight.crossVectors(camDir, new Vector3(0, 1, 0)).normalize();
+        const finalMove = new Vector3();
+        finalMove.addScaledVector(camDir, -moveDir.z);
+        finalMove.addScaledVector(camRight, moveDir.x);
+        character.position.x += finalMove.x * characterSpeed * dt;
+        character.position.z += finalMove.z * characterSpeed * dt;
         character.position.y = 0;
-        if (moveDir.length() > 0.1) {
-          character.rotation.y = Math.atan2(moveDir.x, moveDir.z);
-        }
+        character.rotation.y = Math.atan2(finalMove.x, finalMove.z);
       }
-      const camOffset = new Vector3(0, 3, -6);
-      camera.position.lerp(character.position.clone().add(camOffset), 0.05);
-      controls.target.lerp(character.position.clone().add(new Vector3(0, 1, 0)), 0.1);
+      const distToChar = camera.position.distanceTo(character.position);
+      if (distToChar > 12) {
+        controls.target.lerp(character.position.clone().add(new Vector3(0, 1, 0)), 0.02);
+      }
       controls.update();
       plCyan.intensity = 6 + Math.sin(t * 1.8) * 1.5;
       plPink.intensity = 4 + Math.cos(t * 1.5) * 1;
