@@ -88,6 +88,12 @@ export function start() {
     const plCeiling = new THREE.PointLight(0xfff8f0, 10, 25, 1.5);
     plCeiling.position.set(0, 3.2, 0);
     scene.add(plCeiling);
+    // Strong spotlight on the car
+    const spotCar = new THREE.SpotLight(0xffffff, 15, 20, Math.PI/6, 0.5, 1);
+    spotCar.position.set(2, 5, 4);
+    spotCar.target.position.set(0, 0, 0);
+    scene.add(spotCar);
+    scene.add(spotCar.target);
 
     // ── Ground (dark concrete, no grid) ──
     const ground = new THREE.Mesh(

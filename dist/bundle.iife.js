@@ -27923,7 +27923,7 @@ void main() {
   }
   function makeFlakeBlackPaint(envMap) {
     return new MeshPhysicalMaterial({
-      color: 328965,
+      color: 657930,
       metalness: 0.92,
       roughness: 0.06,
       clearcoat: 1,
@@ -28012,6 +28012,11 @@ void main() {
     const plCeiling = new PointLight(16775408, 10, 25, 1.5);
     plCeiling.position.set(0, 3.2, 0);
     scene.add(plCeiling);
+    const spotCar = new SpotLight(16777215, 15, 20, Math.PI / 6, 0.5, 1);
+    spotCar.position.set(2, 5, 4);
+    spotCar.target.position.set(0, 0, 0);
+    scene.add(spotCar);
+    scene.add(spotCar.target);
     const ground = new Mesh(
       new PlaneGeometry(40, 40),
       new MeshStandardMaterial({ color: 1118481, metalness: 0.15, roughness: 0.75 })
