@@ -1,0 +1,18 @@
+{
+  "name": "agent-workshop-3d",
+  "version": "2.0.0",
+  "description": "The Agent's Workshop — Interactive 3D Portfolio",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "three": "^0.170.0"
+  },
+  "devDependencies": {
+    "terser": "^5.48.0",
+    "vite": "^5.0.0"
+  }
+}

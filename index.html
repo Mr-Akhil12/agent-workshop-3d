@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Agent's Workshop — Akhil Pillay</title>
+    <meta name="description" content="Interactive 3D portfolio of Akhil Pillay — AI agent builder, Hermes pioneer, car enthusiast.">
+    <meta property="og:title" content="The Agent's Workshop — Akhil Pillay">
+    <meta property="og:description" content="Interactive 3D portfolio. AI agent builder, Hermes pioneer, 140rt Runx Toyota.">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏎️</text></svg>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{margin:0;overflow:hidden;background:#000;font-family:'Space Grotesk',sans-serif;cursor:grab}
+        body:active{cursor:grabbing}
+        canvas{display:block}
+        #loading{position:fixed;inset:0;background:#000;display:flex;flex-direction:column;justify-content:center;align-items:center;z-index:200;transition:opacity 0.8s ease-out}
+        #loading.hidden{opacity:0;pointer-events:none}
+        #loading h1{font-size:clamp(24px,5vw,42px);background:linear-gradient(135deg,#00ff88,#00ccff,#ff00ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:24px;letter-spacing:-0.02em}
+        #loading .bar-wrap{width:260px;height:3px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden;margin-bottom:12px}
+        #loading .bar{height:100%;width:0%;background:linear-gradient(90deg,#00ff88,#00ccff);border-radius:2px;transition:width 0.3s ease}
+        #loading .status{font-family:'JetBrains Mono',monospace;color:rgba(255,255,255,0.35);font-size:12px}
+        #hint{position:fixed;top:24px;left:50%;transform:translateX(-50%);font-family:'JetBrains Mono',monospace;font-size:11px;color:rgba(255,255,255,0.2);z-index:10;pointer-events:none;transition:opacity 1s;text-align:center}
+        #info-bar{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,0.7);font-family:'JetBrains Mono',monospace;font-size:13px;background:rgba(8,8,16,0.7);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);padding:10px 24px;border-radius:10px;border:1px solid rgba(255,255,255,0.06);max-width:520px;text-align:center;z-index:10;transition:opacity 0.3s;pointer-events:none;white-space:nowrap}
+        #detail-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);z-index:100;justify-content:center;align-items:center;padding:20px}
+        #detail-overlay.show{display:flex}
+        .detail-card{background:rgba(12,12,20,0.95);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:36px 40px;max-width:480px;width:100%;position:relative;animation:cardIn 0.35s cubic-bezier(0.16,1,0.3,1)}
+        .detail-card h2{font-size:22px;margin-bottom:14px;background:linear-gradient(135deg,#00ccff,#ff00ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-weight:600}
+        .detail-card p{font-size:13px;line-height:1.7;color:rgba(255,255,255,0.55);font-family:'JetBrains Mono',monospace;white-space:pre-wrap}
+        .detail-card a{color:#00ccff;text-decoration:none;border-bottom:1px solid rgba(0,204,255,0.3)}
+        .detail-card a:hover{border-color:#00ccff}
+        .detail-close{position:absolute;top:14px;right:16px;background:rgba(255,255,255,0.06);border:none;border-radius:8px;width:32px;height:32px;color:rgba(255,255,255,0.5);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s}
+        .detail-close:hover{background:rgba(255,255,255,0.12);color:#fff}
+        @keyframes cardIn{from{opacity:0;transform:translateY(16px) scale(0.97)}to{opacity:1;transform:none}}
+        .cursor{display:inline-block;width:8px;height:16px;background:#00ccff;margin-left:2px;animation:blink 1s infinite;vertical-align:middle}
+        @keyframes blink{0%,50%{opacity:1}51%,100%{opacity:0}}
+        #gas-indicator{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);font-family:'JetBrains Mono',monospace;font-size:12px;color:rgba(255,102,0,0);z-index:10;pointer-events:none;transition:color 0.2s}
+        @media(max-width:600px){.detail-card{padding:24px 20px;margin:10px}#info-bar{font-size:11px;padding:8px 16px;max-width:90vw;white-space:normal}}
+    </style>
+</head>
+<body>
+    <div id="loading">
+        <h1>The Agent's Workshop</h1>
+        <div class="bar-wrap"><div class="bar" id="load-bar"></div></div>
+        <p class="status" id="load-status">Initializing...</p>
+    </div>
+    <div id="hint">drag to orbit · scroll to zoom · click signs · hold SPACE to gas it 🔥</div>
+    <div id="info-bar">The Agent's Workshop — click the signs to explore</div>
+    <div id="gas-indicator">🔥 GAS IT 🔥</div>
+    <div id="detail-overlay" onclick="closeDetail()">
+        <div class="detail-card" onclick="event.stopPropagation()">
+            <button class="detail-close" onclick="closeDetail()">&times;</button>
+            <h2 id="d-title"></h2>
+            <p id="d-body"></p>
+        </div>
+    </div>
+
+    <script src="dist/bundle.iife.js"></script>
+    <script>
+    document.fonts.ready.then(function() {
+        if (typeof AgentWorkshop !== 'undefined') {
+            AgentWorkshop.start();
+        } else {
+            document.getElementById('load-status').textContent = 'ERROR: Bundle not loaded';
+        }
+    });
+    </script>
+</body>
+</html>
