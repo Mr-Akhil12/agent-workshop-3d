@@ -95,50 +95,7 @@ export function start() {
     scene.add(spotCar);
     scene.add(spotCar.target);
 
-    // ── Hexagon overhead LED panels ──
-    function createHexLight(x, z) {
-        const group = new THREE.Group();
-        const sides = 6, radius = 0.3;
-        // Hex frame
-        const hexShape = new THREE.Shape();
-        for (let i = 0; i <= sides; i++) {
-            const a = (i / sides) * Math.PI * 2 - Math.PI / 6;
-            const px = Math.cos(a) * radius;
-            const py = Math.sin(a) * radius;
-            if (i === 0) hexShape.moveTo(px, py); else hexShape.lineTo(px, py);
-        }
-        const frameGeo = new THREE.ExtrudeGeometry(hexShape, { depth: 0.02, bevelEnabled: false });
-        const frameMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2a, metalness: 0.7, roughness: 0.3 });
-        const frame = new THREE.Mesh(frameGeo, frameMat);
-        frame.rotation.x = -Math.PI / 2;
-        group.add(frame);
-        // Light panel (emissive)
-        const panelShape = new THREE.Shape();
-        for (let i = 0; i <= sides; i++) {
-            const a = (i / sides) * Math.PI * 2 - Math.PI / 6;
-            const px = Math.cos(a) * (radius - 0.03);
-            const py = Math.sin(a) * (radius - 0.03);
-            if (i === 0) panelShape.moveTo(px, py); else panelShape.lineTo(px, py);
-        }
-        const panelGeo = new THREE.ExtrudeGeometry(panelShape, { depth: 0.01, bevelEnabled: false });
-        const panelMat = new THREE.MeshStandardMaterial({ color: 0xfff8f0, emissive: 0xfff5e6, emissiveIntensity: 0.4, metalness: 0.1, roughness: 0.4 });
-        const panel = new THREE.Mesh(panelGeo, panelMat);
-        panel.rotation.x = -Math.PI / 2;
-        panel.position.y = 0.01;
-        group.add(panel);
-        // Point light
-        const light = new THREE.PointLight(0xfff5e6, 2, 5, 2);
-        light.position.set(0, -0.05, 0);
-        group.add(light);
-        group.position.set(x, 3.4, z);
-        return group;
-    }
-    // 3x2 grid of hex lights
-    for (let gx = -2; gx <= 2; gx += 2) {
-        for (let gz = -1; gz <= 1; gz += 2) {
-            scene.add(createHexLight(gx, gz));
-        }
-    }
+    // ── Hexagon overhead LED panels ── (simplified — just point lights)
 
     // ── Ground (dark concrete, no grid) ──
     const ground = new THREE.Mesh(
