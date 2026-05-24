@@ -28377,6 +28377,11 @@ void main() {
       renderStreamlitDashboard();
       setProgress(100, `Car loaded • ${paintCount} panels resprayed 🖤`);
       setTimeout(hideLoad, 600);
+      var dbg = document.createElement("div");
+      dbg.id = "debug-info";
+      dbg.style.cssText = "position:fixed;top:40px;left:10px;color:#0f0;font-family:monospace;font-size:11px;z-index:999;background:rgba(0,0,0,0.7);padding:8px;border-radius:4px;white-space:pre-line;";
+      dbg.textContent = "Camera: " + camera.position.x.toFixed(1) + "," + camera.position.y.toFixed(1) + "," + camera.position.z.toFixed(1) + "\nCar: " + carModel.position.x.toFixed(1) + "," + carModel.position.y.toFixed(1) + "," + carModel.position.z.toFixed(1) + "\nDist: " + camera.position.distanceTo(carModel.position).toFixed(1);
+      document.body.appendChild(dbg);
     }, (xhr) => {
       if (xhr.total > 0) setProgress(60 + Math.round(xhr.loaded / xhr.total * 35), `Loading car: ${Math.round(xhr.loaded / xhr.total * 100)}%`);
     }, (err) => {
