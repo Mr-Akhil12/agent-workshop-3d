@@ -21489,103 +21489,6 @@ void main() {
       return new SphereGeometry(data.radius, data.widthSegments, data.heightSegments, data.phiStart, data.phiLength, data.thetaStart, data.thetaLength);
     }
   }
-  class TubeGeometry extends BufferGeometry {
-    constructor(path = new QuadraticBezierCurve3(new Vector3(-1, -1, 0), new Vector3(-1, 1, 0), new Vector3(1, 1, 0)), tubularSegments = 64, radius = 1, radialSegments = 8, closed = false) {
-      super();
-      this.type = "TubeGeometry";
-      this.parameters = {
-        path,
-        tubularSegments,
-        radius,
-        radialSegments,
-        closed
-      };
-      const frames = path.computeFrenetFrames(tubularSegments, closed);
-      this.tangents = frames.tangents;
-      this.normals = frames.normals;
-      this.binormals = frames.binormals;
-      const vertex2 = new Vector3();
-      const normal = new Vector3();
-      const uv = new Vector2();
-      let P = new Vector3();
-      const vertices = [];
-      const normals = [];
-      const uvs = [];
-      const indices = [];
-      generateBufferData();
-      this.setIndex(indices);
-      this.setAttribute("position", new Float32BufferAttribute(vertices, 3));
-      this.setAttribute("normal", new Float32BufferAttribute(normals, 3));
-      this.setAttribute("uv", new Float32BufferAttribute(uvs, 2));
-      function generateBufferData() {
-        for (let i = 0; i < tubularSegments; i++) {
-          generateSegment(i);
-        }
-        generateSegment(closed === false ? tubularSegments : 0);
-        generateUVs();
-        generateIndices();
-      }
-      function generateSegment(i) {
-        P = path.getPointAt(i / tubularSegments, P);
-        const N = frames.normals[i];
-        const B = frames.binormals[i];
-        for (let j = 0; j <= radialSegments; j++) {
-          const v = j / radialSegments * Math.PI * 2;
-          const sin = Math.sin(v);
-          const cos = -Math.cos(v);
-          normal.x = cos * N.x + sin * B.x;
-          normal.y = cos * N.y + sin * B.y;
-          normal.z = cos * N.z + sin * B.z;
-          normal.normalize();
-          normals.push(normal.x, normal.y, normal.z);
-          vertex2.x = P.x + radius * normal.x;
-          vertex2.y = P.y + radius * normal.y;
-          vertex2.z = P.z + radius * normal.z;
-          vertices.push(vertex2.x, vertex2.y, vertex2.z);
-        }
-      }
-      function generateIndices() {
-        for (let j = 1; j <= tubularSegments; j++) {
-          for (let i = 1; i <= radialSegments; i++) {
-            const a = (radialSegments + 1) * (j - 1) + (i - 1);
-            const b = (radialSegments + 1) * j + (i - 1);
-            const c = (radialSegments + 1) * j + i;
-            const d = (radialSegments + 1) * (j - 1) + i;
-            indices.push(a, b, d);
-            indices.push(b, c, d);
-          }
-        }
-      }
-      function generateUVs() {
-        for (let i = 0; i <= tubularSegments; i++) {
-          for (let j = 0; j <= radialSegments; j++) {
-            uv.x = i / tubularSegments;
-            uv.y = j / radialSegments;
-            uvs.push(uv.x, uv.y);
-          }
-        }
-      }
-    }
-    copy(source) {
-      super.copy(source);
-      this.parameters = Object.assign({}, source.parameters);
-      return this;
-    }
-    toJSON() {
-      const data = super.toJSON();
-      data.path = this.parameters.path.toJSON();
-      return data;
-    }
-    static fromJSON(data) {
-      return new TubeGeometry(
-        new Curves[data.path.type]().fromJSON(data.path),
-        data.tubularSegments,
-        data.radius,
-        data.radialSegments,
-        data.closed
-      );
-    }
-  }
   class RawShaderMaterial extends ShaderMaterial {
     static get type() {
       return "RawShaderMaterial";
@@ -23882,39 +23785,6 @@ void main() {
     }
     clone() {
       return new this.constructor().copy(this);
-    }
-  }
-  class GridHelper extends LineSegments {
-    constructor(size = 10, divisions = 10, color1 = 4473924, color2 = 8947848) {
-      color1 = new Color(color1);
-      color2 = new Color(color2);
-      const center = divisions / 2;
-      const step = size / divisions;
-      const halfSize = size / 2;
-      const vertices = [], colors = [];
-      for (let i = 0, j = 0, k = -halfSize; i <= divisions; i++, k += step) {
-        vertices.push(-halfSize, 0, k, halfSize, 0, k);
-        vertices.push(k, 0, -halfSize, k, 0, halfSize);
-        const color = i === center ? color1 : color2;
-        color.toArray(colors, j);
-        j += 3;
-        color.toArray(colors, j);
-        j += 3;
-        color.toArray(colors, j);
-        j += 3;
-        color.toArray(colors, j);
-        j += 3;
-      }
-      const geometry = new BufferGeometry();
-      geometry.setAttribute("position", new Float32BufferAttribute(vertices, 3));
-      geometry.setAttribute("color", new Float32BufferAttribute(colors, 3));
-      const material = new LineBasicMaterial({ vertexColors: true, toneMapped: false });
-      super(geometry, material);
-      this.type = "GridHelper";
-    }
-    dispose() {
-      this.geometry.dispose();
-      this.material.dispose();
     }
   }
   class Controls extends EventDispatcher {
@@ -28119,7 +27989,7 @@ void main() {
     const envMap = createEnvMap(renderer);
     const composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
-    const bloom = new UnrealBloomPass(new Vector2(W, H), 0.7, 0.4, 0.3);
+    const bloom = new UnrealBloomPass(new Vector2(W, H), 0.15, 0.85, 0.01);
     composer.addPass(bloom);
     composer.addPass(new OutputPass());
     setProgress(10, "Scene initialized");
@@ -28141,14 +28011,11 @@ void main() {
     scene.add(fillLight);
     const ground = new Mesh(
       new PlaneGeometry(40, 40),
-      new MeshStandardMaterial({ color: 526348, metalness: 0.85, roughness: 0.25 })
+      new MeshStandardMaterial({ color: 1118481, metalness: 0.15, roughness: 0.75 })
     );
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
     scene.add(ground);
-    const gridHelper = new GridHelper(40, 80, 1118496, 657940);
-    gridHelper.position.y = 3e-3;
-    scene.add(gridHelper);
     setProgress(20, "Ground and lighting ready");
     const signData = [
       { label: "PROJECTS", color: 16711816 },
@@ -28269,55 +28136,14 @@ void main() {
     const neonSign2 = createNeonText("⚡ HERMES AGENT", "#ff0088", 40, 2.8, 0.6);
     neonSign2.position.set(0, 2, -3.85);
     scene.add(neonSign2);
-    const plCyan = new PointLight(52479, 6, 12, 2);
-    plCyan.position.set(0, 2.8, -3.2);
-    scene.add(plCyan);
-    const plPink = new PointLight(16711816, 4, 10, 2);
-    plPink.position.set(0, 2, -3.2);
-    scene.add(plPink);
-    const plOrange = new PointLight(16737792, 3, 8, 2);
-    plOrange.position.set(3.8, 2, 0);
-    scene.add(plOrange);
-    const plPurple = new PointLight(10027263, 3, 8, 2);
-    plPurple.position.set(-3.5, 4.5, 1.5);
-    scene.add(plPurple);
-    setProgress(45, "Neon lighting done");
-    const bldgMat1 = new MeshStandardMaterial({ color: 394768, metalness: 0.2, roughness: 0.8 });
-    const bldgMat2 = new MeshStandardMaterial({ color: 394768, emissive: 657952, emissiveIntensity: 0.3, metalness: 0.2, roughness: 0.8 });
-    [
-      { x: -10, z: -14, w: 2.5, h: 8, d: 2 },
-      { x: -6, z: -16, w: 1.8, h: 12, d: 1.5 },
-      { x: -3, z: -18, w: 3, h: 6, d: 2 },
-      { x: 1, z: -15, w: 2, h: 10, d: 1.8 },
-      { x: 5, z: -17, w: 2.5, h: 7, d: 2 },
-      { x: 8, z: -14, w: 1.5, h: 14, d: 1.5 },
-      { x: 12, z: -16, w: 3, h: 9, d: 2.5 },
-      { x: -12, z: -18, w: 2, h: 11, d: 2 },
-      { x: 14, z: -19, w: 2.8, h: 6.5, d: 2 }
-    ].forEach((b) => {
-      const mesh = new Mesh(new BoxGeometry(b.w, b.h, b.d), Math.random() > 0.5 ? bldgMat1 : bldgMat2);
-      mesh.position.set(b.x, b.h / 2, b.z);
-      scene.add(mesh);
-    });
-    function createWire(p1, p2, sag = 0.3) {
-      const pts = [];
-      for (let t = 0; t <= 1; t += 0.05) {
-        pts.push(new Vector3(
-          p1.x + (p2.x - p1.x) * t,
-          p1.y + (p2.y - p1.y) * t - sag * Math.sin(Math.PI * t),
-          p1.z + (p2.z - p1.z) * t
-        ));
-      }
-      return new Mesh(
-        new TubeGeometry(new CatmullRomCurve3(pts), 12, 0.015, 4, false),
-        new MeshStandardMaterial({ color: 1710618, metalness: 0.4, roughness: 0.6 })
-      );
-    }
-    scene.add(createWire(new Vector3(-4, 3.5, -1.5), new Vector3(-10, 7, -14)));
-    scene.add(createWire(new Vector3(4, 3.5, -1.5), new Vector3(8, 9, -14)));
-    scene.add(createWire(new Vector3(-4, 3.5, -1.5), new Vector3(-6, 8, -16), 0.5));
-    scene.add(createWire(new Vector3(0, 3.55, -4), new Vector3(1, 7, -15), 0.4));
-    setProgress(50, "City backdrop and wires added");
+    const plKey = new PointLight(16774630, 3, 15, 2);
+    plKey.position.set(0, 3.2, 0);
+    scene.add(plKey);
+    const plFill = new PointLight(16768426, 1, 12, 2);
+    plFill.position.set(-3, 2.5, 1);
+    scene.add(plFill);
+    setProgress(50, "Scene built");
+    setProgress(50, "Scene built");
     const barrelGeo = new CylinderGeometry(0.35, 0.35, 0.9, 12);
     const barrelMat = new MeshStandardMaterial({ color: 1118481, metalness: 0.5, roughness: 0.5 });
     [[3.2, 0.45, -2.5], [3.7, 0.45, -2.2], [3.4, 0.45, -1.8]].forEach((p) => {
@@ -28330,7 +28156,6 @@ void main() {
     const shelf = new Mesh(new BoxGeometry(0.4, 0.08, 2), new MeshStandardMaterial({ color: 1710618, metalness: 0.4, roughness: 0.5 }));
     shelf.position.set(-3.8, 1.5, -2);
     scene.add(shelf);
-    scene.add(new PointLight(65416, 2, 3, 2)).position.set(-3.6, 1.7, -2);
     setProgress(55, "Props placed");
     let laptopScreenCanvas = null;
     let laptopScreenTexture = null;

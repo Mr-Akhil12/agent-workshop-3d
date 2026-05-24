@@ -64,7 +64,7 @@ export function start() {
     // ── Post-Processing ──
     const composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
-    const bloom = new UnrealBloomPass(new THREE.Vector2(W, H), 0.7, 0.4, 0.3);
+    const bloom = new UnrealBloomPass(new THREE.Vector2(W, H), 0.15, 0.85, 0.01);
     composer.addPass(bloom);
     composer.addPass(new OutputPass());
 
@@ -85,14 +85,12 @@ export function start() {
     fillLight.position.set(-4, 3, -2);
     scene.add(fillLight);
 
-    // ── Ground ──
+    // ── Ground (dark concrete, no grid) ──
     const ground = new THREE.Mesh(
         new THREE.PlaneGeometry(40, 40),
-        new THREE.MeshStandardMaterial({ color: 0x08080c, metalness: 0.85, roughness: 0.25 })
+        new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.15, roughness: 0.75 })
     );
     ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
-    const gridHelper = new THREE.GridHelper(40, 80, 0x111120, 0x0a0a14);
-    gridHelper.position.y = 0.003; scene.add(gridHelper);
 
     setProgress(20, 'Ground and lighting ready');
 
@@ -182,26 +180,17 @@ export function start() {
     const neonSign2 = createNeonText('⚡ HERMES AGENT', '#ff0088', 40, 2.8, 0.6);
     neonSign2.position.set(0, 2.0, -3.85); scene.add(neonSign2);
 
-    // ── Point Lights ──
-    const plCyan = new THREE.PointLight(0x00ccff, 6, 12, 2); plCyan.position.set(0, 2.8, -3.2); scene.add(plCyan);
-    const plPink = new THREE.PointLight(0xff0088, 4, 10, 2); plPink.position.set(0, 2.0, -3.2); scene.add(plPink);
-    const plOrange = new THREE.PointLight(0xff6600, 3, 8, 2); plOrange.position.set(3.8, 2, 0); scene.add(plOrange);
-    const plPurple = new THREE.PointLight(0x9900ff, 3, 8, 2); plPurple.position.set(-3.5, 4.5, 1.5); scene.add(plPurple);
-    setProgress(45, 'Neon lighting done');
+    // ── Garage Lighting (realistic) ──
+    // Warm overhead key
+    const plKey = new THREE.PointLight(0xfff5e6, 3, 15, 2);
+    plKey.position.set(0, 3.2, 0);
+    scene.add(plKey);
+    // Subtle warm fill from garage door side
+    const plFill = new THREE.PointLight(0xffddaa, 1, 12, 2);
+    plFill.position.set(-3, 2.5, 1);
+    scene.add(plFill);
 
-    // ── Cityscape ──
-    const bldgMat1 = new THREE.MeshStandardMaterial({ color: 0x060610, metalness: 0.2, roughness: 0.8 });
-    const bldgMat2 = new THREE.MeshStandardMaterial({ color: 0x060610, emissive: 0x0a0a20, emissiveIntensity: 0.3, metalness: 0.2, roughness: 0.8 });
-    [
-        {x:-10,z:-14,w:2.5,h:8,d:2},{x:-6,z:-16,w:1.8,h:12,d:1.5},{x:-3,z:-18,w:3,h:6,d:2},
-        {x:1,z:-15,w:2,h:10,d:1.8},{x:5,z:-17,w:2.5,h:7,d:2},{x:8,z:-14,w:1.5,h:14,d:1.5},
-        {x:12,z:-16,w:3,h:9,d:2.5},{x:-12,z:-18,w:2,h:11,d:2},{x:14,z:-19,w:2.8,h:6.5,d:2}
-    ].forEach(b => {
-        const mesh = new THREE.Mesh(new THREE.BoxGeometry(b.w, b.h, b.d), Math.random() > 0.5 ? bldgMat1 : bldgMat2);
-        mesh.position.set(b.x, b.h / 2, b.z); scene.add(mesh);
-    });
-
-    // ── Power Lines ──
+    setProgress(50, 'Scene built');
     function createWire(p1, p2, sag = 0.3) {
         const pts = [];
         for (let t = 0; t <= 1; t += 0.05) {
@@ -216,11 +205,7 @@ export function start() {
             new THREE.MeshStandardMaterial({ color: 0x1a1a1a, metalness: 0.4, roughness: 0.6 })
         );
     }
-    scene.add(createWire(new THREE.Vector3(-4, 3.5, -1.5), new THREE.Vector3(-10, 7, -14)));
-    scene.add(createWire(new THREE.Vector3(4, 3.5, -1.5), new THREE.Vector3(8, 9, -14)));
-    scene.add(createWire(new THREE.Vector3(-4, 3.5, -1.5), new THREE.Vector3(-6, 8, -16), 0.5));
-    scene.add(createWire(new THREE.Vector3(0, 3.55, -4), new THREE.Vector3(1, 7, -15), 0.4));
-    setProgress(50, 'City backdrop and wires added');
+    setProgress(50, 'Scene built');
 
     // ── Props ──
     const barrelGeo = new THREE.CylinderGeometry(0.35, 0.35, 0.9, 12);
@@ -230,7 +215,6 @@ export function start() {
     });
     const shelf = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.08, 2), new THREE.MeshStandardMaterial({ color: 0x1a1a1a, metalness: 0.4, roughness: 0.5 }));
     shelf.position.set(-3.8, 1.5, -2); scene.add(shelf);
-    scene.add(new THREE.PointLight(0x00ff88, 2, 3, 2)).position.set(-3.6, 1.7, -2);
     setProgress(55, 'Props placed');
 
     // ── Laptop (on passenger seat) ──
