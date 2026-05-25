@@ -213,7 +213,7 @@ export function start() {
         const seatMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, metalness: 0.1, roughness: 0.9 });
         const leatherMat = new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.05, roughness: 0.95 });
         const chromeMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 1.0, roughness: 0.05 });
-        const glassMat = new THREE.MeshPhysicalMaterial({ color: 0x111122, metalness: 0.1, roughness: 0.05, transmission: 0.7, transparent: true, opacity: 0.25, depthWrite: false });
+        const glassMat = new THREE.MeshStandardMaterial({ color: 0x111133, metalness: 0.1, roughness: 0.05, transparent: true, opacity: 0.2 });
 
         // Floor
         const floor = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.05, 2.0), cabinMat);
@@ -232,10 +232,12 @@ export function start() {
         for (let a = 0; a < Math.PI * 2; a += Math.PI * 2 / 3) {
             const spoke = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.025, 0.28), chromeMat);
             spoke.position.set(Math.sin(a) * 0.14, 0, Math.cos(a) * 0.14);
-            spoke.rotation.y = a; sg.add(spoke);
+            spoke.rotation.y = a;
+            sg.add(spoke);
         }
         const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.03, 12), dashMat);
-        hub.rotation.x = Math.PI / 2; sg.add(hub);
+        hub.rotation.x = Math.PI / 2;
+        sg.add(hub);
         sg.position.set(-0.4, 0.52, 0.55);
         sg.rotation.x = -0.45;
         sg.rotation.z = 0.12;
@@ -244,40 +246,64 @@ export function start() {
 
         // Driver seat
         const driverSeat = new THREE.Group();
-        driverSeat.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.1, 0.5), seatMat), { position: new THREE.Vector3(0, 0.18, 0) }));
-        driverSeat.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.6, 0.1), seatMat), { position: new THREE.Vector3(0, 0.48, -0.2) }));
-        driverSeat.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.18, 0.07), seatMat), { position: new THREE.Vector3(0, 0.82, -0.22) }));
+        const dBase = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.1, 0.5), seatMat);
+        dBase.position.set(0, 0.18, 0); driverSeat.add(dBase);
+        const dBack = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.6, 0.1), seatMat);
+        dBack.position.set(0, 0.48, -0.2); driverSeat.add(dBack);
+        const dHead = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.18, 0.07), seatMat);
+        dHead.position.set(0, 0.82, -0.22); driverSeat.add(dHead);
         driverSeat.position.set(-0.45, 0, -0.15);
         group.add(driverSeat);
 
         // Passenger seat
         const passSeat = new THREE.Group();
-        passSeat.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.1, 0.5), seatMat), { position: new THREE.Vector3(0, 0.18, 0) }));
-        passSeat.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.6, 0.1), seatMat), { position: new THREE.Vector3(0, 0.48, -0.2) }));
-        passSeat.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.18, 0.07), seatMat), { position: new THREE.Vector3(0, 0.82, -0.22) }));
+        const pBase = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.1, 0.5), seatMat);
+        pBase.position.set(0, 0.18, 0); passSeat.add(pBase);
+        const pBack = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.6, 0.1), seatMat);
+        pBack.position.set(0, 0.48, -0.2); passSeat.add(pBack);
+        const pHead = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.18, 0.07), seatMat);
+        pHead.position.set(0, 0.82, -0.22); passSeat.add(pHead);
         passSeat.position.set(0.45, 0, -0.15);
         group.add(passSeat);
 
         // Center console
-        group.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.3, 0.8), leatherMat), { position: new THREE.Vector3(0, 0.25, 0.15) }));
+        const consoleMesh = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.3, 0.8), leatherMat);
+        consoleMesh.position.set(0, 0.25, 0.15); group.add(consoleMesh);
 
         // Gear shifter
-        group.add(Object.assign(new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.025, 0.15, 8), chromeMat), { position: new THREE.Vector3(0, 0.45, 0.15) }));
-        group.add(Object.assign(new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 8), leatherMat), { position: new THREE.Vector3(0, 0.54, 0.15) }));
+        const gearStick = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.025, 0.15, 8), chromeMat);
+        gearStick.position.set(0, 0.45, 0.15); group.add(gearStick);
+        const gearKnob = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 8), leatherMat);
+        gearKnob.position.set(0, 0.54, 0.15); group.add(gearKnob);
 
         // Windshield
-        group.add(Object.assign(new THREE.Mesh(new THREE.PlaneGeometry(1.5, 0.7), glassMat), { position: new THREE.Vector3(0, 0.72, 0.78), rotation: new THREE.Euler(-0.3, 0, 0) }));
+        const windshield = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 0.7), glassMat);
+        windshield.position.set(0, 0.72, 0.78);
+        windshield.rotation.x = -0.3;
+        group.add(windshield);
+
         // Rear window
-        group.add(Object.assign(new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.55), glassMat), { position: new THREE.Vector3(0, 0.7, -0.9), rotation: new THREE.Euler(0.35, Math.PI, 0) }));
+        const rearWin = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.55), glassMat);
+        rearWin.position.set(0, 0.7, -0.9);
+        rearWin.rotation.x = 0.35;
+        rearWin.rotation.y = Math.PI;
+        group.add(rearWin);
 
         // A-pillars
         const pillarGeo = new THREE.BoxGeometry(0.05, 0.55, 0.05);
-        group.add(Object.assign(new THREE.Mesh(pillarGeo, cabinMat), { position: new THREE.Vector3(-0.6, 0.65, 0.6), rotation: new THREE.Euler(0, 0, 0.35) }));
-        group.add(Object.assign(new THREE.Mesh(pillarGeo, cabinMat), { position: new THREE.Vector3(0.6, 0.65, 0.6), rotation: new THREE.Euler(0, 0, -0.35) }));
+        const pL = new THREE.Mesh(pillarGeo, cabinMat);
+        pL.position.set(-0.6, 0.65, 0.6);
+        pL.rotation.z = 0.35;
+        group.add(pL);
+        const pR = new THREE.Mesh(pillarGeo, cabinMat);
+        pR.position.set(0.6, 0.65, 0.6);
+        pR.rotation.z = -0.35;
+        group.add(pR);
 
         // Interior neon
         const dashNeon = new THREE.PointLight(0x00ccff, 1.5, 2.5, 2);
-        dashNeon.position.set(0, 0.4, 0.5); group.add(dashNeon);
+        dashNeon.position.set(0, 0.4, 0.5);
+        group.add(dashNeon);
 
         return group;
     }
@@ -307,87 +333,87 @@ export function start() {
     const loader = new GLTFLoader();
 
     loader.load('assets/models/runx.glb', (gltf) => {
-        carModel = gltf.scene;
-        const box = new THREE.Box3().setFromObject(carModel);
-        const size = new THREE.Vector3(); box.getSize(size);
-        const maxDim = Math.max(size.x, size.y, size.z) || 1;
-        const S = 3.5 / maxDim;
-        carModel.scale.setScalar(S);
-        const center = new THREE.Vector3(); box.getCenter(center);
-        // Position car so it sits on the ground at z=1
-        carModel.position.set(-center.x * S, -box.min.y * S, 1.0 - center.z * S);
+        try {
+            carModel = gltf.scene;
+            const box = new THREE.Box3().setFromObject(carModel);
+            const size = new THREE.Vector3(); box.getSize(size);
+            const maxDim = Math.max(size.x, size.y, size.z) || 1;
+            const S = 3.5 / maxDim;
+            carModel.scale.setScalar(S);
+            const center = new THREE.Vector3(); box.getCenter(center);
+            carModel.position.set(-center.x * S, -box.min.y * S, 1.0 - center.z * S);
 
-        let paintCount = 0;
-        carModel.traverse(child => {
-            if (!child.isMesh) return;
-            child.castShadow = true; child.receiveShadow = true;
-            const mat = child.material; if (!mat) return;
-            const mn = (mat.name || '').toLowerCase();
-            if (mn === 'paint1' || mn.includes('paint')) {
-                const cb = new THREE.Box3().setFromObject(child);
-                const cs = cb.getSize(new THREE.Vector3());
-                if (cs.x * cs.y * S > 0.3) { child.material = makeFlakeBlackPaint(envMap); paintCount++; }
+            let paintCount = 0;
+            carModel.traverse(child => {
+                if (!child.isMesh) return;
+                child.castShadow = true; child.receiveShadow = true;
+                if (!child.material) return;
+                const mn = (child.material.name || '').toLowerCase();
+                if (mn === 'paint1' || mn.includes('paint')) {
+                    const cb = new THREE.Box3().setFromObject(child);
+                    const cs = cb.getSize(new THREE.Vector3());
+                    if (cs.x * cs.y * S > 0.3) {
+                        child.material = makeFlakeBlackPaint(envMap);
+                        paintCount++;
+                    }
+                }
+                if (mn.includes('chrome') || mn === 'silver_metallic_199') {
+                    if (child.material.color) child.material.color.setHex(0xcccccc);
+                    child.material.metalness = 1.0;
+                    child.material.roughness = 0.05;
+                    child.material.envMap = envMap;
+                    child.material.envMapIntensity = 2.0;
+                    child.material.needsUpdate = true;
+                }
+                if (mn.includes('glass') || mn.includes('translucent')) {
+                    child.material.envMap = envMap;
+                    child.material.envMapIntensity = 1.5;
+                    child.material.needsUpdate = true;
+                }
+            });
+
+            // Build interior and parent to car
+            carInterior = buildCarInterior();
+            const carBox = new THREE.Box3().setFromObject(carModel);
+            carInterior.position.set(0, -carBox.min.y * S + 0.02, (carBox.max.z - carBox.min.z) * S * 0.15);
+            carModel.add(carInterior);
+
+            // Laptop on passenger seat
+            laptop = buildLaptopMesh();
+            laptop.position.set(0.42, 0.26, -0.12);
+            laptop.rotation.y = 0.25;
+            laptop.rotation.x = -0.1;
+            laptop.scale.setScalar(0.22);
+            carInterior.add(laptop);
+
+            scene.add(carModel);
+            interactive.push({ mesh: carModel, data: { label: 'GARAGE', type: 'car' } });
+            interactive.push({ mesh: laptop, data: { label: 'LAPTOP', type: 'laptop' } });
+
+            // Find exhaust
+            let exhaustFound = false;
+            const exhaustPos = new THREE.Vector3();
+            carModel.traverse(child => {
+                if (!child.isMesh) return;
+                const mn = (child.name || '').toLowerCase();
+                if (mn.includes('exhaust') || mn.includes('pipe') || mn.includes('muffler')) {
+                    child.getWorldPosition(exhaustPos);
+                    exhaustFound = true;
+                }
+            });
+            if (!exhaustFound) {
+                exhaustPos.set(carModel.position.x + 0.3, carModel.position.y + 0.12, carModel.position.z - (carBox.max.z - carBox.min.z) * S * 0.45);
             }
-            if (mn.includes('chrome') || mn === 'silver_metallic_199') {
-                if (mat.color) mat.color.setHex(0xcccccc);
-                mat.metalness = 1.0; mat.roughness = 0.05;
-                mat.envMap = envMap; mat.envMapIntensity = 2.0; mat.needsUpdate = true;
-            }
-            if (mn.includes('glass') || mn.includes('translucent')) {
-                mat.envMap = envMap; mat.envMapIntensity = 1.5; mat.needsUpdate = true;
-            }
-        });
+            window.__exhaustPos = exhaustPos;
 
-        // ── Build interior and parent to car ──
-        carInterior = buildCarInterior();
-        // Position interior so it sits inside the car model's cabin
-        // The car model's local origin is at its bounding box center
-        // We want the interior floor to be at the car's floor level
-        const carBox = new THREE.Box3().setFromObject(carModel);
-        const carMin = carBox.min;
-        const carMax = carBox.max;
-        // Place interior: centered in X, at floor level in Y, slightly forward in Z
-        carInterior.position.set(
-            0,                          // centered in car
-            -carMin.y * S + 0.02,       // just above car floor
-            (carMax.z - carMin.z) * S * 0.15  // slightly forward of center (cabin area)
-        );
-        carModel.add(carInterior);
-
-        // ── Build laptop and place on passenger seat ──
-        laptop = buildLaptopMesh();
-        // Position on passenger seat (right side), raised above seat cushion
-        laptop.position.set(0.42, 0.26, -0.12);
-        laptop.rotation.y = 0.25;
-        laptop.rotation.x = -0.1;
-        laptop.scale.setScalar(0.22);
-        carInterior.add(laptop);
-
-        scene.add(carModel);
-        interactive.push({ mesh: carModel, data: { label: 'GARAGE', type: 'car' } });
-        interactive.push({ mesh: laptop, data: { label: 'LAPTOP', type: 'laptop' } });
-
-        // ── Find exhaust for flame positioning ──
-        let exhaustFound = false;
-        const exhaustPos = new THREE.Vector3();
-        carModel.traverse(child => {
-            if (!child.isMesh) return;
-            const mn = (child.name || '').toLowerCase();
-            if (mn.includes('exhaust') || mn.includes('pipe') || mn.includes('muffler')) {
-                child.getWorldPosition(exhaustPos);
-                exhaustFound = true;
-            }
-        });
-        if (!exhaustFound) {
-            // Fallback: rear of car, low
-            exhaustPos.set(carModel.position.x + 0.3, carModel.position.y + 0.12, carModel.position.z - (carMax.z - carMin.z) * S * 0.45);
+            renderStreamlitDashboard();
+            setProgress(100, `Car loaded • ${paintCount} panels resprayed 🖤`);
+            setTimeout(hideLoad, 600);
+        } catch (e) {
+            console.error('Car load error:', e);
+            setProgress(100, 'Car load error');
+            setTimeout(hideLoad, 600);
         }
-        // Store exhaust pos for flame system
-        window.__exhaustPos = exhaustPos;
-
-        renderStreamlitDashboard();
-        setProgress(100, `Car loaded • ${paintCount} panels resprayed 🖤`);
-        setTimeout(hideLoad, 600);
     }, (xhr) => {
         if (xhr.total > 0) setProgress(50 + Math.round(xhr.loaded / xhr.total * 40), `Loading car: ${Math.round(xhr.loaded / xhr.total * 100)}%`);
     }, (err) => {
@@ -1008,4 +1034,10 @@ export function start() {
     }
     animate();
     setProgress(55, 'Ready to roll...');
+
+    // Safety timeout: force-hide loading after 4 seconds regardless
+    setTimeout(() => {
+        setProgress(100, 'Loaded');
+        hideLoad();
+    }, 4000);
 }

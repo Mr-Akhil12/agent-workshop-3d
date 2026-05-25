@@ -27489,7 +27489,7 @@ void main() {
       const seatMat = new MeshStandardMaterial({ color: 1710618, metalness: 0.1, roughness: 0.9 });
       const leatherMat = new MeshStandardMaterial({ color: 1118481, metalness: 0.05, roughness: 0.95 });
       const chromeMat = new MeshStandardMaterial({ color: 13421772, metalness: 1, roughness: 0.05 });
-      const glassMat = new MeshPhysicalMaterial({ color: 1118498, metalness: 0.1, roughness: 0.05, transmission: 0.7, transparent: true, opacity: 0.25, depthWrite: false });
+      const glassMat = new MeshStandardMaterial({ color: 1118515, metalness: 0.1, roughness: 0.05, transparent: true, opacity: 0.2 });
       const floor = new Mesh(new BoxGeometry(1.8, 0.05, 2), cabinMat);
       floor.position.set(0, 0.08, 0);
       group.add(floor);
@@ -27517,25 +27517,56 @@ void main() {
       group.add(sg);
       steerGroup = sg;
       const driverSeat = new Group();
-      driverSeat.add(Object.assign(new Mesh(new BoxGeometry(0.5, 0.1, 0.5), seatMat), { position: new Vector3(0, 0.18, 0) }));
-      driverSeat.add(Object.assign(new Mesh(new BoxGeometry(0.5, 0.6, 0.1), seatMat), { position: new Vector3(0, 0.48, -0.2) }));
-      driverSeat.add(Object.assign(new Mesh(new BoxGeometry(0.22, 0.18, 0.07), seatMat), { position: new Vector3(0, 0.82, -0.22) }));
+      const dBase = new Mesh(new BoxGeometry(0.5, 0.1, 0.5), seatMat);
+      dBase.position.set(0, 0.18, 0);
+      driverSeat.add(dBase);
+      const dBack = new Mesh(new BoxGeometry(0.5, 0.6, 0.1), seatMat);
+      dBack.position.set(0, 0.48, -0.2);
+      driverSeat.add(dBack);
+      const dHead = new Mesh(new BoxGeometry(0.22, 0.18, 0.07), seatMat);
+      dHead.position.set(0, 0.82, -0.22);
+      driverSeat.add(dHead);
       driverSeat.position.set(-0.45, 0, -0.15);
       group.add(driverSeat);
       const passSeat = new Group();
-      passSeat.add(Object.assign(new Mesh(new BoxGeometry(0.5, 0.1, 0.5), seatMat), { position: new Vector3(0, 0.18, 0) }));
-      passSeat.add(Object.assign(new Mesh(new BoxGeometry(0.5, 0.6, 0.1), seatMat), { position: new Vector3(0, 0.48, -0.2) }));
-      passSeat.add(Object.assign(new Mesh(new BoxGeometry(0.22, 0.18, 0.07), seatMat), { position: new Vector3(0, 0.82, -0.22) }));
+      const pBase = new Mesh(new BoxGeometry(0.5, 0.1, 0.5), seatMat);
+      pBase.position.set(0, 0.18, 0);
+      passSeat.add(pBase);
+      const pBack = new Mesh(new BoxGeometry(0.5, 0.6, 0.1), seatMat);
+      pBack.position.set(0, 0.48, -0.2);
+      passSeat.add(pBack);
+      const pHead = new Mesh(new BoxGeometry(0.22, 0.18, 0.07), seatMat);
+      pHead.position.set(0, 0.82, -0.22);
+      passSeat.add(pHead);
       passSeat.position.set(0.45, 0, -0.15);
       group.add(passSeat);
-      group.add(Object.assign(new Mesh(new BoxGeometry(0.25, 0.3, 0.8), leatherMat), { position: new Vector3(0, 0.25, 0.15) }));
-      group.add(Object.assign(new Mesh(new CylinderGeometry(0.02, 0.025, 0.15, 8), chromeMat), { position: new Vector3(0, 0.45, 0.15) }));
-      group.add(Object.assign(new Mesh(new SphereGeometry(0.035, 8, 8), leatherMat), { position: new Vector3(0, 0.54, 0.15) }));
-      group.add(Object.assign(new Mesh(new PlaneGeometry(1.5, 0.7), glassMat), { position: new Vector3(0, 0.72, 0.78), rotation: new Euler(-0.3, 0, 0) }));
-      group.add(Object.assign(new Mesh(new PlaneGeometry(1.4, 0.55), glassMat), { position: new Vector3(0, 0.7, -0.9), rotation: new Euler(0.35, Math.PI, 0) }));
+      const consoleMesh = new Mesh(new BoxGeometry(0.25, 0.3, 0.8), leatherMat);
+      consoleMesh.position.set(0, 0.25, 0.15);
+      group.add(consoleMesh);
+      const gearStick = new Mesh(new CylinderGeometry(0.02, 0.025, 0.15, 8), chromeMat);
+      gearStick.position.set(0, 0.45, 0.15);
+      group.add(gearStick);
+      const gearKnob = new Mesh(new SphereGeometry(0.035, 8, 8), leatherMat);
+      gearKnob.position.set(0, 0.54, 0.15);
+      group.add(gearKnob);
+      const windshield = new Mesh(new PlaneGeometry(1.5, 0.7), glassMat);
+      windshield.position.set(0, 0.72, 0.78);
+      windshield.rotation.x = -0.3;
+      group.add(windshield);
+      const rearWin = new Mesh(new PlaneGeometry(1.4, 0.55), glassMat);
+      rearWin.position.set(0, 0.7, -0.9);
+      rearWin.rotation.x = 0.35;
+      rearWin.rotation.y = Math.PI;
+      group.add(rearWin);
       const pillarGeo = new BoxGeometry(0.05, 0.55, 0.05);
-      group.add(Object.assign(new Mesh(pillarGeo, cabinMat), { position: new Vector3(-0.6, 0.65, 0.6), rotation: new Euler(0, 0, 0.35) }));
-      group.add(Object.assign(new Mesh(pillarGeo, cabinMat), { position: new Vector3(0.6, 0.65, 0.6), rotation: new Euler(0, 0, -0.35) }));
+      const pL = new Mesh(pillarGeo, cabinMat);
+      pL.position.set(-0.6, 0.65, 0.6);
+      pL.rotation.z = 0.35;
+      group.add(pL);
+      const pR = new Mesh(pillarGeo, cabinMat);
+      pR.position.set(0.6, 0.65, 0.6);
+      pR.rotation.z = -0.35;
+      group.add(pR);
       const dashNeon = new PointLight(52479, 1.5, 2.5, 2);
       dashNeon.position.set(0, 0.4, 0.5);
       group.add(dashNeon);
@@ -27568,85 +27599,81 @@ void main() {
     const interactive = [];
     const loader = new GLTFLoader();
     loader.load("assets/models/runx.glb", (gltf) => {
-      carModel = gltf.scene;
-      const box = new Box3().setFromObject(carModel);
-      const size = new Vector3();
-      box.getSize(size);
-      const maxDim = Math.max(size.x, size.y, size.z) || 1;
-      const S = 3.5 / maxDim;
-      carModel.scale.setScalar(S);
-      const center = new Vector3();
-      box.getCenter(center);
-      carModel.position.set(-center.x * S, -box.min.y * S, 1 - center.z * S);
-      let paintCount = 0;
-      carModel.traverse((child) => {
-        if (!child.isMesh) return;
-        child.castShadow = true;
-        child.receiveShadow = true;
-        const mat = child.material;
-        if (!mat) return;
-        const mn = (mat.name || "").toLowerCase();
-        if (mn === "paint1" || mn.includes("paint")) {
-          const cb = new Box3().setFromObject(child);
-          const cs = cb.getSize(new Vector3());
-          if (cs.x * cs.y * S > 0.3) {
-            child.material = makeFlakeBlackPaint(envMap);
-            paintCount++;
+      try {
+        carModel = gltf.scene;
+        const box = new Box3().setFromObject(carModel);
+        const size = new Vector3();
+        box.getSize(size);
+        const maxDim = Math.max(size.x, size.y, size.z) || 1;
+        const S = 3.5 / maxDim;
+        carModel.scale.setScalar(S);
+        const center = new Vector3();
+        box.getCenter(center);
+        carModel.position.set(-center.x * S, -box.min.y * S, 1 - center.z * S);
+        let paintCount = 0;
+        carModel.traverse((child) => {
+          if (!child.isMesh) return;
+          child.castShadow = true;
+          child.receiveShadow = true;
+          if (!child.material) return;
+          const mn = (child.material.name || "").toLowerCase();
+          if (mn === "paint1" || mn.includes("paint")) {
+            const cb = new Box3().setFromObject(child);
+            const cs = cb.getSize(new Vector3());
+            if (cs.x * cs.y * S > 0.3) {
+              child.material = makeFlakeBlackPaint(envMap);
+              paintCount++;
+            }
           }
+          if (mn.includes("chrome") || mn === "silver_metallic_199") {
+            if (child.material.color) child.material.color.setHex(13421772);
+            child.material.metalness = 1;
+            child.material.roughness = 0.05;
+            child.material.envMap = envMap;
+            child.material.envMapIntensity = 2;
+            child.material.needsUpdate = true;
+          }
+          if (mn.includes("glass") || mn.includes("translucent")) {
+            child.material.envMap = envMap;
+            child.material.envMapIntensity = 1.5;
+            child.material.needsUpdate = true;
+          }
+        });
+        carInterior = buildCarInterior();
+        const carBox = new Box3().setFromObject(carModel);
+        carInterior.position.set(0, -carBox.min.y * S + 0.02, (carBox.max.z - carBox.min.z) * S * 0.15);
+        carModel.add(carInterior);
+        laptop = buildLaptopMesh();
+        laptop.position.set(0.42, 0.26, -0.12);
+        laptop.rotation.y = 0.25;
+        laptop.rotation.x = -0.1;
+        laptop.scale.setScalar(0.22);
+        carInterior.add(laptop);
+        scene.add(carModel);
+        interactive.push({ mesh: carModel, data: { label: "GARAGE", type: "car" } });
+        interactive.push({ mesh: laptop, data: { label: "LAPTOP", type: "laptop" } });
+        let exhaustFound = false;
+        const exhaustPos = new Vector3();
+        carModel.traverse((child) => {
+          if (!child.isMesh) return;
+          const mn = (child.name || "").toLowerCase();
+          if (mn.includes("exhaust") || mn.includes("pipe") || mn.includes("muffler")) {
+            child.getWorldPosition(exhaustPos);
+            exhaustFound = true;
+          }
+        });
+        if (!exhaustFound) {
+          exhaustPos.set(carModel.position.x + 0.3, carModel.position.y + 0.12, carModel.position.z - (carBox.max.z - carBox.min.z) * S * 0.45);
         }
-        if (mn.includes("chrome") || mn === "silver_metallic_199") {
-          if (mat.color) mat.color.setHex(13421772);
-          mat.metalness = 1;
-          mat.roughness = 0.05;
-          mat.envMap = envMap;
-          mat.envMapIntensity = 2;
-          mat.needsUpdate = true;
-        }
-        if (mn.includes("glass") || mn.includes("translucent")) {
-          mat.envMap = envMap;
-          mat.envMapIntensity = 1.5;
-          mat.needsUpdate = true;
-        }
-      });
-      carInterior = buildCarInterior();
-      const carBox = new Box3().setFromObject(carModel);
-      const carMin = carBox.min;
-      const carMax = carBox.max;
-      carInterior.position.set(
-        0,
-        // centered in car
-        -carMin.y * S + 0.02,
-        // just above car floor
-        (carMax.z - carMin.z) * S * 0.15
-        // slightly forward of center (cabin area)
-      );
-      carModel.add(carInterior);
-      laptop = buildLaptopMesh();
-      laptop.position.set(0.42, 0.26, -0.12);
-      laptop.rotation.y = 0.25;
-      laptop.rotation.x = -0.1;
-      laptop.scale.setScalar(0.22);
-      carInterior.add(laptop);
-      scene.add(carModel);
-      interactive.push({ mesh: carModel, data: { label: "GARAGE", type: "car" } });
-      interactive.push({ mesh: laptop, data: { label: "LAPTOP", type: "laptop" } });
-      let exhaustFound = false;
-      const exhaustPos = new Vector3();
-      carModel.traverse((child) => {
-        if (!child.isMesh) return;
-        const mn = (child.name || "").toLowerCase();
-        if (mn.includes("exhaust") || mn.includes("pipe") || mn.includes("muffler")) {
-          child.getWorldPosition(exhaustPos);
-          exhaustFound = true;
-        }
-      });
-      if (!exhaustFound) {
-        exhaustPos.set(carModel.position.x + 0.3, carModel.position.y + 0.12, carModel.position.z - (carMax.z - carMin.z) * S * 0.45);
+        window.__exhaustPos = exhaustPos;
+        renderStreamlitDashboard();
+        setProgress(100, `Car loaded • ${paintCount} panels resprayed 🖤`);
+        setTimeout(hideLoad, 600);
+      } catch (e) {
+        console.error("Car load error:", e);
+        setProgress(100, "Car load error");
+        setTimeout(hideLoad, 600);
       }
-      window.__exhaustPos = exhaustPos;
-      renderStreamlitDashboard();
-      setProgress(100, `Car loaded • ${paintCount} panels resprayed 🖤`);
-      setTimeout(hideLoad, 600);
     }, (xhr) => {
       if (xhr.total > 0) setProgress(50 + Math.round(xhr.loaded / xhr.total * 40), `Loading car: ${Math.round(xhr.loaded / xhr.total * 100)}%`);
     }, (err) => {
@@ -28294,6 +28321,10 @@ void main() {
     }
     animate();
     setProgress(55, "Ready to roll...");
+    setTimeout(() => {
+      setProgress(100, "Loaded");
+      hideLoad();
+    }, 4e3);
   }
   exports.start = start;
   Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
