@@ -20732,66 +20732,6 @@ void main() {
       return new SphereGeometry(data.radius, data.widthSegments, data.heightSegments, data.phiStart, data.phiLength, data.thetaStart, data.thetaLength);
     }
   }
-  class TorusGeometry extends BufferGeometry {
-    constructor(radius = 1, tube = 0.4, radialSegments = 12, tubularSegments = 48, arc = Math.PI * 2) {
-      super();
-      this.type = "TorusGeometry";
-      this.parameters = {
-        radius,
-        tube,
-        radialSegments,
-        tubularSegments,
-        arc
-      };
-      radialSegments = Math.floor(radialSegments);
-      tubularSegments = Math.floor(tubularSegments);
-      const indices = [];
-      const vertices = [];
-      const normals = [];
-      const uvs = [];
-      const center = new Vector3();
-      const vertex2 = new Vector3();
-      const normal = new Vector3();
-      for (let j = 0; j <= radialSegments; j++) {
-        for (let i = 0; i <= tubularSegments; i++) {
-          const u = i / tubularSegments * arc;
-          const v = j / radialSegments * Math.PI * 2;
-          vertex2.x = (radius + tube * Math.cos(v)) * Math.cos(u);
-          vertex2.y = (radius + tube * Math.cos(v)) * Math.sin(u);
-          vertex2.z = tube * Math.sin(v);
-          vertices.push(vertex2.x, vertex2.y, vertex2.z);
-          center.x = radius * Math.cos(u);
-          center.y = radius * Math.sin(u);
-          normal.subVectors(vertex2, center).normalize();
-          normals.push(normal.x, normal.y, normal.z);
-          uvs.push(i / tubularSegments);
-          uvs.push(j / radialSegments);
-        }
-      }
-      for (let j = 1; j <= radialSegments; j++) {
-        for (let i = 1; i <= tubularSegments; i++) {
-          const a = (tubularSegments + 1) * j + i - 1;
-          const b = (tubularSegments + 1) * (j - 1) + i - 1;
-          const c = (tubularSegments + 1) * (j - 1) + i;
-          const d = (tubularSegments + 1) * j + i;
-          indices.push(a, b, d);
-          indices.push(b, c, d);
-        }
-      }
-      this.setIndex(indices);
-      this.setAttribute("position", new Float32BufferAttribute(vertices, 3));
-      this.setAttribute("normal", new Float32BufferAttribute(normals, 3));
-      this.setAttribute("uv", new Float32BufferAttribute(uvs, 2));
-    }
-    copy(source) {
-      super.copy(source);
-      this.parameters = Object.assign({}, source.parameters);
-      return this;
-    }
-    static fromJSON(data) {
-      return new TorusGeometry(data.radius, data.tube, data.radialSegments, data.tubularSegments, data.arc);
-    }
-  }
   class RawShaderMaterial extends ShaderMaterial {
     static get type() {
       return "RawShaderMaterial";
@@ -27316,16 +27256,15 @@ void main() {
     let playerState = "walking";
     let fpYaw = 0, fpPitch = 0;
     let isPointerLocked = false;
-    let entryAnim = { active: false, t: 0, duration: 1, fromPos: new Vector3(), toPos: new Vector3(), fromLook: new Vector3(), toLook: new Vector3() };
+    let entryAnim = { active: false, t: 0, duration: 0.8, fromPos: new Vector3(), toPos: new Vector3(), fromLook: new Vector3(), toLook: new Vector3() };
     let carModel = null;
-    let carInterior = null;
-    let steerGroup = null;
     let laptop = null;
     let laptopScreenCanvas = null;
     let laptopScreenTexture = null;
     const streamlitState = { activePage: "dashboard" };
-    const DRIVER_SEAT_LOCAL = new Vector3(-0.5, 0.45, 0.1);
-    const DRIVER_EYE_LOCAL = new Vector3(0, 0.55, 0);
+    let cabinCenter = new Vector3(0, 0.6, 1);
+    let driverEyePos = new Vector3(-0.4, 1, 1.2);
+    let exhaustWorldPos = new Vector3(0, 0.15, -0.5);
     const envMap = createEnvMap(renderer);
     const composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
@@ -27346,7 +27285,9 @@ void main() {
     keyLight.shadow.camera.bottom = -8;
     keyLight.shadow.bias = -1e-3;
     scene.add(keyLight);
-    scene.add(new DirectionalLight(4482815, 0.15).translateX(-4).translateY(3).translateZ(-2));
+    const fillLight = new DirectionalLight(4482815, 0.15);
+    fillLight.position.set(-4, 3, -2);
+    scene.add(fillLight);
     const ground = new Mesh(
       new PlaneGeometry(40, 40),
       new MeshStandardMaterial({ color: 526348, metalness: 0.85, roughness: 0.25 })
@@ -27482,96 +27423,6 @@ void main() {
       if (e.code === "KeyA" || e.code === "ArrowLeft") moveState.left = false;
       if (e.code === "KeyD" || e.code === "ArrowRight") moveState.right = false;
     });
-    function buildCarInterior() {
-      const group = new Group();
-      const cabinMat = new MeshStandardMaterial({ color: 657930, metalness: 0.3, roughness: 0.85 });
-      const dashMat = new MeshStandardMaterial({ color: 1118481, metalness: 0.6, roughness: 0.4 });
-      const seatMat = new MeshStandardMaterial({ color: 1710618, metalness: 0.1, roughness: 0.9 });
-      const leatherMat = new MeshStandardMaterial({ color: 1118481, metalness: 0.05, roughness: 0.95 });
-      const chromeMat = new MeshStandardMaterial({ color: 13421772, metalness: 1, roughness: 0.05 });
-      const glassMat = new MeshStandardMaterial({ color: 1118515, metalness: 0.1, roughness: 0.05, transparent: true, opacity: 0.2 });
-      const floor = new Mesh(new BoxGeometry(1.8, 0.05, 2), cabinMat);
-      floor.position.set(0, 0.08, 0);
-      group.add(floor);
-      const dash = new Mesh(new BoxGeometry(1.6, 0.3, 0.12), dashMat);
-      dash.position.set(0, 0.5, 0.7);
-      group.add(dash);
-      const dashTop = new Mesh(new BoxGeometry(1.6, 0.05, 0.2), dashMat);
-      dashTop.position.set(0, 0.66, 0.62);
-      group.add(dashTop);
-      const sg = new Group();
-      const steerRing = new Mesh(new TorusGeometry(0.18, 0.02, 8, 24), chromeMat);
-      sg.add(steerRing);
-      for (let a = 0; a < Math.PI * 2; a += Math.PI * 2 / 3) {
-        const spoke = new Mesh(new BoxGeometry(0.03, 0.025, 0.28), chromeMat);
-        spoke.position.set(Math.sin(a) * 0.14, 0, Math.cos(a) * 0.14);
-        spoke.rotation.y = a;
-        sg.add(spoke);
-      }
-      const hub = new Mesh(new CylinderGeometry(0.05, 0.05, 0.03, 12), dashMat);
-      hub.rotation.x = Math.PI / 2;
-      sg.add(hub);
-      sg.position.set(-0.4, 0.52, 0.55);
-      sg.rotation.x = -0.45;
-      sg.rotation.z = 0.12;
-      group.add(sg);
-      steerGroup = sg;
-      const driverSeat = new Group();
-      const dBase = new Mesh(new BoxGeometry(0.5, 0.1, 0.5), seatMat);
-      dBase.position.set(0, 0.18, 0);
-      driverSeat.add(dBase);
-      const dBack = new Mesh(new BoxGeometry(0.5, 0.6, 0.1), seatMat);
-      dBack.position.set(0, 0.48, -0.2);
-      driverSeat.add(dBack);
-      const dHead = new Mesh(new BoxGeometry(0.22, 0.18, 0.07), seatMat);
-      dHead.position.set(0, 0.82, -0.22);
-      driverSeat.add(dHead);
-      driverSeat.position.set(-0.45, 0, -0.15);
-      group.add(driverSeat);
-      const passSeat = new Group();
-      const pBase = new Mesh(new BoxGeometry(0.5, 0.1, 0.5), seatMat);
-      pBase.position.set(0, 0.18, 0);
-      passSeat.add(pBase);
-      const pBack = new Mesh(new BoxGeometry(0.5, 0.6, 0.1), seatMat);
-      pBack.position.set(0, 0.48, -0.2);
-      passSeat.add(pBack);
-      const pHead = new Mesh(new BoxGeometry(0.22, 0.18, 0.07), seatMat);
-      pHead.position.set(0, 0.82, -0.22);
-      passSeat.add(pHead);
-      passSeat.position.set(0.45, 0, -0.15);
-      group.add(passSeat);
-      const consoleMesh = new Mesh(new BoxGeometry(0.25, 0.3, 0.8), leatherMat);
-      consoleMesh.position.set(0, 0.25, 0.15);
-      group.add(consoleMesh);
-      const gearStick = new Mesh(new CylinderGeometry(0.02, 0.025, 0.15, 8), chromeMat);
-      gearStick.position.set(0, 0.45, 0.15);
-      group.add(gearStick);
-      const gearKnob = new Mesh(new SphereGeometry(0.035, 8, 8), leatherMat);
-      gearKnob.position.set(0, 0.54, 0.15);
-      group.add(gearKnob);
-      const windshield = new Mesh(new PlaneGeometry(1.5, 0.7), glassMat);
-      windshield.position.set(0, 0.72, 0.78);
-      windshield.rotation.x = -0.3;
-      group.add(windshield);
-      const rearWin = new Mesh(new PlaneGeometry(1.4, 0.55), glassMat);
-      rearWin.position.set(0, 0.7, -0.9);
-      rearWin.rotation.x = 0.35;
-      rearWin.rotation.y = Math.PI;
-      group.add(rearWin);
-      const pillarGeo = new BoxGeometry(0.05, 0.55, 0.05);
-      const pL = new Mesh(pillarGeo, cabinMat);
-      pL.position.set(-0.6, 0.65, 0.6);
-      pL.rotation.z = 0.35;
-      group.add(pL);
-      const pR = new Mesh(pillarGeo, cabinMat);
-      pR.position.set(0.6, 0.65, 0.6);
-      pR.rotation.z = -0.35;
-      group.add(pR);
-      const dashNeon = new PointLight(52479, 1.5, 2.5, 2);
-      dashNeon.position.set(0, 0.4, 0.5);
-      group.add(dashNeon);
-      return group;
-    }
     function buildLaptopMesh() {
       const group = new Group();
       const baseMat = new MeshStandardMaterial({ color: 1710618, metalness: 0.8, roughness: 0.2 });
@@ -27610,6 +27461,13 @@ void main() {
         const center = new Vector3();
         box.getCenter(center);
         carModel.position.set(-center.x * S, -box.min.y * S, 1 - center.z * S);
+        const meshNames = [];
+        carModel.traverse((child) => {
+          if (child.isMesh) {
+            meshNames.push(child.name + " | mat:" + (child.material ? child.material.name : "none"));
+          }
+        });
+        console.log("CAR MESHES:", meshNames.join(" ;; "));
         let paintCount = 0;
         carModel.traverse((child) => {
           if (!child.isMesh) return;
@@ -27639,33 +27497,60 @@ void main() {
             child.material.needsUpdate = true;
           }
         });
-        carInterior = buildCarInterior();
         const carBox = new Box3().setFromObject(carModel);
-        carInterior.position.set(0, -carBox.min.y * S + 0.02, (carBox.max.z - carBox.min.z) * S * 0.15);
-        carModel.add(carInterior);
-        laptop = buildLaptopMesh();
-        laptop.position.set(0.42, 0.26, -0.12);
-        laptop.rotation.y = 0.25;
-        laptop.rotation.x = -0.1;
-        laptop.scale.setScalar(0.22);
-        carInterior.add(laptop);
-        scene.add(carModel);
-        interactive.push({ mesh: carModel, data: { label: "GARAGE", type: "car" } });
-        interactive.push({ mesh: laptop, data: { label: "LAPTOP", type: "laptop" } });
+        const carMin = carBox.min;
+        const carMax = carBox.max;
+        const carWorldPos = carModel.position;
+        const cabinLocal = new Vector3(
+          0,
+          // centered left-right
+          (carMax.y - carMin.y) * S * 0.55,
+          // mid-height of car body
+          (carMax.z - carMin.z) * S * 0.1
+          // slightly forward of center (cabin)
+        );
+        cabinCenter = cabinLocal.clone().add(carWorldPos);
+        driverEyePos = new Vector3(
+          carWorldPos.x - (carMax.x - carMin.x) * S * 0.25,
+          // left side (driver)
+          carWorldPos.y + (carMax.y - carMin.y) * S * 0.6,
+          // eye height
+          carWorldPos.z + (carMax.z - carMin.z) * S * 0.1
+          // cabin area
+        );
         let exhaustFound = false;
-        const exhaustPos = new Vector3();
         carModel.traverse((child) => {
           if (!child.isMesh) return;
           const mn = (child.name || "").toLowerCase();
           if (mn.includes("exhaust") || mn.includes("pipe") || mn.includes("muffler")) {
-            child.getWorldPosition(exhaustPos);
+            child.getWorldPosition(exhaustWorldPos);
             exhaustFound = true;
           }
         });
         if (!exhaustFound) {
-          exhaustPos.set(carModel.position.x + 0.3, carModel.position.y + 0.12, carModel.position.z - (carBox.max.z - carBox.min.z) * S * 0.45);
+          exhaustWorldPos.set(
+            carWorldPos.x + (carMax.x - carMin.x) * S * 0.2,
+            carWorldPos.y + (carMax.y - carMin.y) * S * 0.15,
+            carWorldPos.z - (carMax.z - carMin.z) * S * 0.45
+          );
         }
-        window.__exhaustPos = exhaustPos;
+        console.log("Cabin:", cabinCenter, "DriverEye:", driverEyePos, "Exhaust:", exhaustWorldPos);
+        laptop = buildLaptopMesh();
+        laptop.position.set(
+          carWorldPos.x + (carMax.x - carMin.x) * S * 0.2,
+          // right side (passenger)
+          carWorldPos.y + (carMax.y - carMin.y) * S * 0.35,
+          // seat height
+          carWorldPos.z + (carMax.z - carMin.z) * S * 0.05
+          // cabin area
+        );
+        laptop.rotation.y = -0.3;
+        laptop.rotation.x = -0.1;
+        laptop.scale.setScalar(0.2);
+        scene.add(laptop);
+        scene.add(carModel);
+        interactive.push({ mesh: carModel, data: { label: "GARAGE", type: "car" } });
+        interactive.push({ mesh: laptop, data: { label: "LAPTOP", type: "laptop" } });
         renderStreamlitDashboard();
         setProgress(100, `Car loaded • ${paintCount} panels resprayed 🖤`);
         setTimeout(hideLoad, 600);
@@ -27678,19 +27563,17 @@ void main() {
       if (xhr.total > 0) setProgress(50 + Math.round(xhr.loaded / xhr.total * 40), `Loading car: ${Math.round(xhr.loaded / xhr.total * 100)}%`);
     }, (err) => {
       console.error("GLB error:", err);
-      carInterior = buildCarInterior();
-      carInterior.position.set(0, 0, 1);
+      cabinCenter.set(0, 0.6, 1);
+      driverEyePos.set(-0.4, 1, 1.2);
+      exhaustWorldPos.set(0.3, 0.15, -0.5);
       laptop = buildLaptopMesh();
-      laptop.position.set(0.42, 0.26, -0.12);
-      laptop.rotation.y = 0.25;
-      laptop.rotation.x = -0.1;
-      laptop.scale.setScalar(0.22);
-      carInterior.add(laptop);
-      scene.add(carInterior);
+      laptop.position.set(0.4, 0.4, 1);
+      laptop.rotation.y = -0.3;
+      laptop.scale.setScalar(0.2);
+      scene.add(laptop);
       interactive.push({ mesh: laptop, data: { label: "LAPTOP", type: "laptop" } });
-      window.__exhaustPos = new Vector3(0.3, 0.12, -0.8);
       renderStreamlitDashboard();
-      setProgress(100, "Car loaded (no GLB)");
+      setProgress(100, "Loaded (no car model)");
       setTimeout(hideLoad, 600);
     });
     let flameActive = false;
@@ -27718,15 +27601,6 @@ void main() {
       scene.add(flameLight);
     }
     createFlameSystem();
-    function getExhaustWorldPos() {
-      if (window.__exhaustPos) return window.__exhaustPos.clone();
-      if (carModel) {
-        const p = new Vector3(0.3, 0.12, -1.5);
-        p.applyMatrix4(carModel.matrixWorld);
-        return p;
-      }
-      return new Vector3(0.3, 0.12, -0.8);
-    }
     function emitFlame() {
       if (!flameParticles) return;
       const geo = flameParticles.geometry;
@@ -27734,12 +27608,11 @@ void main() {
       const vel = flameParticles.userData.velocities;
       const life = flameParticles.userData.lifetimes;
       const count = pos.length / 3;
-      const ep = getExhaustWorldPos();
       for (let n = 0; n < 3; n++) {
         const i = flameEmitIndex % count;
-        pos[i * 3] = ep.x + (Math.random() - 0.5) * 0.12;
-        pos[i * 3 + 1] = ep.y + Math.random() * 0.04;
-        pos[i * 3 + 2] = ep.z + (Math.random() - 0.5) * 0.08 - 0.2;
+        pos[i * 3] = exhaustWorldPos.x + (Math.random() - 0.5) * 0.12;
+        pos[i * 3 + 1] = exhaustWorldPos.y + Math.random() * 0.04;
+        pos[i * 3 + 2] = exhaustWorldPos.z + (Math.random() - 0.5) * 0.08 - 0.2;
         vel[i * 3] = (Math.random() - 0.5) * 0.015;
         vel[i * 3 + 1] = Math.random() * 0.05 + 0.02;
         vel[i * 3 + 2] = -Math.random() * 0.06 - 0.03;
@@ -27769,10 +27642,7 @@ void main() {
       geo.attributes.lifetime.needsUpdate = true;
       if (flameLight) {
         flameLight.intensity = flameActive ? 3 + Math.sin(performance.now() * 0.02) * 1.5 : 0;
-        if (flameActive) {
-          const ep = getExhaustWorldPos();
-          flameLight.position.copy(ep);
-        }
+        if (flameActive) flameLight.position.copy(exhaustWorldPos);
       }
     }
     setProgress(50, "Flame system ready");
@@ -27842,34 +27712,38 @@ void main() {
       ctx.fillText("OpenRouter // free tier", sbW + 8, ch - 7);
       if (laptopScreenTexture) laptopScreenTexture.needsUpdate = true;
     }
-    function getDriverEyeWorldPos() {
-      if (!carInterior) return new Vector3(-0.45, 0.7, 1);
-      const local = DRIVER_SEAT_LOCAL.clone().add(DRIVER_EYE_LOCAL);
-      local.applyMatrix4(carInterior.matrixWorld);
-      return local;
-    }
-    function getDriverLookTarget() {
-      if (!carInterior) return new Vector3(-0.45, 0.7, 3);
-      const forward = new Vector3(0, 0, 4);
-      const eye = DRIVER_SEAT_LOCAL.clone().add(DRIVER_EYE_LOCAL);
-      eye.add(forward);
-      eye.applyMatrix4(carInterior.matrixWorld);
-      return eye;
+    function getZonePrompt() {
+      if (!carModel && !laptop) return null;
+      const carPos = carModel ? carModel.position : new Vector3(0, 0, 1);
+      const charPos = character.position;
+      const dx = charPos.x - carPos.x;
+      const dz = charPos.z - carPos.z;
+      const dist = Math.sqrt(dx * dx + dz * dz);
+      if (dist > 5) return null;
+      if (dz < -1.5 && Math.abs(dx) < 2.5) {
+        return { text: "🔥 Press SPACE to rev the engine", action: "rev" };
+      }
+      if (dx < -1 && dx > -3.5 && dz > -1.5 && dz < 2) {
+        return { text: "🚗 Press E to get in the driver seat", action: "enter_driver" };
+      }
+      if (dx > 0.5 && dx < 3.5 && dz > -1.5 && dz < 2) {
+        return { text: "💻 Press E to access the laptop", action: "laptop" };
+      }
+      if (dist < 3.5) {
+        return { text: "🚶 Walk to driver door, passenger door, or rear", action: null };
+      }
+      return null;
     }
     function enterCar() {
       if (playerState !== "walking") return;
-      if (!carInterior) {
-        $("info-bar").textContent = "Car not loaded yet...";
-        return;
-      }
       playerState = "entering";
       if (isPointerLocked) document.exitPointerLock();
       entryAnim.active = true;
       entryAnim.t = 0;
       entryAnim.fromPos.copy(camera.position);
       entryAnim.fromLook.copy(controls.target);
-      entryAnim.toPos.copy(getDriverEyeWorldPos());
-      entryAnim.toLook.copy(getDriverLookTarget());
+      entryAnim.toPos.copy(driverEyePos);
+      entryAnim.toLook.set(driverEyePos.x, driverEyePos.y, driverEyePos.z + 4);
       character.visible = false;
       controls.enabled = false;
       $("info-bar").textContent = "🚗 Entering driver seat...";
@@ -27884,10 +27758,10 @@ void main() {
       const currentLook = new Vector3();
       camera.getWorldDirection(currentLook);
       entryAnim.fromLook.copy(camera.position).add(currentLook.multiplyScalar(3));
-      const exitPos = (carModel || carInterior).position.clone().add(new Vector3(-2.5, 0, 0.5));
+      const exitPos = carModel ? carModel.position.clone().add(new Vector3(-2.5, 0, 0.5)) : new Vector3(-2.5, 0, 1.5);
       character.position.copy(exitPos);
       character.visible = true;
-      entryAnim.toPos.copy(exitPos).add(new Vector3(-2.5, 2.5, 3));
+      entryAnim.toPos.copy(exitPos).add(new Vector3(-2, 2.5, 3));
       entryAnim.toLook.copy(exitPos);
       $("info-bar").textContent = "🚶 Exiting car...";
     }
@@ -27898,18 +27772,20 @@ void main() {
         if (playerState === "driving") {
           flameActive = !flameActive;
           gasIndicator.style.color = flameActive ? "rgba(255,102,0,1)" : "rgba(255,102,0,0)";
+        } else if (playerState === "walking") {
+          const zone = getZonePrompt();
+          if (zone && zone.action === "rev") {
+            flameActive = !flameActive;
+            gasIndicator.style.color = flameActive ? "rgba(255,102,0,1)" : "rgba(255,102,0,0)";
+          }
         }
       }
       if (e.code === "KeyE") {
         if (playerState === "walking") {
-          const refPos = carModel ? carModel.position : carInterior ? carInterior.position : new Vector3(0, 0, 1);
-          const dist = character.position.distanceTo(refPos);
-          if (dist < 4) enterCar();
-          else {
-            $("info-bar").textContent = "🚶 Walk closer to the car (E)";
-            setTimeout(() => {
-              if (playerState === "walking") $("info-bar").textContent = "The Agent's Workshop — explore the garage";
-            }, 2e3);
+          const zone = getZonePrompt();
+          if (zone) {
+            if (zone.action === "enter_driver") enterCar();
+            else if (zone.action === "laptop") openFullscreenLaptop();
           }
         } else if (playerState === "driving") {
           exitCar();
@@ -27926,7 +27802,7 @@ void main() {
       if (!isPointerLocked || playerState !== "driving") return;
       fpYaw -= e.movementX * 3e-3;
       fpPitch -= e.movementY * 3e-3;
-      fpPitch = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, fpPitch));
+      fpPitch = Math.max(-Math.PI / 2.5, Math.min(Math.PI / 2.5, fpPitch));
     });
     const raycaster = new Raycaster();
     const pointer = new Vector2();
@@ -27959,11 +27835,21 @@ void main() {
           return false;
         });
         if (item) {
-          if (item.data.type === "car" && playerState === "walking") enterCar();
-          else if (item.data.type === "laptop") openFullscreenLaptop();
-          else if (item.data.type === "car" && playerState === "driving") {
-            flameActive = !flameActive;
-            gasIndicator.style.color = flameActive ? "rgba(255,102,0,1)" : "rgba(255,102,0,0)";
+          if (item.data.type === "car") {
+            if (playerState === "walking") {
+              const zone = getZonePrompt();
+              if (zone && zone.action === "enter_driver") enterCar();
+              else if (zone && zone.action === "rev") {
+                flameActive = !flameActive;
+                gasIndicator.style.color = flameActive ? "rgba(255,102,0,1)" : "rgba(255,102,0,0)";
+              }
+            } else if (playerState === "driving") {
+              flameActive = !flameActive;
+              gasIndicator.style.color = flameActive ? "rgba(255,102,0,1)" : "rgba(255,102,0,0)";
+            }
+          }
+          if (item.data.type === "laptop") {
+            openFullscreenLaptop();
           }
         }
       }
@@ -28007,10 +27893,6 @@ void main() {
     const fsVideoContainer = document.createElement("div");
     fsVideoContainer.style.cssText = "display:none;flex:1;background:#000;";
     fsMainArea.appendChild(fsVideoContainer);
-    const sbHeader = document.createElement("div");
-    sbHeader.style.cssText = "padding:16px 14px 10px;border-bottom:1px solid rgba(255,255,255,0.06);";
-    sbHeader.innerHTML = '<div style="color:#00ccff;font-family:JetBrains Mono,monospace;font-size:14px;font-weight:700">⚡ HERMES</div><div style="color:#666;font-family:JetBrains Mono,monospace;font-size:10px;margin-top:4px">v2.4.0 — free</div>';
-    fsSidebar.appendChild(sbHeader);
     const navItems = [
       { id: "dashboard", icon: "📊", label: "Dashboard" },
       { id: "projects", icon: "🚀", label: "Projects" },
@@ -28019,6 +27901,10 @@ void main() {
       { id: "contact", icon: "📬", label: "Contact" },
       { id: "videos", icon: "🎬", label: "Videos" }
     ];
+    const sbHeader = document.createElement("div");
+    sbHeader.style.cssText = "padding:16px 14px 10px;border-bottom:1px solid rgba(255,255,255,0.06);";
+    sbHeader.innerHTML = '<div style="color:#00ccff;font-family:JetBrains Mono,monospace;font-size:14px;font-weight:700">⚡ HERMES</div><div style="color:#666;font-family:JetBrains Mono,monospace;font-size:10px;margin-top:4px">v2.4.0 — free</div>';
+    fsSidebar.appendChild(sbHeader);
     const sbNavItems = [];
     navItems.forEach((item) => {
       const el = document.createElement("div");
@@ -28093,7 +27979,6 @@ void main() {
       if (!fsCtx) return;
       sbNavItems.forEach((ni) => {
         if (ni.item.id === fsActivePage) {
-          ni.el.style.cssText = ni.el.style.cssText.replace("color:#888", "color:#00ccff").replace("border-left:3px solid transparent", "border-left:3px solid #00ccff");
           ni.el.style.background = "rgba(0,204,255,0.1)";
           ni.el.style.color = "#00ccff";
           ni.el.style.borderLeftColor = "#00ccff";
@@ -28246,7 +28131,7 @@ void main() {
           if (playerState === "entering") {
             playerState = "driving";
             controls.enabled = false;
-            $("info-bar").textContent = "🚗 DRIVING — click to look, SPACE flames, E exit";
+            $("info-bar").textContent = "🚗 DRIVING — mouse to look, SPACE flames, E exit";
             setTimeout(() => {
               renderer.domElement.requestPointerLock();
             }, 200);
@@ -28281,26 +28166,37 @@ void main() {
           character.position.y = 0;
           character.rotation.y = Math.atan2(fm.x, fm.z);
         }
-        const refPos = carModel ? carModel.position : carInterior ? carInterior.position : new Vector3(0, 0, 1);
-        const distToCar = character.position.distanceTo(refPos);
-        if (distToCar < 4 && distToCar > 1.5) $("info-bar").textContent = "🚗 Press E to get in the car";
-        else if (playerState === "walking") $("info-bar").textContent = "The Agent's Workshop — explore the garage";
+        const zone = getZonePrompt();
+        if (zone) {
+          $("info-bar").textContent = zone.text;
+        } else {
+          $("info-bar").textContent = "The Agent's Workshop — explore the garage";
+        }
+        const distToChar = camera.position.distanceTo(character.position);
+        if (distToChar > 10) {
+          controls.target.lerp(character.position.clone().add(new Vector3(0, 1, 0)), 0.02);
+        }
         controls.update();
       }
       if (playerState === "driving" && !entryAnim.active) {
-        const eyePos = getDriverEyeWorldPos();
+        if (carModel) {
+          const carBox = new Box3().setFromObject(carModel);
+          const S = carModel.scale.x;
+          driverEyePos.set(
+            carModel.position.x - (carBox.max.x - carBox.min.x) * S * 0.25,
+            carModel.position.y + (carBox.max.y - carBox.min.y) * S * 0.6,
+            carModel.position.z + (carBox.max.z - carBox.min.z) * S * 0.1
+          );
+        }
         const bobX = Math.sin(t * 8) * 3e-3;
         const bobY = Math.abs(Math.sin(t * 12)) * 2e-3;
-        camera.position.set(eyePos.x + bobX, eyePos.y + bobY, eyePos.z);
+        camera.position.set(driverEyePos.x + bobX, driverEyePos.y + bobY, driverEyePos.z);
         const lookDir = new Vector3(
           Math.sin(fpYaw) * Math.cos(fpPitch),
           Math.sin(fpPitch),
           Math.cos(fpYaw) * Math.cos(fpPitch)
         );
         camera.lookAt(camera.position.clone().add(lookDir.multiplyScalar(5)));
-        if (steerGroup) {
-          steerGroup.rotation.z = 0.12 + Math.max(-0.5, Math.min(0.5, -fpYaw * 0.08));
-        }
         if (flameActive) {
           camera.position.x += (Math.random() - 0.5) * 8e-3;
           camera.position.y += (Math.random() - 0.5) * 5e-3;
@@ -28308,7 +28204,7 @@ void main() {
       }
       if (laptop) {
         const breathe = Math.sin(t * 1.5) * 0.012;
-        laptop.scale.setScalar(0.22 + breathe);
+        laptop.scale.setScalar(0.2 + breathe);
       }
       plCyan.intensity = 6 + Math.sin(t * 1.8) * 1.5;
       plPink.intensity = 4 + Math.cos(t * 1.5) * 1;
