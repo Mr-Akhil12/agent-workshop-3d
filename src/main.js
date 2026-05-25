@@ -299,36 +299,39 @@ export function start() {
                 carWorldPos.z + (carMax.z - carMin.z) * S * 0.1     // cabin area
             );
 
-            // ── Find exhaust ──
+            // ── Find exhaust — search broadly ──
             let exhaustFound = false;
             carModel.traverse(child => {
                 if (!child.isMesh) return;
                 const mn = (child.name || '').toLowerCase();
-                if (mn.includes('exhaust') || mn.includes('pipe') || mn.includes('muffler')) {
+                if (mn.includes('exhaust') || mn.includes('pipe') || mn.includes('muffler') ||
+                    mn.includes('tailpipe') || mn.includes('tip') || mn.includes('rear_bumper') ||
+                    mn.includes('back') || mn.includes('diffuser')) {
                     child.getWorldPosition(exhaustWorldPos);
                     exhaustFound = true;
+                    console.log('EXHAUST FOUND:', child.name, exhaustWorldPos);
                 }
             });
             if (!exhaustFound) {
-                // Fallback: rear of car, low
+                // Fallback: rear-right of car, low — exhaust pipe sticks out the back right
                 exhaustWorldPos.set(
-                    carWorldPos.x + (carMax.x - carMin.x) * S * 0.2,
-                    carWorldPos.y + (carMax.y - carMin.y) * S * 0.15,
-                    carWorldPos.z - (carMax.z - carMin.z) * S * 0.45
+                    carWorldPos.x + (carMax.x - carMin.x) * S * 0.35,   // right side (exhaust is usually right)
+                    carWorldPos.y + (carMax.y - carMin.y) * S * 0.12,   // low, near bumper
+                    carWorldPos.z - (carMax.z - carMin.z) * S * 0.48    // well behind car rear
                 );
+                console.log('EXHAUST FALLBACK:', exhaustWorldPos);
             }
-            console.log('Cabin:', cabinCenter, 'DriverEye:', driverEyePos, 'Exhaust:', exhaustWorldPos);
 
             // ── Place laptop inside car at passenger seat ──
             laptop = buildLaptopMesh();
             laptop.position.set(
-                carWorldPos.x + (carMax.x - carMin.x) * S * 0.2,   // right side (passenger)
-                carWorldPos.y + (carMax.y - carMin.y) * S * 0.35,   // seat height
-                carWorldPos.z + (carMax.z - carMin.z) * S * 0.05    // cabin area
+                carWorldPos.x + (carMax.x - carMin.x) * S * 0.22,    // right side (passenger)
+                carWorldPos.y + (carMax.y - carMin.y) * S * 0.42,    // above seat cushion
+                carWorldPos.z - (carMax.z - carMin.z) * S * 0.05     // slightly behind center (cabin seat area)
             );
-            laptop.rotation.y = -0.3; // face toward driver
-            laptop.rotation.x = -0.1;
-            laptop.scale.setScalar(0.2);
+            laptop.rotation.y = -0.4; // face toward driver
+            laptop.rotation.x = -0.08;
+            laptop.scale.setScalar(0.18);
             scene.add(laptop);
 
             scene.add(carModel);
@@ -745,12 +748,13 @@ export function start() {
     };
     fsSidebar.appendChild(collapseBtn);
 
-    // ── YouTube videos: SA car culture ──
+    // ── Real Durban drag YouTube videos ──
     const videoList = [
-        { title: 'SA Street Racing Culture', yt: '8jPQjjsBbIc' },
-        { title: 'Durban Car Meet 2024', yt: 'XqZsoesa55w' },
-        { title: 'Toyota Runx Build & Drag', yt: 'kJQP7kiw5Fk' },
-        { title: 'King Shaka Strip Runs', yt: 'RgKAFK5djSk' },
+        { title: 'Durban Drag Racing NDT 2023', yt: 'ZObnrlICK2Q' },
+        { title: 'Durban Drag Racing Pt 1', yt: '2Qd5A2KyjCU' },
+        { title: 'Durban Drag Racing Pt 2', yt: '1eSYoleQfyQ' },
+        { title: 'Gas Live KZN 2025 Drags', yt: 'ypkudvESOGA' },
+        { title: 'KZN FWD Drag Shootout', yt: 'pDWVT2Ojxk4' },
     ];
     let currentVideoIdx = 0;
 
