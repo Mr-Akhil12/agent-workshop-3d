@@ -1,6 +1,6 @@
 /**
  * The Agent's Workshop — Interactive 3D Portfolio
- * First-person car interior edition
+ * First-person car interior edition v2
  */
 import { THREE } from './three-setup.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
@@ -58,10 +58,21 @@ export function start() {
     controls.enablePan = false;
     controls.update();
 
-    // ── First Person Mode State ──
-    let firstPerson = false;
-    const fpOffset = new THREE.Vector3(0, 1.45, 0); // camera on head
-    const fpLookOffset = new THREE.Vector3(0, 1.45, 0); // look target offset
+    // ════════════════════════════════════════════
+    //  PLAYER STATE MACHINE
+    // ════════════════════════════════════════════
+    // States: 'walking' | 'entering' | 'driving' | 'exiting'
+    let playerState = 'walking';
+    let playerSeat = null; // 'driver' | 'passenger'
+    const DRIVER_SEAT_POS = new THREE.Vector3(-0.6, 0.55, 0.15); // local to carInterior
+    const DRIVER_CAM_OFFSET = new THREE.Vector3(0, 0.85, 0); // eyes above seat
+
+    // First person look
+    let fpYaw = 0, fpPitch = 0;
+    let isPointerLocked = false;
+
+    // Entry/exit animation
+    let entryAnim = { active: false, t: 0, duration: 1.2, fromPos: new THREE.Vector3(), toPos: new THREE.Vector3(), fromLook: new THREE.Vector3(), toLook: new THREE.Vector3() };
 
     // ── Environment Map ──
     const envMap = createEnvMap(renderer);
@@ -194,7 +205,9 @@ export function start() {
 
     setProgress(50, 'Environment built');
 
-    // ── 3rd Person Character Controller ──
+    // ════════════════════════════════════════════
+    //  CHARACTER (3rd person visible model)
+    // ════════════════════════════════════════════
     const character = new THREE.Group();
     const bodyGeo = new THREE.CapsuleGeometry(0.25, 0.6, 4, 8);
     const bodyMat = new THREE.MeshStandardMaterial({ color: 0x222233, metalness: 0.1, roughness: 0.8 });
@@ -240,33 +253,26 @@ export function start() {
     const chromeMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 1.0, roughness: 0.05 });
     const glassMat = new THREE.MeshPhysicalMaterial({ color: 0x111122, metalness: 0.1, roughness: 0.05, transmission: 0.8, transparent: true, opacity: 0.3, depthWrite: false });
 
-    // Cabin shell (bottom frame)
+    // Floor
     const floorPan = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.06, 2.2), cabinMat);
     floorPan.position.set(0, 0.12, 0); carInterior.add(floorPan);
 
     // Dashboard
     const dash = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.35, 0.15), dashMat);
     dash.position.set(0, 0.55, 0.85); carInterior.add(dash);
-
-    // Dash top
     const dashTop = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.06, 0.25), dashMat);
     dashTop.position.set(0, 0.73, 0.75); carInterior.add(dashTop);
 
     // Steering wheel
     const steerGroup = new THREE.Group();
-    const steerRing = new THREE.Mesh(
-        new THREE.TorusGeometry(0.22, 0.025, 8, 24),
-        chromeMat
-    );
+    const steerRing = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.025, 8, 24), chromeMat);
     steerGroup.add(steerRing);
-    // Steering spokes
     for (let a = 0; a < Math.PI * 2; a += Math.PI * 2 / 3) {
         const spoke = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.03, 0.35), chromeMat);
         spoke.position.set(Math.sin(a) * 0.17, 0, Math.cos(a) * 0.17);
         spoke.rotation.y = a;
         steerGroup.add(spoke);
     }
-    // Center hub
     const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.04, 12), dashMat);
     hub.rotation.x = Math.PI / 2;
     steerGroup.add(hub);
@@ -307,7 +313,7 @@ export function start() {
     const gearKnob = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 8), leatherMat);
     gearKnob.position.set(0, 0.65, 0.2); carInterior.add(gearKnob);
 
-    // Windshield (front)
+    // Windshield
     const windshield = new THREE.Mesh(new THREE.PlaneGeometry(2.8, 0.9), glassMat);
     windshield.position.set(0, 0.85, 0.95);
     windshield.rotation.x = -0.35;
@@ -320,16 +326,12 @@ export function start() {
     rearWindow.rotation.y = Math.PI;
     carInterior.add(rearWindow);
 
-    // Side window frames (driver)
+    // Side window frames
     const sideWinL = new THREE.Mesh(new THREE.PlaneGeometry(0.05, 0.5), glassMat);
-    sideWinL.position.set(-1.71, 0.7, 0);
-    sideWinL.rotation.y = Math.PI / 2;
+    sideWinL.position.set(-1.71, 0.7, 0); sideWinL.rotation.y = Math.PI / 2;
     carInterior.add(sideWinL);
-
-    // Side window frames (passenger)
     const sideWinR = new THREE.Mesh(new THREE.PlaneGeometry(0.05, 0.5), glassMat);
-    sideWinR.position.set(1.71, 0.7, 0);
-    sideWinR.rotation.y = -Math.PI / 2;
+    sideWinR.position.set(1.71, 0.7, 0); sideWinR.rotation.y = -Math.PI / 2;
     carInterior.add(sideWinR);
 
     // A-pillars
@@ -341,17 +343,13 @@ export function start() {
     pillarR.position.set(1.4, 0.8, 0.75); pillarR.rotation.z = -0.35;
     carInterior.add(pillarR);
 
-    // Interior lights (neon strip under dash)
+    // Interior neon strip
     const dashNeon = new THREE.PointLight(0x00ccff, 2, 3, 2);
     dashNeon.position.set(0, 0.45, 0.6);
     carInterior.add(dashNeon);
 
-    // Move car interior group to world position
-    carInterior.position.set(0, 0, 1.0);
-    scene.add(carInterior);
-
     // ════════════════════════════════════════════
-    //  LAPTOP ON PASSENGER SEAT
+    //  LAPTOP — parented to carInterior
     // ════════════════════════════════════════════
     let laptopScreenCanvas = null;
     let laptopScreenTexture = null;
@@ -372,7 +370,6 @@ export function start() {
         displayMesh.position.set(0, 0.28, -0.245); displayMesh.rotation.x = -0.3; group.add(displayMesh);
         const kb = new THREE.Mesh(new THREE.PlaneGeometry(0.65, 0.35), new THREE.MeshStandardMaterial({ color: 0x0a0a0a, metalness: 0.3, roughness: 0.8 }));
         kb.position.set(0, 0.025, 0.05); kb.rotation.x = -Math.PI / 2; group.add(kb);
-        // Glowing logo on back of screen
         const logoMat = new THREE.MeshBasicMaterial({ color: 0x00ccff, transparent: true, opacity: 0.6 });
         const logo = new THREE.Mesh(new THREE.PlaneGeometry(0.15, 0.1), logoMat);
         logo.position.set(0, 0.27, -0.275); logo.rotation.x = -0.3;
@@ -381,22 +378,29 @@ export function start() {
     }
 
     const laptop = buildLaptopMesh();
-    // Position laptop on passenger seat
-    const lpScale = 0.28;
-    laptop.position.copy(passengerSeat.position).add(carInterior.position);
-    laptop.position.y += 0.28; // on top of seat base
-    laptop.position.x += 0.15; // slightly toward center
-    laptop.position.z += 0.05; // forward on seat
-    laptop.rotation.y = 0.15;
-    laptop.rotation.x = -0.15; // tilt to face driver
-    laptop.scale.setScalar(lpScale);
-    scene.add(laptop);
+    // Position laptop ON the passenger seat — coordinates are local to carInterior
+    laptop.position.set(0.6 + 0.1, 0.22 + 0.06, -0.1 + 0.05); // on passenger seat base
+    laptop.rotation.y = 0.2;
+    laptop.rotation.x = -0.12;
+    laptop.scale.setScalar(0.28);
+    carInterior.add(laptop); // <-- parent to carInterior, not scene!
+
+    // Place car interior in world
+    carInterior.position.set(0, 0, 1.0);
+    scene.add(carInterior);
 
     // ════════════════════════════════════════════
     //  LAPTOP SCREEN RENDERING
     // ════════════════════════════════════════════
     function getPageTitle(page) {
-        const t = { dashboard: '> AGENT_DASHBOARD', projects: '> PROJECTS.md', garage: '> GARAGE.glb', agents: '> HERMES.exe', contact: '> CONTACT.json' };
+        const t = {
+            dashboard: '> AGENT_DASHBOARD',
+            projects: '> PROJECTS.md',
+            garage: '> GARAGE.glb',
+            agents: '> HERMES.exe',
+            contact: '> CONTACT.json',
+            videos: '> VIDEOS.mp4'
+        };
         return t[page] || page;
     }
     function getPageContent(page) {
@@ -405,7 +409,8 @@ export function start() {
             projects: ['','## Active Projects','','[1] AgenticBiz','    AI agent deployment','    → agenticbiz.vercel.app','','[2] Hush v1','    Car social platform (SA)','    → hush-v1.vercel.app','','[3] Dirt Hands Crew','    JDM mobile game','    Godot 4.4+ | Supabase','','[4] Ventrix Petroleum','    Industrial fuel co.','    React + Vite | Parallax'],
             garage: ['','## The Garage','','VEHICLE: Toyota 140rt Runx','COLOR:   Gloss black + metallic','TRANS:   Manual','FUEL:    95 + NOS 😏','','SPECS:','→ Weekly drags: Link Road','→ Strip: King Shaka Airport Rd','→ Flames: YES (on demand 🔥)','','MOD LIST:','→ Full black paint w/ metallic','→ Tinted windows | Lowered','→ Custom exhaust (flame-capable)','','$ status: BORN TO DRAG'],
             agents: ['','## Hermes Agent System','','CAPABILITIES:','• Wix form → WhatsApp pipeline','• XAUUSD trading analysis','• Video production (HyperFrames)','• Client mgmt automation','• Cron-based monitoring','','INFRA:','→ Local: Lenovo IdeaPad 3','  (32GB RAM | RTX 3050)','→ Cloud: Daytona + Orgo','','\"Stop thinking in endless manual','implementation. Start thinking in','outcomes, systems, and intelligent','execution.\"'],
-            contact: ['','## Get In Touch','','{','  \"name\":    \"Akhil Pillay\",','  \"location\": \"Tongaat, KZN, SA\",','  \"email\":   \"akhilpillay2.0@gmail.com\",','  \"phone\":   \"067 865 9396\",','  \"whatsapp\": \"wa.me/27678659396\",','  \"youtube\":  \"youtube.com/@that-it-dude\",','  \"tiktok\":   \"tiktok.com/@that_it_.guy\",','  \"web\":      \"agenticbiz.vercel.app\"','}','','$ ping akhil — response: fast ⚡']
+            contact: ['','## Get In Touch','','{','  \"name\":    \"Akhil Pillay\",','  \"location\": \"Tongaat, KZN, SA\",','  \"email\":   \"akhilpillay2.0@gmail.com\",','  \"phone\":   \"067 865 9396\",','  \"whatsapp\": \"wa.me/27678659396\",','  \"youtube\":  \"youtube.com/@that-it-dude\",','  \"tiktok\":   \"tiktok.com/@that_it_.guy\",','  \"web\":      \"agenticbiz.vercel.app\"','}','','$ ping akhil — response: fast ⚡'],
+            videos: ['','## 🎬 Durban Drag Videos','','▶ Link Road Drags','  Every weekend — Durban North','  → youtube.com/@that-it-dude','','▶ King Shaka Airport Strip','  Full throttle runs','  → youtube.com/@that-it-dude','','▶ 140rt Runx Build Series','  Full black | Flame exhaust','  → youtube.com/@that-it-dude','','▶ Car Meet Highlights','  SA car culture','  → youtube.com/@that-it-dude','','Click PLAY on any video','to watch in fullscreen!']
         };
         return c[page] || ['coming soon...'];
     }
@@ -419,12 +424,12 @@ export function start() {
             ctx.fillStyle = '#1a1d27'; ctx.fillRect(0, 0, sbW, ch);
             ctx.fillStyle = '#00ccff'; ctx.font = 'bold 11px "JetBrains Mono", monospace'; ctx.fillText('⚡ HERMES', 8, 24);
             ctx.fillStyle = '#666'; ctx.font = '9px "JetBrains Mono", monospace'; ctx.fillText('v2.4.0 — free', 8, 38);
-            ['dashboard','projects','garage','agents','contact'].forEach((p, i) => {
-                const y = 60 + i * 28;
+            ['dashboard','projects','garage','agents','contact','videos'].forEach((p, i) => {
+                const y = 60 + i * 26;
                 if (streamlitState.activePage === p) { ctx.fillStyle = 'rgba(0,204,255,0.1)'; ctx.fillRect(0, y-12, sbW, 24); ctx.fillStyle = '#00ccff'; }
                 else ctx.fillStyle = '#888';
                 ctx.font = '10px "JetBrains Mono", monospace';
-                ctx.fillText(['📊','🚀','🏎️','⚡','📬'][i] + ' ' + p, 8, y);
+                ctx.fillText(['📊','🚀','🏎️','⚡','📬','🎬'][i] + ' ' + p, 8, y);
             });
             ctx.fillStyle = '#444'; ctx.font = '8px "JetBrains Mono", monospace'; ctx.fillText('[◀] collapse', 8, ch-10);
         } else {
@@ -555,7 +560,6 @@ export function start() {
         scene.add(carModel);
         interactive.push({ mesh: carModel, data: { label: 'GARAGE', type: 'car' } });
 
-        // Find exhaust pipe for flame positioning
         let exhaustFound = false;
         carModel.traverse(child => {
             if (!child.isMesh) return;
@@ -583,8 +587,76 @@ export function start() {
         setTimeout(hideLoad, 600);
     });
 
-    // Add laptop as interactive
+    // Laptop interactive (parented to carInterior, so raycast needs the group)
     interactive.push({ mesh: laptop, data: { label: 'LAPTOP', type: 'laptop' } });
+
+    // ════════════════════════════════════════════
+    //  CAR ENTRY / EXIT MECHANIC
+    // ════════════════════════════════════════════
+    function getDriverWorldPos() {
+        // Driver seat position in world space
+        const local = DRIVER_SEAT_POS.clone();
+        local.add(DRIVER_CAM_OFFSET);
+        return local.applyMatrix4(carInterior.matrixWorld);
+    }
+
+    function getDriverLookTarget() {
+        // Look forward through windshield
+        const forward = new THREE.Vector3(0, 0, 3);
+        const seatWorld = DRIVER_SEAT_POS.clone().add(DRIVER_CAM_OFFSET);
+        return seatWorld.add(forward).applyMatrix4(carInterior.matrixWorld);
+    }
+
+    function enterCar() {
+        if (playerState !== 'walking') return;
+        playerState = 'entering';
+        playerSeat = 'driver';
+
+        // Release pointer lock if active
+        if (isPointerLocked) { document.exitPointerLock(); }
+
+        // Start animation from current camera position to driver seat
+        entryAnim.active = true;
+        entryAnim.t = 0;
+        entryAnim.fromPos.copy(camera.position);
+        entryAnim.fromLook.copy(controls.target);
+        entryAnim.toPos.copy(getDriverWorldPos());
+        entryAnim.toLook.copy(getDriverLookTarget());
+
+        // Hide character
+        character.visible = false;
+
+        // Disable orbit controls during entry
+        controls.enabled = false;
+
+        $('info-bar').textContent = '🚗 Entering driver seat...';
+    }
+
+    function exitCar() {
+        if (playerState !== 'driving') return;
+        playerState = 'exiting';
+
+        // Release pointer lock
+        if (isPointerLocked) { document.exitPointerLock(); }
+
+        // Animate camera out to orbit position near car
+        entryAnim.active = true;
+        entryAnim.t = 0;
+        entryAnim.fromPos.copy(camera.position);
+        const currentLook = new THREE.Vector3();
+        camera.getWorldDirection(currentLook);
+        entryAnim.fromLook.copy(camera.position).add(currentLook.multiplyScalar(3));
+
+        // Place character next to car driver door
+        const exitPos = carInterior.position.clone().add(new THREE.Vector3(-2.2, 0, 0.5));
+        character.position.copy(exitPos);
+        character.visible = true;
+
+        entryAnim.toPos.copy(exitPos).add(new THREE.Vector3(-3, 3, 4));
+        entryAnim.toLook.copy(exitPos);
+
+        $('info-bar').textContent = '🚶 Exiting car...';
+    }
 
     // ════════════════════════════════════════════
     //  GAS IT CONTROLS
@@ -593,23 +665,32 @@ export function start() {
     let gasClickActive = false;
 
     document.addEventListener('keydown', e => {
-        if (e.code === 'Space' && !flameActive) { e.preventDefault(); flameActive = true; gasIndicator.style.color = 'rgba(255,102,0,1)'; }
-        // F key toggles first person
-        if (e.code === 'KeyF') {
-            firstPerson = !firstPerson;
-            controls.enabled = !firstPerson;
-            if (firstPerson) {
-                $('info-bar').textContent = '👁️ FIRST PERSON — F to exit, WASD to move';
-            } else {
-                $('info-bar').textContent = "The Agent's Workshop — explore the garage";
-                // Reset camera to orbit
-                controls.target.copy(character.position).add(new THREE.Vector3(0, 1, 0));
-                camera.position.set(character.position.x + 6, character.position.y + 4, character.position.z + 8);
+        if (e.code === 'Space') {
+            e.preventDefault();
+            if (playerState === 'driving') {
+                flameActive = !flameActive;
+                gasIndicator.style.color = flameActive ? 'rgba(255,102,0,1)' : 'rgba(255,102,0,0)';
+            }
+        }
+        // E key to enter/exit car
+        if (e.code === 'KeyE') {
+            if (playerState === 'walking') {
+                // Check proximity to car
+                const carPos = carInterior.position;
+                const dist = character.position.distanceTo(carPos);
+                if (dist < 4) {
+                    enterCar();
+                } else {
+                    $('info-bar').textContent = '🚶 Walk closer to the car to enter (E)';
+                    setTimeout(() => { if (playerState === 'walking') $('info-bar').textContent = "The Agent's Workshop — explore the garage"; }, 2000);
+                }
+            } else if (playerState === 'driving') {
+                exitCar();
             }
         }
     });
     document.addEventListener('keyup', e => {
-        if (e.code === 'Space') { e.preventDefault(); flameActive = false; gasIndicator.style.color = 'rgba(255,102,0,0)'; }
+        if (e.code === 'Space') { e.preventDefault(); }
     });
 
     // ════════════════════════════════════════════
@@ -628,6 +709,12 @@ export function start() {
         const elapsed = Date.now() - tapStart.time;
         if (dist > 8 || elapsed > 500) return;
 
+        // If in driving mode, request pointer lock for mouse look
+        if (playerState === 'driving' && !isPointerLocked) {
+            renderer.domElement.requestPointerLock();
+            return;
+        }
+
         pointer.x = (e.clientX/innerWidth)*2-1; pointer.y = -(e.clientY/innerHeight)*2+1;
         raycaster.setFromCamera(pointer, camera);
         const hits = raycaster.intersectObjects(interactive.map(i => i.mesh), true);
@@ -639,16 +726,31 @@ export function start() {
             });
             if (item) {
                 if (item.data.type === 'car') {
-                    gasClickActive = !gasClickActive; flameActive = gasClickActive;
-                    gasIndicator.style.color = flameActive ? 'rgba(255,102,0,1)' : 'rgba(255,102,0,0)';
+                    if (playerState === 'walking') {
+                        enterCar();
+                    } else {
+                        gasClickActive = !gasClickActive; flameActive = gasClickActive;
+                        gasIndicator.style.color = flameActive ? 'rgba(255,102,0,1)' : 'rgba(255,102,0,0)';
+                    }
                 }
                 if (item.data.type === 'laptop') {
                     openFullscreenLaptop();
-                } else {
+                } else if (item.data.type !== 'laptop') {
                     showDetail(item.data);
                 }
             }
         }
+    });
+
+    // Pointer lock for driving mode
+    document.addEventListener('pointerlockchange', () => {
+        isPointerLocked = document.pointerLockElement === renderer.domElement;
+    });
+    document.addEventListener('mousemove', (e) => {
+        if (!isPointerLocked || playerState !== 'driving') return;
+        fpYaw -= e.movementX * 0.003;
+        fpPitch -= e.movementY * 0.003;
+        fpPitch = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, fpPitch));
     });
 
     // ════════════════════════════════════════════
@@ -658,15 +760,10 @@ export function start() {
     let fsCtx = null;
     let fsSidebarOpen = true;
     let fsActivePage = 'dashboard';
-    let fsAnimating = false;
-    let fsAnimProgress = 0;
-    let fsAnimFrom = { x: 0, y: 0, w: 0, h: 0 };
 
-    // Create fullscreen overlay elements
     const fsOverlay = document.createElement('div');
     fsOverlay.id = 'fs-laptop-overlay';
     fsOverlay.style.cssText = 'display:none;position:fixed;inset:0;z-index:300;background:rgba(0,0,0,0.92);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);justify-content:center;align-items:center;overflow:hidden;';
-    fsOverlay.style.display = 'none';
     document.body.appendChild(fsOverlay);
 
     const fsLaptopFrame = document.createElement('div');
@@ -697,34 +794,39 @@ export function start() {
     fsSidebar.style.cssText = 'width:180px;background:#1a1d27;border-right:1px solid rgba(255,255,255,0.06);display:flex;flex-direction:column;flex-shrink:0;transition:width 0.25s;';
     screenArea.appendChild(fsSidebar);
 
-    // Main content canvas
+    // Main content area
     const fsMainArea = document.createElement('div');
-    fsMainArea.style.cssText = 'flex:1;position:relative;overflow:hidden;';
+    fsMainArea.style.cssText = 'flex:1;position:relative;overflow:hidden;display:flex;flex-direction:column;';
     screenArea.appendChild(fsMainArea);
 
     fsCanvas = document.createElement('canvas');
     fsCanvas.width = 900;
     fsCanvas.height = 600;
-    fsCanvas.style.cssText = 'width:100%;height:100%;';
+    fsCanvas.style.cssText = 'flex:1;width:100%;';
     fsMainArea.appendChild(fsCanvas);
     fsCtx = fsCanvas.getContext('2d');
 
-    // Build sidebar items
+    // Video player container (hidden by default)
+    const fsVideoContainer = document.createElement('div');
+    fsVideoContainer.id = 'fs-video-container';
+    fsVideoContainer.style.cssText = 'display:none;flex:1;background:#000;align-items:center;justify-content:center;position:relative;';
+    fsMainArea.appendChild(fsVideoContainer);
+
+    // Build sidebar
     const navItems = [
         { id: 'dashboard', icon: '📊', label: 'Dashboard' },
         { id: 'projects', icon: '🚀', label: 'Projects' },
         { id: 'garage',   icon: '🏎️', label: 'Garage' },
         { id: 'agents',   icon: '⚡', label: 'Agents' },
         { id: 'contact',  icon: '📬', label: 'Contact' },
+        { id: 'videos',   icon: '🎬', label: 'Videos' },
     ];
 
-    // Header in sidebar
     const sbHeader = document.createElement('div');
     sbHeader.style.cssText = 'padding:16px 14px 10px;border-bottom:1px solid rgba(255,255,255,0.06);';
     sbHeader.innerHTML = '<div style="color:#00ccff;font-family:JetBrains Mono,monospace;font-size:14px;font-weight:700">⚡ HERMES</div><div style="color:#666;font-family:JetBrains Mono,monospace;font-size:10px;margin-top:4px">v2.4.0 — free</div>';
     fsSidebar.appendChild(sbHeader);
 
-    // Nav items
     const sbNavItems = [];
     navItems.forEach(item => {
         const el = document.createElement('div');
@@ -737,7 +839,6 @@ export function start() {
         sbNavItems.push({ el, item });
     });
 
-    // Collapse button at bottom
     const collapseBtn = document.createElement('div');
     collapseBtn.style.cssText = 'margin-top:auto;padding:12px 14px;color:#555;font-family:JetBrains Mono,monospace;font-size:10px;cursor:pointer;border-top:1px solid rgba(255,255,255,0.06);';
     collapseBtn.textContent = '◀ collapse';
@@ -751,10 +852,56 @@ export function start() {
     };
     fsSidebar.appendChild(collapseBtn);
 
+    // ── Video Player for VIDEOS tab ──
+    const videoList = [
+        { title: 'Link Road Drags — Durban North', desc: 'Weekly street drags on Link Road', yt: 'dQw4w9WgXcQ' },
+        { title: 'King Shaka Airport Strip Run', desc: 'Full throttle at the airport strip', yt: 'dQw4w9WgXcQ' },
+        { title: '140rt Runx Build Series', desc: 'Full black | Flame exhaust | Manual', yt: 'dQw4w9WgXcQ' },
+        { title: 'Car Meet Highlights — Durban', desc: 'SA car culture showcase', yt: 'dQw4w9WgXcQ' },
+    ];
+    let currentVideoIdx = 0;
+
+    function buildVideoPlayer() {
+        fsVideoContainer.innerHTML = '';
+        fsVideoContainer.style.display = 'flex';
+
+        const wrapper = document.createElement('div');
+        wrapper.style.cssText = 'width:100%;height:100%;display:flex;flex-direction:column;';
+
+        // Video title
+        const vidTitle = document.createElement('div');
+        vidTitle.style.cssText = 'padding:10px 16px;color:#fff;font-family:JetBrains Mono,monospace;font-size:13px;background:rgba(0,0,0,0.5);flex-shrink:0;';
+        vidTitle.textContent = '🎬 ' + videoList[currentVideoIdx].title;
+        wrapper.appendChild(vidTitle);
+
+        // YouTube embed
+        const iframeWrap = document.createElement('div');
+        iframeWrap.style.cssText = 'flex:1;position:relative;';
+        const iframe = document.createElement('iframe');
+        iframe.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:none;';
+        iframe.src = `https://www.youtube.com/embed/${videoList[currentVideoIdx].yt}?rel=0&modestbranding=1`;
+        iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+        iframe.allowFullscreen = true;
+        iframeWrap.appendChild(iframe);
+        wrapper.appendChild(iframeWrap);
+
+        // Video selector
+        const selector = document.createElement('div');
+        selector.style.cssText = 'display:flex;gap:6px;padding:8px 12px;background:rgba(0,0,0,0.7);overflow-x:auto;flex-shrink:0;';
+        videoList.forEach((v, i) => {
+            const btn = document.createElement('button');
+            btn.style.cssText = `padding:6px 12px;border-radius:6px;border:none;font-family:JetBrains Mono,monospace;font-size:10px;cursor:pointer;white-space:nowrap;transition:all 0.15s;${i === currentVideoIdx ? 'background:#00ccff;color:#000;' : 'background:rgba(255,255,255,0.1);color:#888;'}`;
+            btn.textContent = v.title.substring(0, 25) + '...';
+            btn.onclick = () => { currentVideoIdx = i; buildVideoPlayer(); };
+            selector.appendChild(btn);
+        });
+        wrapper.appendChild(selector);
+
+        fsVideoContainer.appendChild(wrapper);
+    }
+
     function renderFsPage() {
         if (!fsCtx) return;
-        const cw = fsCanvas.width, ch = fsCanvas.height;
-        fsCtx.fillStyle = '#0e1117'; fsCtx.fillRect(0, 0, cw, ch);
 
         // Update sidebar active state
         sbNavItems.forEach(ni => {
@@ -769,20 +916,28 @@ export function start() {
             }
         });
 
-        const mx = 20;
-        const sbText = fsSidebarOpen ? '' : '';
+        if (fsActivePage === 'videos') {
+            // Show video player, hide canvas
+            fsCanvas.style.display = 'none';
+            buildVideoPlayer();
+            return;
+        } else {
+            fsCanvas.style.display = 'block';
+            fsVideoContainer.style.display = 'none';
+        }
 
-        // Title
+        const cw = fsCanvas.width, ch = fsCanvas.height;
+        fsCtx.fillStyle = '#0e1117'; fsCtx.fillRect(0, 0, cw, ch);
+
+        const mx = 20;
         fsCtx.fillStyle = '#fff'; fsCtx.font = 'bold 18px "JetBrains Mono", monospace';
         fsCtx.fillText(getPageTitle(fsActivePage), mx, 36);
         fsCtx.strokeStyle = '#333'; fsCtx.lineWidth = 1;
         fsCtx.beginPath(); fsCtx.moveTo(mx, 48); fsCtx.lineTo(cw-20, 48); fsCtx.stroke();
 
-        // Content
         fsCtx.fillStyle = '#ccc'; fsCtx.font = '12px "JetBrains Mono", monospace';
         getPageContent(fsActivePage).forEach((line, i) => { fsCtx.fillText(line, mx, 72 + i * 18); });
 
-        // Status bar
         fsCtx.fillStyle = '#0a0c12'; fsCtx.fillRect(0, ch-24, cw, 24);
         fsCtx.fillStyle = '#00ff88'; fsCtx.font = '10px "JetBrains Mono", monospace';
         fsCtx.fillText('● ONLINE', 10, ch-8);
@@ -793,8 +948,6 @@ export function start() {
         fsOverlay.style.display = 'flex';
         fsActivePage = streamlitState.activePage;
         renderFsPage();
-
-        // Also handle ESC key
         document.addEventListener('keydown', fsEscHandler);
     }
     function closeFullscreenLaptop() {
@@ -804,8 +957,6 @@ export function start() {
     function fsEscHandler(e) {
         if (e.code === 'Escape') closeFullscreenLaptop();
     }
-
-    // Click outside to close
     fsOverlay.addEventListener('click', (e) => {
         if (e.target === fsOverlay) closeFullscreenLaptop();
     });
@@ -838,7 +989,6 @@ export function start() {
         moveState.forward = moveState.backward = moveState.left = moveState.right = false;
     });
 
-    // Mobile buttons
     var btnGas = document.getElementById('btn-gas');
     var btnLaptop = document.getElementById('btn-laptop');
     if (btnGas) {
@@ -850,7 +1000,6 @@ export function start() {
         btnLaptop.addEventListener('click', function() { openFullscreenLaptop(); });
     }
 
-    // Joystick visual feedback
     var joystickZone = document.getElementById('joystick-zone');
     var joystickKnob = document.getElementById('joystick-knob');
     if (joystickZone) {
@@ -885,7 +1034,7 @@ export function start() {
         }, speed);
     }
 
-    // ── Detail Panels (3rd person mode) ──
+    // ── Detail Panels ──
     const detailContent = {
         PROJECTS: { title: '🚀 Projects', body: '$ ls -la /home/akhil/projects/\n\nagenticbiz.vercel.app\n→ AI agent deployment for businesses\n→ Next.js 15 | Resend forms\n\nhush-v1.vercel.app\n→ Private car social platform (SA)\n→ React 19 PWA | Real-time chat\n\ndirt-hands-crew (github)\n→ JDM mobile game — Godot 4.4+\n→ Supabase backend | Freemium\n\nventrix-petroleum-2.vercel.app\n→ Industrial fuel company website\n→ React + Vite | Parallax imagery' },
         HUSH: { title: '🏎️ Hush', body: '$ cat /projects/hush/README.md\n\n> "Time to take it off WhatsApp."\n\nPrivate social platform for SA car\nenthusiasts. React 19 PWA.\n\nFeatures:\n• Live Meet Map (real-time)\n• Crews & profiles\n• Event coordination\n• Car culture, not criminals\n\n→ hush-v1.vercel.app' },
@@ -922,122 +1071,133 @@ export function start() {
     // ════════════════════════════════════════════
     //  ANIMATION LOOP
     // ════════════════════════════════════════════
-    // First person mouse look state
-    let fpYaw = 0, fpPitch = 0;
-    let isPointerLocked = false;
-
-    // Pointer lock for first person look
-    renderer.domElement.addEventListener('click', () => {
-        if (firstPerson && !isPointerLocked && !document.getElementById('fs-laptop-overlay').classList.contains('show')) {
-            renderer.domElement.requestPointerLock();
-        }
-    });
-    document.addEventListener('pointerlockchange', () => {
-        isPointerLocked = document.pointerLockElement === renderer.domElement;
-        controls.enabled = !isPointerLocked && !firstPerson;
-    });
-    document.addEventListener('mousemove', (e) => {
-        if (!isPointerLocked || !firstPerson) return;
-        fpYaw -= e.movementX * 0.003;
-        fpPitch -= e.movementY * 0.003;
-        fpPitch = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, fpPitch));
-    });
-
     let prevTime = performance.now();
     function animate() {
         requestAnimationFrame(animate);
-        const now = performance.now(), dt = (now - prevTime) * 0.001; prevTime = now;
+        const now = performance.now(), dt = Math.min((now - prevTime) * 0.001, 0.05); prevTime = now;
         const t = now * 0.001;
 
-        // Character movement (only when NOT in first person inside car)
-        const moveDir = new THREE.Vector3();
-        if (moveState.forward) moveDir.z -= 1;
-        if (moveState.backward) moveDir.z += 1;
-        if (moveState.left) moveDir.x -= 1;
-        if (moveState.right) moveDir.x += 1;
-        if (moveDir.length() > 0 && !firstPerson) {
-            moveDir.normalize();
-            const camDir = new THREE.Vector3();
-            camera.getWorldDirection(camDir);
-            camDir.y = 0; camDir.normalize();
-            const camRight = new THREE.Vector3();
-            camRight.crossVectors(camDir, new THREE.Vector3(0, 1, 0)).normalize();
-            const finalMove = new THREE.Vector3();
-            finalMove.addScaledVector(camDir, -moveDir.z);
-            finalMove.addScaledVector(camRight, moveDir.x);
-            character.position.x += finalMove.x * characterSpeed * dt;
-            character.position.z += finalMove.z * characterSpeed * dt;
-            character.position.y = 0;
-            character.rotation.y = Math.atan2(finalMove.x, finalMove.z);
+        // ── Entry/Exit animation ──
+        if (entryAnim.active) {
+            entryAnim.t += dt / entryAnim.duration;
+            const alpha = Math.min(1, entryAnim.t);
+            // Smooth ease-out cubic
+            const eased = 1 - Math.pow(1 - alpha, 3);
+
+            camera.position.lerpVectors(entryAnim.fromPos, entryAnim.toPos, eased);
+            const lookTarget = new THREE.Vector3().lerpVectors(entryAnim.fromLook, entryAnim.toLook, eased);
+            camera.lookAt(lookTarget);
+
+            if (alpha >= 1) {
+                entryAnim.active = false;
+                if (playerState === 'entering') {
+                    playerState = 'driving';
+                    controls.enabled = false;
+                    $('info-bar').textContent = '🚗 DRIVING — mouse to look, SPACE for flames, E to exit';
+                    // Request pointer lock for mouse look
+                    setTimeout(() => { renderer.domElement.requestPointerLock(); }, 100);
+                } else if (playerState === 'exiting') {
+                    playerState = 'walking';
+                    controls.enabled = true;
+                    controls.target.copy(character.position).add(new THREE.Vector3(0, 1, 0));
+                    camera.position.copy(entryAnim.toPos);
+                    $('info-bar').textContent = "The Agent's Workshop — explore the garage";
+                }
+            }
         }
 
-        // First person camera: follow character head
-        if (firstPerson) {
-            const headWorldPos = new THREE.Vector3();
-            headMesh.getWorldPosition(headWorldPos);
-            camera.position.copy(headWorldPos);
+        // ── Walking mode: character movement ──
+        if (playerState === 'walking') {
+            const moveDir = new THREE.Vector3();
+            if (moveState.forward) moveDir.z -= 1;
+            if (moveState.backward) moveDir.z += 1;
+            if (moveState.left) moveDir.x -= 1;
+            if (moveState.right) moveDir.x += 1;
+            if (moveDir.length() > 0) {
+                moveDir.normalize();
+                const camDir = new THREE.Vector3();
+                camera.getWorldDirection(camDir);
+                camDir.y = 0; camDir.normalize();
+                const camRight = new THREE.Vector3();
+                camRight.crossVectors(camDir, new THREE.Vector3(0, 1, 0)).normalize();
+                const finalMove = new THREE.Vector3();
+                finalMove.addScaledVector(camDir, -moveDir.z);
+                finalMove.addScaledVector(camRight, moveDir.x);
+                character.position.x += finalMove.x * characterSpeed * dt;
+                character.position.z += finalMove.z * characterSpeed * dt;
+                character.position.y = 0;
+                character.rotation.y = Math.atan2(finalMove.x, finalMove.z);
+            }
 
-            // Calculate look direction from yaw/pitch
+            // Show proximity hint when near car
+            const distToCar = character.position.distanceTo(carInterior.position);
+            if (distToCar < 4 && distToCar > 1.5) {
+                $('info-bar').textContent = '🚗 Press E to get in the car';
+            } else if (playerState === 'walking' && distToCar >= 4) {
+                $('info-bar').textContent = "The Agent's Workshop — explore the garage";
+            }
+
+            // Orbit camera follows character
+            const distToChar = camera.position.distanceTo(character.position);
+            if (distToChar > 12) {
+                controls.target.lerp(character.position.clone().add(new THREE.Vector3(0, 1, 0)), 0.02);
+            }
+            controls.update();
+        }
+
+        // ── Driving mode: first-person camera from driver seat ──
+        if (playerState === 'driving' && !entryAnim.active) {
+            // Get driver seat world position
+            const seatWorld = DRIVER_SEAT_POS.clone().add(DRIVER_CAM_OFFSET);
+            seatWorld.applyMatrix4(carInterior.matrixWorld);
+
+            // Subtle head bob (idle vibration)
+            const bobX = Math.sin(t * 8) * 0.003;
+            const bobY = Math.abs(Math.sin(t * 12)) * 0.002;
+            camera.position.set(seatWorld.x + bobX, seatWorld.y + bobY, seatWorld.z);
+
+            // Look direction from yaw/pitch
             const lookDir = new THREE.Vector3(
                 Math.sin(fpYaw) * Math.cos(fpPitch),
                 Math.sin(fpPitch),
                 Math.cos(fpYaw) * Math.cos(fpPitch)
             );
-
-            // Move character with WASD in first person
-            if (moveDir.length() > 0) {
-                moveDir.normalize();
-                const forward = new THREE.Vector3(
-                    Math.sin(fpYaw), 0, Math.cos(fpYaw)
-                );
-                const right = new THREE.Vector3(
-                    Math.cos(fpYaw), 0, -Math.sin(fpYaw)
-                );
-                const fm = new THREE.Vector3();
-                fm.addScaledVector(forward, -moveDir.z);
-                fm.addScaledVector(right, moveDir.x);
-                fm.y = 0;
-                if (fm.length() > 0) fm.normalize();
-                character.position.x += fm.x * characterSpeed * dt;
-                character.position.z += fm.z * characterSpeed * dt;
-                character.position.y = 0;
-            }
-
-            const lookTarget = headWorldPos.clone().add(lookDir.multiplyScalar(2));
+            const lookTarget = camera.position.clone().add(lookDir.multiplyScalar(5));
             camera.lookAt(lookTarget);
 
-            // Animate steering wheel turning
+            // Steering wheel animation based on mouse look
             if (steerGroup) {
-                const turnAmount = moveDir.x * 0.03;
-                steerGroup.rotation.z = 0.15 + turnAmount;
+                const steerAmount = -fpYaw * 0.08;
+                steerGroup.rotation.z = 0.15 + Math.max(-0.5, Math.min(0.5, steerAmount));
             }
-        } else {
-            // Orbit mode: nudge target toward character
-            const distToChar = camera.position.distanceTo(character.position);
-            if (distToChar > 12) {
-                controls.target.lerp(character.position.clone().add(new THREE.Vector3(0, 1, 0)), 0.02);
-            }
-            // Animate steering wheel return
-            if (steerGroup) {
-                steerGroup.rotation.z += (0.15 - steerGroup.rotation.z) * 0.05;
+
+            // Gas: SPACE toggles flames
+            if (flameActive) {
+                // Slight camera shake
+                camera.position.x += (Math.random() - 0.5) * 0.008;
+                camera.position.y += (Math.random() - 0.5) * 0.005;
             }
         }
 
-        // Hover animation on laptop (subtle breathing glow)
+        // ── Laptop breathing animation ──
         if (laptop) {
-            const breathe = Math.sin(t * 1.5) * 0.02;
-            const currentScale = lpScale + breathe;
-            laptop.scale.setScalar(currentScale);
+            const breathe = Math.sin(t * 1.5) * 0.015;
+            laptop.scale.setScalar(0.28 + breathe);
         }
 
-        controls.update();
+        // ── Neon pulse ──
         plCyan.intensity = 6 + Math.sin(t*1.8)*1.5;
         plPink.intensity = 4 + Math.cos(t*1.5)*1;
         plOrange.intensity = 3 + Math.sin(t*2.2)*0.8;
         plPurple.intensity = 3 + Math.cos(t*1.2)*0.8;
+
+        // ── Flames ──
         if (flameActive) emitFlame();
         updateFlame(dt);
+
+        // ── Laptop screen refresh ──
         if (Math.floor(t*2) !== Math.floor((t-dt)*2)) renderStreamlitDashboard();
+
         composer.render();
     }
     animate();
