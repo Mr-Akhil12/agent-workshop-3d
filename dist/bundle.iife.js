@@ -20732,6 +20732,66 @@ void main() {
       return new SphereGeometry(data.radius, data.widthSegments, data.heightSegments, data.phiStart, data.phiLength, data.thetaStart, data.thetaLength);
     }
   }
+  class TorusGeometry extends BufferGeometry {
+    constructor(radius = 1, tube = 0.4, radialSegments = 12, tubularSegments = 48, arc = Math.PI * 2) {
+      super();
+      this.type = "TorusGeometry";
+      this.parameters = {
+        radius,
+        tube,
+        radialSegments,
+        tubularSegments,
+        arc
+      };
+      radialSegments = Math.floor(radialSegments);
+      tubularSegments = Math.floor(tubularSegments);
+      const indices = [];
+      const vertices = [];
+      const normals = [];
+      const uvs = [];
+      const center = new Vector3();
+      const vertex2 = new Vector3();
+      const normal = new Vector3();
+      for (let j = 0; j <= radialSegments; j++) {
+        for (let i = 0; i <= tubularSegments; i++) {
+          const u = i / tubularSegments * arc;
+          const v = j / radialSegments * Math.PI * 2;
+          vertex2.x = (radius + tube * Math.cos(v)) * Math.cos(u);
+          vertex2.y = (radius + tube * Math.cos(v)) * Math.sin(u);
+          vertex2.z = tube * Math.sin(v);
+          vertices.push(vertex2.x, vertex2.y, vertex2.z);
+          center.x = radius * Math.cos(u);
+          center.y = radius * Math.sin(u);
+          normal.subVectors(vertex2, center).normalize();
+          normals.push(normal.x, normal.y, normal.z);
+          uvs.push(i / tubularSegments);
+          uvs.push(j / radialSegments);
+        }
+      }
+      for (let j = 1; j <= radialSegments; j++) {
+        for (let i = 1; i <= tubularSegments; i++) {
+          const a = (tubularSegments + 1) * j + i - 1;
+          const b = (tubularSegments + 1) * (j - 1) + i - 1;
+          const c = (tubularSegments + 1) * (j - 1) + i;
+          const d = (tubularSegments + 1) * j + i;
+          indices.push(a, b, d);
+          indices.push(b, c, d);
+        }
+      }
+      this.setIndex(indices);
+      this.setAttribute("position", new Float32BufferAttribute(vertices, 3));
+      this.setAttribute("normal", new Float32BufferAttribute(normals, 3));
+      this.setAttribute("uv", new Float32BufferAttribute(uvs, 2));
+    }
+    copy(source) {
+      super.copy(source);
+      this.parameters = Object.assign({}, source.parameters);
+      return this;
+    }
+    static fromJSON(data) {
+      return new TorusGeometry(data.radius, data.tube, data.radialSegments, data.tubularSegments, data.arc);
+    }
+  }
   class TubeGeometry extends BufferGeometry {
     constructor(path = new QuadraticBezierCurve3(new Vector3(-1, -1, 0), new Vector3(-1, 1, 0), new Vector3(1, 1, 0)), tubularSegments = 64, radius = 1, radialSegments = 8, closed = false) {
       super();
@@ -27338,18 +27398,21 @@ void main() {
     document.body.appendChild(renderer.domElement);
     const scene = new Scene();
     scene.background = new Color(131590);
-    const camera = new PerspectiveCamera(50, W / H, 0.1, 200);
+    const camera = new PerspectiveCamera(70, W / H, 0.05, 200);
     camera.position.set(6, 4, 8);
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.target.set(0, 0.8, 0);
     controls.enableDamping = true;
     controls.dampingFactor = 0.06;
-    controls.minDistance = 3;
+    controls.minDistance = 1;
     controls.maxDistance = 16;
     controls.maxPolarAngle = Math.PI * 0.48;
     controls.minPolarAngle = Math.PI * 0.08;
     controls.enablePan = false;
     controls.update();
+    let firstPerson = false;
+    new Vector3(0, 1.45, 0);
+    new Vector3(0, 1.45, 0);
     const envMap = createEnvMap(renderer);
     const composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
@@ -27413,7 +27476,6 @@ void main() {
       b.position.set(bx, 3.45, -1.5);
       scene.add(b);
     }
-    setProgress(40, "Workshop structure built");
     function createNeonText(text, color, fontSize, width, height) {
       const canvas = document.createElement("canvas");
       canvas.width = 512;
@@ -27454,7 +27516,7 @@ void main() {
     const plPurple = new PointLight(10027263, 3, 8, 2);
     plPurple.position.set(-3.5, 4.5, 1.5);
     scene.add(plPurple);
-    setProgress(45, "Neon lighting done");
+    setProgress(40, "Workshop + neon done");
     const bldgMat1 = new MeshStandardMaterial({ color: 394768, metalness: 0.2, roughness: 0.8 });
     const bldgMat2 = new MeshStandardMaterial({ color: 394768, emissive: 657952, emissiveIntensity: 0.3, metalness: 0.2, roughness: 0.8 });
     [
@@ -27472,6 +27534,26 @@ void main() {
       mesh.position.set(b.x, b.h / 2, b.z);
       scene.add(mesh);
     });
+    for (let gx = -2; gx <= 2; gx += 2) {
+      for (let gz = -1; gz <= 1; gz += 2) {
+        const pl = new PointLight(16774630, 3, 6, 2);
+        pl.position.set(gx, 3.3, gz);
+        scene.add(pl);
+      }
+    }
+    const barrelGeo = new CylinderGeometry(0.35, 0.35, 0.9, 12);
+    const barrelMat = new MeshStandardMaterial({ color: 1118481, metalness: 0.5, roughness: 0.5 });
+    [[3.2, 0.45, -2.5], [3.7, 0.45, -2.2], [3.4, 0.45, -1.8]].forEach((p) => {
+      const b = new Mesh(barrelGeo, barrelMat);
+      b.position.set(p[0], p[1], p[2]);
+      b.castShadow = true;
+      b.receiveShadow = true;
+      scene.add(b);
+    });
+    const shelf = new Mesh(new BoxGeometry(0.4, 0.08, 2), new MeshStandardMaterial({ color: 1710618, metalness: 0.4, roughness: 0.5 }));
+    shelf.position.set(-3.8, 1.5, -2);
+    scene.add(shelf);
+    scene.add(new PointLight(65416, 2, 3, 2)).position.set(-3.6, 1.7, -2);
     function createWire(p1, p2, sag = 0.3) {
       const pts = [];
       for (let t = 0; t <= 1; t += 0.05) {
@@ -27488,30 +27570,7 @@ void main() {
     }
     scene.add(createWire(new Vector3(-4, 3.5, -1.5), new Vector3(-10, 7, -14)));
     scene.add(createWire(new Vector3(4, 3.5, -1.5), new Vector3(8, 9, -14)));
-    scene.add(createWire(new Vector3(-4, 3.5, -1.5), new Vector3(-6, 8, -16), 0.5));
-    scene.add(createWire(new Vector3(0, 3.55, -4), new Vector3(1, 7, -15), 0.4));
-    setProgress(50, "City backdrop and wires added");
-    const barrelGeo = new CylinderGeometry(0.35, 0.35, 0.9, 12);
-    const barrelMat = new MeshStandardMaterial({ color: 1118481, metalness: 0.5, roughness: 0.5 });
-    [[3.2, 0.45, -2.5], [3.7, 0.45, -2.2], [3.4, 0.45, -1.8]].forEach((p) => {
-      const b = new Mesh(barrelGeo, barrelMat);
-      b.position.set(p[0], p[1], p[2]);
-      b.castShadow = true;
-      b.receiveShadow = true;
-      scene.add(b);
-    });
-    const shelf = new Mesh(new BoxGeometry(0.4, 0.08, 2), new MeshStandardMaterial({ color: 1710618, metalness: 0.4, roughness: 0.5 }));
-    shelf.position.set(-3.8, 1.5, -2);
-    scene.add(shelf);
-    scene.add(new PointLight(65416, 2, 3, 2)).position.set(-3.6, 1.7, -2);
-    setProgress(55, "Props placed");
-    for (let gx = -2; gx <= 2; gx += 2) {
-      for (let gz = -1; gz <= 1; gz += 2) {
-        const pl = new PointLight(16774630, 3, 6, 2);
-        pl.position.set(gx, 3.3, gz);
-        scene.add(pl);
-      }
-    }
+    setProgress(50, "Environment built");
     const character = new Group();
     const bodyGeo = new CapsuleGeometry(0.25, 0.6, 4, 8);
     const bodyMat = new MeshStandardMaterial({ color: 2236979, metalness: 0.1, roughness: 0.8 });
@@ -27542,10 +27601,109 @@ void main() {
       if (e.code === "KeyA" || e.code === "ArrowLeft") moveState.left = false;
       if (e.code === "KeyD" || e.code === "ArrowRight") moveState.right = false;
     });
+    const carInterior = new Group();
+    const cabinMat = new MeshStandardMaterial({ color: 657930, metalness: 0.3, roughness: 0.85 });
+    const dashMat = new MeshStandardMaterial({ color: 1118481, metalness: 0.6, roughness: 0.4 });
+    const seatMat = new MeshStandardMaterial({ color: 1710618, metalness: 0.1, roughness: 0.9 });
+    const leatherMat = new MeshStandardMaterial({ color: 1118481, metalness: 0.05, roughness: 0.95 });
+    const chromeMat = new MeshStandardMaterial({ color: 13421772, metalness: 1, roughness: 0.05 });
+    const glassMat = new MeshPhysicalMaterial({ color: 1118498, metalness: 0.1, roughness: 0.05, transmission: 0.8, transparent: true, opacity: 0.3, depthWrite: false });
+    const floorPan = new Mesh(new BoxGeometry(3.4, 0.06, 2.2), cabinMat);
+    floorPan.position.set(0, 0.12, 0);
+    carInterior.add(floorPan);
+    const dash = new Mesh(new BoxGeometry(3.2, 0.35, 0.15), dashMat);
+    dash.position.set(0, 0.55, 0.85);
+    carInterior.add(dash);
+    const dashTop = new Mesh(new BoxGeometry(3.2, 0.06, 0.25), dashMat);
+    dashTop.position.set(0, 0.73, 0.75);
+    carInterior.add(dashTop);
+    const steerGroup = new Group();
+    const steerRing = new Mesh(
+      new TorusGeometry(0.22, 0.025, 8, 24),
+      chromeMat
+    );
+    steerGroup.add(steerRing);
+    for (let a = 0; a < Math.PI * 2; a += Math.PI * 2 / 3) {
+      const spoke = new Mesh(new BoxGeometry(0.04, 0.03, 0.35), chromeMat);
+      spoke.position.set(Math.sin(a) * 0.17, 0, Math.cos(a) * 0.17);
+      spoke.rotation.y = a;
+      steerGroup.add(spoke);
+    }
+    const hub = new Mesh(new CylinderGeometry(0.06, 0.06, 0.04, 12), dashMat);
+    hub.rotation.x = Math.PI / 2;
+    steerGroup.add(hub);
+    steerGroup.position.set(-0.55, 0.6, 0.6);
+    steerGroup.rotation.x = -0.4;
+    steerGroup.rotation.z = 0.15;
+    carInterior.add(steerGroup);
+    const driverSeat = new Group();
+    const seatBase = new Mesh(new BoxGeometry(0.55, 0.12, 0.55), seatMat);
+    seatBase.position.y = 0.22;
+    driverSeat.add(seatBase);
+    const seatBack = new Mesh(new BoxGeometry(0.55, 0.7, 0.12), seatMat);
+    seatBack.position.set(0, 0.55, -0.22);
+    driverSeat.add(seatBack);
+    const headrest = new Mesh(new BoxGeometry(0.25, 0.2, 0.08), seatMat);
+    headrest.position.set(0, 0.95, -0.25);
+    driverSeat.add(headrest);
+    driverSeat.position.set(-0.6, 0, -0.1);
+    carInterior.add(driverSeat);
+    const passengerSeat = new Group();
+    const pSeatBase = new Mesh(new BoxGeometry(0.55, 0.12, 0.55), seatMat);
+    pSeatBase.position.y = 0.22;
+    passengerSeat.add(pSeatBase);
+    const pSeatBack = new Mesh(new BoxGeometry(0.55, 0.7, 0.12), seatMat);
+    pSeatBack.position.set(0, 0.55, -0.22);
+    passengerSeat.add(pSeatBack);
+    const pHeadrest = new Mesh(new BoxGeometry(0.25, 0.2, 0.08), seatMat);
+    pHeadrest.position.set(0, 0.95, -0.25);
+    passengerSeat.add(pHeadrest);
+    passengerSeat.position.set(0.6, 0, -0.1);
+    carInterior.add(passengerSeat);
+    const console_ = new Mesh(new BoxGeometry(0.3, 0.35, 1), leatherMat);
+    console_.position.set(0, 0.3, 0.2);
+    carInterior.add(console_);
+    const gearStick = new Mesh(new CylinderGeometry(0.025, 0.03, 0.18, 8), chromeMat);
+    gearStick.position.set(0, 0.55, 0.2);
+    carInterior.add(gearStick);
+    const gearKnob = new Mesh(new SphereGeometry(0.04, 8, 8), leatherMat);
+    gearKnob.position.set(0, 0.65, 0.2);
+    carInterior.add(gearKnob);
+    const windshield = new Mesh(new PlaneGeometry(2.8, 0.9), glassMat);
+    windshield.position.set(0, 0.85, 0.95);
+    windshield.rotation.x = -0.35;
+    carInterior.add(windshield);
+    const rearWindow = new Mesh(new PlaneGeometry(2.6, 0.7), glassMat);
+    rearWindow.position.set(0, 0.85, -1);
+    rearWindow.rotation.x = 0.4;
+    rearWindow.rotation.y = Math.PI;
+    carInterior.add(rearWindow);
+    const sideWinL = new Mesh(new PlaneGeometry(0.05, 0.5), glassMat);
+    sideWinL.position.set(-1.71, 0.7, 0);
+    sideWinL.rotation.y = Math.PI / 2;
+    carInterior.add(sideWinL);
+    const sideWinR = new Mesh(new PlaneGeometry(0.05, 0.5), glassMat);
+    sideWinR.position.set(1.71, 0.7, 0);
+    sideWinR.rotation.y = -Math.PI / 2;
+    carInterior.add(sideWinR);
+    const pillarGeo = new BoxGeometry(0.06, 0.7, 0.06);
+    const pillarL = new Mesh(pillarGeo, cabinMat);
+    pillarL.position.set(-1.4, 0.8, 0.75);
+    pillarL.rotation.z = 0.35;
+    carInterior.add(pillarL);
+    const pillarR = new Mesh(pillarGeo, cabinMat);
+    pillarR.position.set(1.4, 0.8, 0.75);
+    pillarR.rotation.z = -0.35;
+    carInterior.add(pillarR);
+    const dashNeon = new PointLight(52479, 2, 3, 2);
+    dashNeon.position.set(0, 0.45, 0.6);
+    carInterior.add(dashNeon);
+    carInterior.position.set(0, 0, 1);
+    scene.add(carInterior);
     let laptopScreenCanvas = null;
     let laptopScreenTexture = null;
     const streamlitState = { activePage: "dashboard" };
-    function buildLaptop() {
+    function buildLaptopMesh() {
       const group = new Group();
       const baseMat = new MeshStandardMaterial({ color: 1710618, metalness: 0.8, roughness: 0.2 });
       group.add(new Mesh(new BoxGeometry(0.8, 0.04, 0.55), baseMat));
@@ -27567,8 +27725,23 @@ void main() {
       kb.position.set(0, 0.025, 0.05);
       kb.rotation.x = -Math.PI / 2;
       group.add(kb);
+      const logoMat = new MeshBasicMaterial({ color: 52479, transparent: true, opacity: 0.6 });
+      const logo = new Mesh(new PlaneGeometry(0.15, 0.1), logoMat);
+      logo.position.set(0, 0.27, -0.275);
+      logo.rotation.x = -0.3;
+      group.add(logo);
       return group;
     }
+    const laptop = buildLaptopMesh();
+    const lpScale = 0.28;
+    laptop.position.copy(passengerSeat.position).add(carInterior.position);
+    laptop.position.y += 0.28;
+    laptop.position.x += 0.15;
+    laptop.position.z += 0.05;
+    laptop.rotation.y = 0.15;
+    laptop.rotation.x = -0.15;
+    laptop.scale.setScalar(lpScale);
+    scene.add(laptop);
     function getPageTitle(page) {
       const t = { dashboard: "> AGENT_DASHBOARD", projects: "> PROJECTS.md", garage: "> GARAGE.glb", agents: "> HERMES.exe", contact: "> CONTACT.json" };
       return t[page] || page;
@@ -27586,13 +27759,13 @@ void main() {
     function renderStreamlitDashboard() {
       if (!laptopScreenCanvas) return;
       const ctx = laptopScreenCanvas.getContext("2d");
-      const W2 = laptopScreenCanvas.width, H2 = laptopScreenCanvas.height;
+      const cw = laptopScreenCanvas.width, ch = laptopScreenCanvas.height;
       ctx.fillStyle = "#0e1117";
-      ctx.fillRect(0, 0, W2, H2);
+      ctx.fillRect(0, 0, cw, ch);
       const sbW = 120;
       {
         ctx.fillStyle = "#1a1d27";
-        ctx.fillRect(0, 0, sbW, H2);
+        ctx.fillRect(0, 0, sbW, ch);
         ctx.fillStyle = "#00ccff";
         ctx.font = 'bold 11px "JetBrains Mono", monospace';
         ctx.fillText("⚡ HERMES", 8, 24);
@@ -27611,7 +27784,7 @@ void main() {
         });
         ctx.fillStyle = "#444";
         ctx.font = '8px "JetBrains Mono", monospace';
-        ctx.fillText("[◀] collapse", 8, H2 - 10);
+        ctx.fillText("[◀] collapse", 8, ch - 10);
       }
       const mx = sbW + 12;
       ctx.fillStyle = "#fff";
@@ -27621,7 +27794,7 @@ void main() {
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(mx, 40);
-      ctx.lineTo(W2 - 12, 40);
+      ctx.lineTo(cw - 12, 40);
       ctx.stroke();
       ctx.fillStyle = "#ccc";
       ctx.font = '10px "JetBrains Mono", monospace';
@@ -27629,12 +27802,12 @@ void main() {
         ctx.fillText(line, mx, 58 + i * 16);
       });
       ctx.fillStyle = "#0a0c12";
-      ctx.fillRect(0, H2 - 20, W2, 20);
+      ctx.fillRect(0, ch - 20, cw, 20);
       ctx.fillStyle = "#00ff88";
       ctx.font = '9px "JetBrains Mono", monospace';
-      ctx.fillText("● ONLINE", 8, H2 - 7);
+      ctx.fillText("● ONLINE", 8, ch - 7);
       ctx.fillStyle = "#666";
-      ctx.fillText("OpenRouter // free tier", sbW + 8, H2 - 7);
+      ctx.fillText("OpenRouter // free tier", sbW + 8, ch - 7);
       if (laptopScreenTexture) laptopScreenTexture.needsUpdate = true;
     }
     let flameActive = false;
@@ -27704,7 +27877,7 @@ void main() {
       geo.attributes.lifetime.needsUpdate = true;
       if (flameLight) flameLight.intensity = flameActive ? 3 + Math.sin(performance.now() * 0.02) * 1.5 : 0;
     }
-    setProgress(60, "Particle systems ready");
+    setProgress(60, "Car interior + flames ready");
     let carModel = null;
     const interactive = [];
     const loader = new GLTFLoader();
@@ -27750,13 +27923,7 @@ void main() {
         }
       });
       scene.add(carModel);
-      interactive.push({ mesh: carModel, data: { label: "GARAGE", color: 16737792 } });
-      const laptop = buildLaptop();
-      laptop.position.set(carModel.position.x + 0.45 * S, carModel.position.y + 0.55 * S, carModel.position.z - 0.3 * S);
-      laptop.rotation.y = -0.3;
-      laptop.scale.setScalar(0.4);
-      scene.add(laptop);
-      interactive.push({ mesh: laptop, data: { label: "LAPTOP", color: 52479 } });
+      interactive.push({ mesh: carModel, data: { label: "GARAGE", type: "car" } });
       let exhaustFound = false;
       carModel.traverse((child) => {
         if (!child.isMesh) return;
@@ -27778,9 +27945,11 @@ void main() {
       if (xhr.total > 0) setProgress(60 + Math.round(xhr.loaded / xhr.total * 35), `Loading car: ${Math.round(xhr.loaded / xhr.total * 100)}%`);
     }, (err) => {
       console.error("GLB error:", err);
-      setProgress(100, "Car load error");
+      renderStreamlitDashboard();
+      setProgress(100, "Car load error (no GLB)");
       setTimeout(hideLoad, 600);
     });
+    interactive.push({ mesh: laptop, data: { label: "LAPTOP", type: "laptop" } });
     const gasIndicator = $("gas-indicator");
     let gasClickActive = false;
     document.addEventListener("keydown", (e) => {
@@ -27788,6 +27957,17 @@ void main() {
         e.preventDefault();
         flameActive = true;
         gasIndicator.style.color = "rgba(255,102,0,1)";
+      }
+      if (e.code === "KeyF") {
+        firstPerson = !firstPerson;
+        controls.enabled = !firstPerson;
+        if (firstPerson) {
+          $("info-bar").textContent = "👁️ FIRST PERSON — F to exit, WASD to move";
+        } else {
+          $("info-bar").textContent = "The Agent's Workshop — explore the garage";
+          controls.target.copy(character.position).add(new Vector3(0, 1, 0));
+          camera.position.set(character.position.x + 6, character.position.y + 4, character.position.z + 8);
+        }
       }
     });
     document.addEventListener("keyup", (e) => {
@@ -27824,14 +28004,153 @@ void main() {
           return false;
         });
         if (item) {
-          if (item.data.label === "GARAGE") {
+          if (item.data.type === "car") {
             gasClickActive = !gasClickActive;
             flameActive = gasClickActive;
             gasIndicator.style.color = flameActive ? "rgba(255,102,0,1)" : "rgba(255,102,0,0)";
           }
-          showDetail(item.data);
+          if (item.data.type === "laptop") {
+            openFullscreenLaptop();
+          } else {
+            showDetail(item.data);
+          }
         }
       }
+    });
+    let fsCanvas = null;
+    let fsCtx = null;
+    let fsSidebarOpen = true;
+    let fsActivePage = "dashboard";
+    const fsOverlay = document.createElement("div");
+    fsOverlay.id = "fs-laptop-overlay";
+    fsOverlay.style.cssText = "display:none;position:fixed;inset:0;z-index:300;background:rgba(0,0,0,0.92);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);justify-content:center;align-items:center;overflow:hidden;";
+    fsOverlay.style.display = "none";
+    document.body.appendChild(fsOverlay);
+    const fsLaptopFrame = document.createElement("div");
+    fsLaptopFrame.style.cssText = "width:85vw;height:82vh;max-width:1200px;background:#0e1117;border-radius:12px;border:1px solid rgba(255,255,255,0.08);display:flex;flex-direction:column;overflow:hidden;";
+    fsOverlay.appendChild(fsLaptopFrame);
+    const titleBar = document.createElement("div");
+    titleBar.style.cssText = "height:36px;background:#1a1d27;display:flex;align-items:center;padding:0 12px;gap:8px;border-bottom:1px solid rgba(255,255,255,0.06);flex-shrink:0;";
+    titleBar.innerHTML = '<span style="width:12px;height:12px;border-radius:50%;background:#ff5f57;display:inline-block"></span><span style="width:12px;height:12px;border-radius:50%;background:#febc2e;display:inline-block"></span><span style="width:12px;height:12px;border-radius:50%;background:#28c840;display:inline-block"></span><span style="color:rgba(255,255,255,0.4);font-family:JetBrains Mono,monospace;font-size:11px;margin-left:12px">agent@workshop:~/desktop</span>';
+    fsLaptopFrame.appendChild(titleBar);
+    const fsClose = document.createElement("button");
+    fsClose.textContent = "✕";
+    fsClose.style.cssText = "position:absolute;top:8px;right:12px;background:rgba(255,255,255,0.06);border:none;border-radius:6px;width:28px;height:28px;color:rgba(255,255,255,0.5);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:5;";
+    fsClose.onclick = closeFullscreenLaptop;
+    fsOverlay.appendChild(fsClose);
+    const screenArea = document.createElement("div");
+    screenArea.style.cssText = "flex:1;display:flex;overflow:hidden;";
+    fsLaptopFrame.appendChild(screenArea);
+    const fsSidebar = document.createElement("div");
+    fsSidebar.id = "fs-sidebar";
+    fsSidebar.style.cssText = "width:180px;background:#1a1d27;border-right:1px solid rgba(255,255,255,0.06);display:flex;flex-direction:column;flex-shrink:0;transition:width 0.25s;";
+    screenArea.appendChild(fsSidebar);
+    const fsMainArea = document.createElement("div");
+    fsMainArea.style.cssText = "flex:1;position:relative;overflow:hidden;";
+    screenArea.appendChild(fsMainArea);
+    fsCanvas = document.createElement("canvas");
+    fsCanvas.width = 900;
+    fsCanvas.height = 600;
+    fsCanvas.style.cssText = "width:100%;height:100%;";
+    fsMainArea.appendChild(fsCanvas);
+    fsCtx = fsCanvas.getContext("2d");
+    const navItems = [
+      { id: "dashboard", icon: "📊", label: "Dashboard" },
+      { id: "projects", icon: "🚀", label: "Projects" },
+      { id: "garage", icon: "🏎️", label: "Garage" },
+      { id: "agents", icon: "⚡", label: "Agents" },
+      { id: "contact", icon: "📬", label: "Contact" }
+    ];
+    const sbHeader = document.createElement("div");
+    sbHeader.style.cssText = "padding:16px 14px 10px;border-bottom:1px solid rgba(255,255,255,0.06);";
+    sbHeader.innerHTML = '<div style="color:#00ccff;font-family:JetBrains Mono,monospace;font-size:14px;font-weight:700">⚡ HERMES</div><div style="color:#666;font-family:JetBrains Mono,monospace;font-size:10px;margin-top:4px">v2.4.0 — free</div>';
+    fsSidebar.appendChild(sbHeader);
+    const sbNavItems = [];
+    navItems.forEach((item) => {
+      const el = document.createElement("div");
+      el.style.cssText = "padding:10px 14px;color:#888;font-family:JetBrains Mono,monospace;font-size:12px;cursor:pointer;transition:all 0.15s;display:flex;align-items:center;gap:8px;border-left:3px solid transparent;";
+      el.innerHTML = `<span>${item.icon}</span><span>${item.label}</span>`;
+      el.onclick = () => {
+        fsActivePage = item.id;
+        renderFsPage();
+      };
+      el.onmouseenter = () => {
+        if (fsActivePage !== item.id) el.style.background = "rgba(255,255,255,0.04)";
+      };
+      el.onmouseleave = () => {
+        if (fsActivePage !== item.id) el.style.background = "transparent";
+      };
+      fsSidebar.appendChild(el);
+      sbNavItems.push({ el, item });
+    });
+    const collapseBtn = document.createElement("div");
+    collapseBtn.style.cssText = "margin-top:auto;padding:12px 14px;color:#555;font-family:JetBrains Mono,monospace;font-size:10px;cursor:pointer;border-top:1px solid rgba(255,255,255,0.06);";
+    collapseBtn.textContent = "◀ collapse";
+    collapseBtn.onclick = () => {
+      fsSidebarOpen = !fsSidebarOpen;
+      fsSidebar.style.width = fsSidebarOpen ? "180px" : "36px";
+      collapseBtn.textContent = fsSidebarOpen ? "◀ collapse" : "▶";
+      sbHeader.style.display = fsSidebarOpen ? "block" : "none";
+      sbNavItems.forEach((ni) => {
+        ni.el.innerHTML = fsSidebarOpen ? `<span>${ni.item.icon}</span><span>${ni.item.label}</span>` : `<span style="text-align:center;width:100%">${ni.item.icon}</span>`;
+      });
+      renderFsPage();
+    };
+    fsSidebar.appendChild(collapseBtn);
+    function renderFsPage() {
+      if (!fsCtx) return;
+      const cw = fsCanvas.width, ch = fsCanvas.height;
+      fsCtx.fillStyle = "#0e1117";
+      fsCtx.fillRect(0, 0, cw, ch);
+      sbNavItems.forEach((ni) => {
+        if (ni.item.id === fsActivePage) {
+          ni.el.style.background = "rgba(0,204,255,0.1)";
+          ni.el.style.color = "#00ccff";
+          ni.el.style.borderLeftColor = "#00ccff";
+        } else {
+          ni.el.style.background = "transparent";
+          ni.el.style.color = "#888";
+          ni.el.style.borderLeftColor = "transparent";
+        }
+      });
+      const mx = 20;
+      fsCtx.fillStyle = "#fff";
+      fsCtx.font = 'bold 18px "JetBrains Mono", monospace';
+      fsCtx.fillText(getPageTitle(fsActivePage), mx, 36);
+      fsCtx.strokeStyle = "#333";
+      fsCtx.lineWidth = 1;
+      fsCtx.beginPath();
+      fsCtx.moveTo(mx, 48);
+      fsCtx.lineTo(cw - 20, 48);
+      fsCtx.stroke();
+      fsCtx.fillStyle = "#ccc";
+      fsCtx.font = '12px "JetBrains Mono", monospace';
+      getPageContent(fsActivePage).forEach((line, i) => {
+        fsCtx.fillText(line, mx, 72 + i * 18);
+      });
+      fsCtx.fillStyle = "#0a0c12";
+      fsCtx.fillRect(0, ch - 24, cw, 24);
+      fsCtx.fillStyle = "#00ff88";
+      fsCtx.font = '10px "JetBrains Mono", monospace';
+      fsCtx.fillText("● ONLINE", 10, ch - 8);
+      fsCtx.fillStyle = "#666";
+      fsCtx.fillText("OpenRouter // free tier", 100, ch - 8);
+    }
+    function openFullscreenLaptop() {
+      fsOverlay.style.display = "flex";
+      fsActivePage = streamlitState.activePage;
+      renderFsPage();
+      document.addEventListener("keydown", fsEscHandler);
+    }
+    function closeFullscreenLaptop() {
+      fsOverlay.style.display = "none";
+      document.removeEventListener("keydown", fsEscHandler);
+    }
+    function fsEscHandler(e) {
+      if (e.code === "Escape") closeFullscreenLaptop();
+    }
+    fsOverlay.addEventListener("click", (e) => {
+      if (e.target === fsOverlay) closeFullscreenLaptop();
     });
     let joystickActive = false;
     let joystickStart = { x: 0, y: 0 };
@@ -27873,10 +28192,10 @@ void main() {
     if (btnLaptop) {
       btnLaptop.addEventListener("touchstart", function(e) {
         e.preventDefault();
-        showDetail({ label: "LAPTOP" });
+        openFullscreenLaptop();
       });
       btnLaptop.addEventListener("click", function() {
-        showDetail({ label: "LAPTOP" });
+        openFullscreenLaptop();
       });
     }
     var joystickZone = document.getElementById("joystick-zone");
@@ -27941,7 +28260,7 @@ void main() {
     }
     window.closeDetail = function() {
       $("detail-overlay").classList.remove("show");
-      $("info-bar").textContent = "The Agent's Workshop — click the signs to explore";
+      $("info-bar").textContent = "The Agent's Workshop — explore the garage";
     };
     addEventListener("resize", () => {
       const w = innerWidth, h = innerHeight;
@@ -27949,6 +28268,28 @@ void main() {
       camera.updateProjectionMatrix();
       renderer.setSize(w, h);
       composer.setSize(w, h);
+      if (fsCanvas) {
+        fsCanvas.width = fsMainArea.clientWidth;
+        fsCanvas.height = fsMainArea.clientHeight;
+        renderFsPage();
+      }
+    });
+    let fpYaw = 0, fpPitch = 0;
+    let isPointerLocked = false;
+    renderer.domElement.addEventListener("click", () => {
+      if (firstPerson && !isPointerLocked && !document.getElementById("fs-laptop-overlay").classList.contains("show")) {
+        renderer.domElement.requestPointerLock();
+      }
+    });
+    document.addEventListener("pointerlockchange", () => {
+      isPointerLocked = document.pointerLockElement === renderer.domElement;
+      controls.enabled = !isPointerLocked && !firstPerson;
+    });
+    document.addEventListener("mousemove", (e) => {
+      if (!isPointerLocked || !firstPerson) return;
+      fpYaw -= e.movementX * 3e-3;
+      fpPitch -= e.movementY * 3e-3;
+      fpPitch = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, fpPitch));
     });
     let prevTime = performance.now();
     function animate() {
@@ -27961,7 +28302,7 @@ void main() {
       if (moveState.backward) moveDir.z += 1;
       if (moveState.left) moveDir.x -= 1;
       if (moveState.right) moveDir.x += 1;
-      if (moveDir.length() > 0) {
+      if (moveDir.length() > 0 && !firstPerson) {
         moveDir.normalize();
         const camDir = new Vector3();
         camera.getWorldDirection(camDir);
@@ -27977,9 +28318,55 @@ void main() {
         character.position.y = 0;
         character.rotation.y = Math.atan2(finalMove.x, finalMove.z);
       }
-      const distToChar = camera.position.distanceTo(character.position);
-      if (distToChar > 12) {
-        controls.target.lerp(character.position.clone().add(new Vector3(0, 1, 0)), 0.02);
+      if (firstPerson) {
+        const headWorldPos = new Vector3();
+        headMesh.getWorldPosition(headWorldPos);
+        camera.position.copy(headWorldPos);
+        const lookDir = new Vector3(
+          Math.sin(fpYaw) * Math.cos(fpPitch),
+          Math.sin(fpPitch),
+          Math.cos(fpYaw) * Math.cos(fpPitch)
+        );
+        if (moveDir.length() > 0) {
+          moveDir.normalize();
+          const forward = new Vector3(
+            Math.sin(fpYaw),
+            0,
+            Math.cos(fpYaw)
+          );
+          const right = new Vector3(
+            Math.cos(fpYaw),
+            0,
+            -Math.sin(fpYaw)
+          );
+          const fm = new Vector3();
+          fm.addScaledVector(forward, -moveDir.z);
+          fm.addScaledVector(right, moveDir.x);
+          fm.y = 0;
+          if (fm.length() > 0) fm.normalize();
+          character.position.x += fm.x * characterSpeed * dt;
+          character.position.z += fm.z * characterSpeed * dt;
+          character.position.y = 0;
+        }
+        const lookTarget = headWorldPos.clone().add(lookDir.multiplyScalar(2));
+        camera.lookAt(lookTarget);
+        if (steerGroup) {
+          const turnAmount = moveDir.x * 0.03;
+          steerGroup.rotation.z = 0.15 + turnAmount;
+        }
+      } else {
+        const distToChar = camera.position.distanceTo(character.position);
+        if (distToChar > 12) {
+          controls.target.lerp(character.position.clone().add(new Vector3(0, 1, 0)), 0.02);
+        }
+        if (steerGroup) {
+          steerGroup.rotation.z += (0.15 - steerGroup.rotation.z) * 0.05;
+        }
+      }
+      if (laptop) {
+        const breathe = Math.sin(t * 1.5) * 0.02;
+        const currentScale = lpScale + breathe;
+        laptop.scale.setScalar(currentScale);
       }
       controls.update();
       plCyan.intensity = 6 + Math.sin(t * 1.8) * 1.5;
@@ -27992,7 +28379,7 @@ void main() {
       composer.render();
     }
     animate();
-    setProgress(65, "Scene complete");
+    setProgress(65, "Entering the workshop...");
   }
   exports.start = start;
   Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
