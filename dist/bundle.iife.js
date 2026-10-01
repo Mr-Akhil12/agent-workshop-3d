@@ -20653,6 +20653,136 @@ void main() {
       return new CircleGeometry(data.radius, data.segments, data.thetaStart, data.thetaLength);
     }
   }
+  class CylinderGeometry extends BufferGeometry {
+    constructor(radiusTop = 1, radiusBottom = 1, height = 1, radialSegments = 32, heightSegments = 1, openEnded = false, thetaStart = 0, thetaLength = Math.PI * 2) {
+      super();
+      this.type = "CylinderGeometry";
+      this.parameters = {
+        radiusTop,
+        radiusBottom,
+        height,
+        radialSegments,
+        heightSegments,
+        openEnded,
+        thetaStart,
+        thetaLength
+      };
+      const scope = this;
+      radialSegments = Math.floor(radialSegments);
+      heightSegments = Math.floor(heightSegments);
+      const indices = [];
+      const vertices = [];
+      const normals = [];
+      const uvs = [];
+      let index = 0;
+      const indexArray = [];
+      const halfHeight = height / 2;
+      let groupStart = 0;
+      generateTorso();
+      if (openEnded === false) {
+        if (radiusTop > 0) generateCap(true);
+        if (radiusBottom > 0) generateCap(false);
+      }
+      this.setIndex(indices);
+      this.setAttribute("position", new Float32BufferAttribute(vertices, 3));
+      this.setAttribute("normal", new Float32BufferAttribute(normals, 3));
+      this.setAttribute("uv", new Float32BufferAttribute(uvs, 2));
+      function generateTorso() {
+        const normal = new Vector3();
+        const vertex2 = new Vector3();
+        let groupCount = 0;
+        const slope = (radiusBottom - radiusTop) / height;
+        for (let y = 0; y <= heightSegments; y++) {
+          const indexRow = [];
+          const v = y / heightSegments;
+          const radius = v * (radiusBottom - radiusTop) + radiusTop;
+          for (let x = 0; x <= radialSegments; x++) {
+            const u = x / radialSegments;
+            const theta = u * thetaLength + thetaStart;
+            const sinTheta = Math.sin(theta);
+            const cosTheta = Math.cos(theta);
+            vertex2.x = radius * sinTheta;
+            vertex2.y = -v * height + halfHeight;
+            vertex2.z = radius * cosTheta;
+            vertices.push(vertex2.x, vertex2.y, vertex2.z);
+            normal.set(sinTheta, slope, cosTheta).normalize();
+            normals.push(normal.x, normal.y, normal.z);
+            uvs.push(u, 1 - v);
+            indexRow.push(index++);
+          }
+          indexArray.push(indexRow);
+        }
+        for (let x = 0; x < radialSegments; x++) {
+          for (let y = 0; y < heightSegments; y++) {
+            const a = indexArray[y][x];
+            const b = indexArray[y + 1][x];
+            const c = indexArray[y + 1][x + 1];
+            const d = indexArray[y][x + 1];
+            if (radiusTop > 0 || y !== 0) {
+              indices.push(a, b, d);
+              groupCount += 3;
+            }
+            if (radiusBottom > 0 || y !== heightSegments - 1) {
+              indices.push(b, c, d);
+              groupCount += 3;
+            }
+          }
+        }
+        scope.addGroup(groupStart, groupCount, 0);
+        groupStart += groupCount;
+      }
+      function generateCap(top) {
+        const centerIndexStart = index;
+        const uv = new Vector2();
+        const vertex2 = new Vector3();
+        let groupCount = 0;
+        const radius = top === true ? radiusTop : radiusBottom;
+        const sign = top === true ? 1 : -1;
+        for (let x = 1; x <= radialSegments; x++) {
+          vertices.push(0, halfHeight * sign, 0);
+          normals.push(0, sign, 0);
+          uvs.push(0.5, 0.5);
+          index++;
+        }
+        const centerIndexEnd = index;
+        for (let x = 0; x <= radialSegments; x++) {
+          const u = x / radialSegments;
+          const theta = u * thetaLength + thetaStart;
+          const cosTheta = Math.cos(theta);
+          const sinTheta = Math.sin(theta);
+          vertex2.x = radius * sinTheta;
+          vertex2.y = halfHeight * sign;
+          vertex2.z = radius * cosTheta;
+          vertices.push(vertex2.x, vertex2.y, vertex2.z);
+          normals.push(0, sign, 0);
+          uv.x = cosTheta * 0.5 + 0.5;
+          uv.y = sinTheta * 0.5 * sign + 0.5;
+          uvs.push(uv.x, uv.y);
+          index++;
+        }
+        for (let x = 0; x < radialSegments; x++) {
+          const c = centerIndexStart + x;
+          const i = centerIndexEnd + x;
+          if (top === true) {
+            indices.push(i, i + 1, c);
+          } else {
+            indices.push(i + 1, i, c);
+          }
+          groupCount += 3;
+        }
+        scope.addGroup(groupStart, groupCount, top === true ? 1 : 2);
+        groupStart += groupCount;
+      }
+    }
+    copy(source) {
+      super.copy(source);
+      this.parameters = Object.assign({}, source.parameters);
+      return this;
+    }
+    static fromJSON(data) {
+      return new CylinderGeometry(data.radiusTop, data.radiusBottom, data.height, data.radialSegments, data.heightSegments, data.openEnded, data.thetaStart, data.thetaLength);
+    }
+  }
   const _v0 = /* @__PURE__ */ new Vector3();
   const _v1$1 = /* @__PURE__ */ new Vector3();
   const _normal = /* @__PURE__ */ new Vector3();
@@ -23118,6 +23248,299 @@ void main() {
       window.__THREE__ = REVISION;
     }
   }
+  const THREE = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+    __proto__: null,
+    ACESFilmicToneMapping,
+    AddEquation,
+    AddOperation,
+    AdditiveBlending,
+    AgXToneMapping,
+    AlphaFormat,
+    AlwaysCompare,
+    AlwaysDepth,
+    AlwaysStencilFunc,
+    AmbientLight,
+    AnimationClip,
+    ArcCurve,
+    ArrayCamera,
+    AttachedBindMode,
+    BackSide,
+    BasicDepthPacking,
+    Bone,
+    BooleanKeyframeTrack,
+    Box3,
+    BoxGeometry,
+    BufferAttribute,
+    BufferGeometry,
+    ByteType,
+    Cache,
+    Camera,
+    CanvasTexture,
+    CapsuleGeometry,
+    CatmullRomCurve3,
+    CineonToneMapping,
+    CircleGeometry,
+    ClampToEdgeWrapping,
+    Clock,
+    Color,
+    ColorKeyframeTrack,
+    ColorManagement,
+    ConstantAlphaFactor,
+    ConstantColorFactor,
+    CubeCamera,
+    CubeReflectionMapping,
+    CubeRefractionMapping,
+    CubeTexture,
+    CubeUVReflectionMapping,
+    CubicBezierCurve,
+    CubicBezierCurve3,
+    CubicInterpolant,
+    CullFaceBack,
+    CullFaceFront,
+    CullFaceNone,
+    Curve,
+    CurvePath,
+    CustomBlending,
+    CustomToneMapping,
+    CylinderGeometry,
+    Data3DTexture,
+    DataArrayTexture,
+    DataTexture,
+    DefaultLoadingManager,
+    DepthFormat,
+    DepthStencilFormat,
+    DepthTexture,
+    DetachedBindMode,
+    DirectionalLight,
+    DiscreteInterpolant,
+    DoubleSide,
+    DstAlphaFactor,
+    DstColorFactor,
+    EdgesGeometry,
+    EllipseCurve,
+    EqualCompare,
+    EqualDepth,
+    EquirectangularReflectionMapping,
+    EquirectangularRefractionMapping,
+    Euler,
+    EventDispatcher,
+    FileLoader,
+    Float32BufferAttribute,
+    FloatType,
+    Fog,
+    FrontSide,
+    Frustum,
+    GLSL3,
+    GreaterCompare,
+    GreaterDepth,
+    GreaterEqualCompare,
+    GreaterEqualDepth,
+    GridHelper,
+    Group,
+    HalfFloatType,
+    HemisphereLight,
+    ImageBitmapLoader,
+    ImageLoader,
+    ImageUtils,
+    InstancedBufferAttribute,
+    InstancedMesh,
+    IntType,
+    InterleavedBuffer,
+    InterleavedBufferAttribute,
+    Interpolant,
+    InterpolateDiscrete,
+    InterpolateLinear,
+    InterpolateSmooth,
+    KeepStencilOp,
+    KeyframeTrack,
+    LatheGeometry,
+    Layers,
+    LessCompare,
+    LessDepth,
+    LessEqualCompare,
+    LessEqualDepth,
+    Light,
+    Line,
+    LineBasicMaterial,
+    LineCurve,
+    LineCurve3,
+    LineLoop,
+    LineSegments,
+    LinearFilter,
+    LinearInterpolant,
+    LinearMipmapLinearFilter,
+    LinearMipmapNearestFilter,
+    LinearSRGBColorSpace,
+    LinearToneMapping,
+    LinearTransfer,
+    Loader,
+    LoaderUtils,
+    LoadingManager,
+    LuminanceAlphaFormat,
+    LuminanceFormat,
+    Material,
+    MathUtils,
+    Matrix3,
+    Matrix4,
+    MaxEquation,
+    Mesh,
+    MeshBasicMaterial,
+    MeshDepthMaterial,
+    MeshDistanceMaterial,
+    MeshPhysicalMaterial,
+    MeshStandardMaterial,
+    MinEquation,
+    MirroredRepeatWrapping,
+    MixOperation,
+    MultiplyBlending,
+    MultiplyOperation,
+    NearestFilter,
+    NearestMipmapLinearFilter,
+    NearestMipmapNearestFilter,
+    NeutralToneMapping,
+    NeverCompare,
+    NeverDepth,
+    NoBlending,
+    NoColorSpace,
+    NoToneMapping,
+    NormalAnimationBlendMode,
+    NormalBlending,
+    NotEqualCompare,
+    NotEqualDepth,
+    NumberKeyframeTrack,
+    Object3D,
+    ObjectSpaceNormalMap,
+    OneFactor,
+    OneMinusConstantAlphaFactor,
+    OneMinusConstantColorFactor,
+    OneMinusDstAlphaFactor,
+    OneMinusDstColorFactor,
+    OneMinusSrcAlphaFactor,
+    OneMinusSrcColorFactor,
+    OrthographicCamera,
+    PCFShadowMap,
+    PCFSoftShadowMap,
+    PMREMGenerator,
+    Path,
+    PerspectiveCamera,
+    Plane,
+    PlaneGeometry,
+    PointLight,
+    Points,
+    PointsMaterial,
+    PropertyBinding,
+    QuadraticBezierCurve,
+    QuadraticBezierCurve3,
+    Quaternion,
+    QuaternionKeyframeTrack,
+    QuaternionLinearInterpolant,
+    RED_GREEN_RGTC2_Format,
+    RED_RGTC1_Format,
+    REVISION,
+    RGBADepthPacking,
+    RGBAFormat,
+    RGBAIntegerFormat,
+    RGBA_ASTC_10x10_Format,
+    RGBA_ASTC_10x5_Format,
+    RGBA_ASTC_10x6_Format,
+    RGBA_ASTC_10x8_Format,
+    RGBA_ASTC_12x10_Format,
+    RGBA_ASTC_12x12_Format,
+    RGBA_ASTC_4x4_Format,
+    RGBA_ASTC_5x4_Format,
+    RGBA_ASTC_5x5_Format,
+    RGBA_ASTC_6x5_Format,
+    RGBA_ASTC_6x6_Format,
+    RGBA_ASTC_8x5_Format,
+    RGBA_ASTC_8x6_Format,
+    RGBA_ASTC_8x8_Format,
+    RGBA_BPTC_Format,
+    RGBA_ETC2_EAC_Format,
+    RGBA_PVRTC_2BPPV1_Format,
+    RGBA_PVRTC_4BPPV1_Format,
+    RGBA_S3TC_DXT1_Format,
+    RGBA_S3TC_DXT3_Format,
+    RGBA_S3TC_DXT5_Format,
+    RGBFormat,
+    RGB_BPTC_SIGNED_Format,
+    RGB_BPTC_UNSIGNED_Format,
+    RGB_ETC1_Format,
+    RGB_ETC2_Format,
+    RGB_PVRTC_2BPPV1_Format,
+    RGB_PVRTC_4BPPV1_Format,
+    RGB_S3TC_DXT1_Format,
+    RGFormat,
+    RGIntegerFormat,
+    RawShaderMaterial,
+    Ray,
+    RedFormat,
+    RedIntegerFormat,
+    ReinhardToneMapping,
+    RenderTarget,
+    RepeatWrapping,
+    ReverseSubtractEquation,
+    RingGeometry,
+    SIGNED_RED_GREEN_RGTC2_Format,
+    SIGNED_RED_RGTC1_Format,
+    SRGBColorSpace,
+    SRGBTransfer,
+    Scene,
+    ShaderChunk,
+    ShaderLib,
+    ShaderMaterial,
+    ShortType,
+    Skeleton,
+    SkinnedMesh,
+    Source,
+    Sphere,
+    SphereGeometry,
+    SplineCurve,
+    SpotLight,
+    Sprite,
+    SpriteMaterial,
+    SrcAlphaFactor,
+    SrcAlphaSaturateFactor,
+    SrcColorFactor,
+    StaticDrawUsage,
+    StringKeyframeTrack,
+    SubtractEquation,
+    SubtractiveBlending,
+    TangentSpaceNormalMap,
+    Texture,
+    TextureLoader,
+    Triangle,
+    TriangleFanDrawMode,
+    TriangleStripDrawMode,
+    TrianglesDrawMode,
+    UVMapping,
+    Uint16BufferAttribute,
+    Uint32BufferAttribute,
+    UniformsLib,
+    UniformsUtils,
+    UnsignedByteType,
+    UnsignedInt248Type,
+    UnsignedInt5999Type,
+    UnsignedIntType,
+    UnsignedShort4444Type,
+    UnsignedShort5551Type,
+    UnsignedShortType,
+    VSMShadowMap,
+    Vector2,
+    Vector3,
+    Vector4,
+    VectorKeyframeTrack,
+    WebGLCoordinateSystem,
+    WebGLCubeRenderTarget,
+    WebGLRenderTarget,
+    WebGLRenderer,
+    WebGLUtils,
+    WebGPUCoordinateSystem,
+    WrapAroundEnding,
+    ZeroCurvatureEnding,
+    ZeroFactor,
+    ZeroSlopeEnding,
+    createCanvasElement
+  }, Symbol.toStringTag, { value: "Module" }));
   function toTrianglesDrawMode(geometry, drawMode) {
     if (drawMode === TrianglesDrawMode) {
       console.warn("THREE.BufferGeometryUtils.toTrianglesDrawMode(): Geometry already defined as triangles.");
@@ -26453,6 +26876,152 @@ void main() {
       sheenColor: new Color(4473958)
     });
   }
+  function buildCity(THREE2, scene) {
+    const boxes = [];
+    const asphalt = new THREE2.MeshStandardMaterial({ color: 1316380, roughness: 0.92, metalness: 0.05 });
+    const lineMat = new THREE2.MeshBasicMaterial({ color: 15124554 });
+    const curb = new THREE2.MeshStandardMaterial({ color: 2763828, roughness: 0.8 });
+    const pad = new THREE2.Mesh(new THREE2.PlaneGeometry(110, 100), new THREE2.MeshStandardMaterial({
+      color: 789778,
+      roughness: 1,
+      metalness: 0
+    }));
+    pad.rotation.x = -Math.PI / 2;
+    pad.position.set(0, -0.02, 36);
+    pad.receiveShadow = true;
+    scene.add(pad);
+    function road(x, z, w, d) {
+      const mesh = new THREE2.Mesh(new THREE2.PlaneGeometry(w, d), asphalt);
+      mesh.rotation.x = -Math.PI / 2;
+      mesh.position.set(x, 0.015, z);
+      mesh.receiveShadow = true;
+      scene.add(mesh);
+    }
+    function dash(x, z, w, d) {
+      const mesh = new THREE2.Mesh(new THREE2.PlaneGeometry(w, d), lineMat);
+      mesh.rotation.x = -Math.PI / 2;
+      mesh.position.set(x, 0.02, z);
+      scene.add(mesh);
+    }
+    road(0, 40, 8, 68);
+    road(0, 22, 28, 7);
+    road(0, 48, 36, 7);
+    road(-16, 40, 7, 40);
+    road(16, 40, 7, 40);
+    for (let z = 12; z < 70; z += 4) dash(0, z, 0.12, 1.4);
+    for (let x = -12; x <= 12; x += 4) dash(x, 22, 1.4, 0.12);
+    for (let x = -14; x <= 14; x += 4) dash(x, 48, 1.4, 0.12);
+    const curbGeo = new THREE2.BoxGeometry(0.18, 0.08, 1);
+    [-4.1, 4.1].forEach((x) => {
+      for (let z = 10; z < 70; z += 1.05) {
+        if (Math.abs(z - 22) < 4 || Math.abs(z - 48) < 4) continue;
+        const c = new THREE2.Mesh(curbGeo, curb);
+        c.position.set(x, 0.04, z);
+        scene.add(c);
+      }
+    });
+    const winCanvas = document.createElement("canvas");
+    winCanvas.width = 256;
+    winCanvas.height = 512;
+    const wctx = winCanvas.getContext("2d");
+    wctx.fillStyle = "#12141c";
+    wctx.fillRect(0, 0, 256, 512);
+    const warm = ["#ffd59a", "#9fd7ff", "#ff8fb8", "#1a1c28"];
+    for (let row = 0; row < 14; row++) {
+      for (let col = 0; col < 6; col++) {
+        wctx.fillStyle = warm[(row * 3 + col) % 4];
+        if ((row + col) % 5 === 0) wctx.fillStyle = "#1a1c28";
+        wctx.fillRect(18 + col * 40, 16 + row * 34, 22, 16);
+      }
+    }
+    const winTex = new THREE2.CanvasTexture(winCanvas);
+    winTex.colorSpace = THREE2.SRGBColorSpace;
+    winTex.wrapS = THREE2.RepeatWrapping;
+    winTex.wrapT = THREE2.RepeatWrapping;
+    function block(x, z, w, d, h, tint) {
+      const mat = new THREE2.MeshStandardMaterial({
+        color: tint,
+        roughness: 0.72,
+        metalness: 0.18,
+        map: winTex,
+        emissive: tint,
+        emissiveIntensity: 0.08,
+        emissiveMap: winTex
+      });
+      const mesh = new THREE2.Mesh(new THREE2.BoxGeometry(w, h, d), mat);
+      mesh.position.set(x, h / 2, z);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      scene.add(mesh);
+      boxes.push({ x, z, hw: w / 2 + 0.8, hd: d / 2 + 0.8 });
+      return mesh;
+    }
+    function sign(text, color, x, y, z, rotY) {
+      const canvas = document.createElement("canvas");
+      canvas.width = 1024;
+      canvas.height = 256;
+      const ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, 1024, 256);
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 24;
+      ctx.fillStyle = color;
+      ctx.font = "bold 110px monospace";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(text, 512, 128);
+      const tex = new THREE2.CanvasTexture(canvas);
+      tex.colorSpace = THREE2.SRGBColorSpace;
+      const mesh = new THREE2.Mesh(
+        new THREE2.PlaneGeometry(text.length * 0.42, 0.7),
+        new THREE2.MeshBasicMaterial({ map: tex, transparent: true, side: THREE2.DoubleSide })
+      );
+      mesh.position.set(x, y, z);
+      mesh.rotation.y = rotY;
+      scene.add(mesh);
+    }
+    block(-10, 14, 6, 8, 7, 1711144);
+    block(-10, 32, 6.5, 9, 11, 1447970);
+    block(-10, 58, 6, 8, 6, 1841188);
+    block(10, 14, 6, 7, 5, 1578012);
+    block(10, 34, 7, 10, 14, 1184798);
+    block(10, 60, 6, 8, 8, 1710112);
+    block(-24, 22, 7, 8, 9, 1316382);
+    block(-24, 48, 6, 9, 16, 1053208);
+    block(24, 30, 6, 8, 10, 1446940);
+    block(24, 56, 7, 8, 7, 1709600);
+    sign("HUSH", "#ff4d9a", -10, 8.2, 14, 0);
+    sign("AGENTIC BIZ", "#7af6ff", 10, 15.2, 34, Math.PI);
+    sign("COMFORT", "#ffd59a", -24, 10.4, 48, Math.PI / 2);
+    sign("BALLITO", "#ffffff", 0, 3.2, 68, 0);
+    const poleMat = new THREE2.MeshStandardMaterial({ color: 2237484, metalness: 0.6, roughness: 0.4 });
+    for (let i = 0; i < 8; i++) {
+      const z = 12 + i * 7.5;
+      const x = i % 2 === 0 ? -5.2 : 5.2;
+      const pole = new THREE2.Mesh(new THREE2.CylinderGeometry(0.06, 0.08, 4.2, 6), poleMat);
+      pole.position.set(x, 2.1, z);
+      scene.add(pole);
+      const lamp = new THREE2.PointLight(16769456, 2.2, 9, 2);
+      lamp.position.set(x, 4.1, z);
+      scene.add(lamp);
+    }
+    const pink = new THREE2.PointLight(16731546, 6, 14, 2);
+    pink.position.set(-10, 3, 16);
+    scene.add(pink);
+    const cyan = new THREE2.PointLight(52479, 5, 16, 2);
+    cyan.position.set(10, 6, 36);
+    scene.add(cyan);
+    return {
+      blocked(x, z) {
+        if (z < -3.35 && Math.abs(x) < 4.4) return true;
+        if (Math.abs(x) > 3.75 && z < 5.6 && z > -3.6) return true;
+        if (Math.abs(x) > 46 || z > 76 || z < -5) return true;
+        for (const b of boxes) {
+          if (Math.abs(x - b.x) < b.hw && Math.abs(z - b.z) < b.hd) return true;
+        }
+        return false;
+      }
+    };
+  }
   function start() {
     const $ = (id) => document.getElementById(id);
     const barEl = $("load-bar");
@@ -26483,8 +27052,8 @@ void main() {
     document.body.appendChild(renderer.domElement);
     const scene = new Scene();
     scene.background = new Color(460814);
-    scene.fog = new Fog(460814, 18, 42);
-    const camera = new PerspectiveCamera(58, innerWidth / innerHeight, 0.05, 80);
+    scene.fog = new Fog(460814, 34, 96);
+    const camera = new PerspectiveCamera(58, innerWidth / innerHeight, 0.05, 180);
     camera.position.set(4.2, 1.7, 6.2);
     const composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
@@ -26661,6 +27230,8 @@ void main() {
       }
     });
     setProgress(28, "Bay built");
+    const city = buildCity(THREE, scene);
+    setProgress(36, "City laid out");
     const character = new Group();
     const cloth = new MeshStandardMaterial({ color: 1842728, roughness: 0.75, metalness: 0.08 });
     const visorMat = new MeshStandardMaterial({
@@ -26682,6 +27253,35 @@ void main() {
     const visor = new Mesh(new BoxGeometry(0.2, 0.045, 0.04), visorMat);
     visor.position.set(0, 1.36, 0.13);
     character.add(visor);
+    const face = new Mesh(
+      new CircleGeometry(0.11, 24),
+      new MeshBasicMaterial({ color: 2236962, transparent: true })
+    );
+    face.position.set(0, 1.37, 0.16);
+    face.visible = false;
+    character.add(face);
+    const faceImg = new Image();
+    faceImg.onload = () => {
+      const c = document.createElement("canvas");
+      c.width = 512;
+      c.height = 512;
+      const ctx = c.getContext("2d");
+      ctx.beginPath();
+      ctx.arc(256, 256, 248, 0, Math.PI * 2);
+      ctx.clip();
+      const sw = faceImg.width * 0.7;
+      const sh = faceImg.height * 0.55;
+      const sx = (faceImg.width - sw) / 2;
+      const sy = faceImg.height * 0.02;
+      ctx.drawImage(faceImg, sx, sy, sw, sh, 0, 0, 512, 512);
+      const tex = new CanvasTexture(c);
+      tex.colorSpace = SRGBColorSpace;
+      face.material.map = tex;
+      face.material.color.setHex(16777215);
+      face.material.needsUpdate = true;
+      face.visible = true;
+    };
+    faceImg.src = "assets/portraits/akhil-face.jpg";
     character.position.set(1.7, 0, 2.4);
     character.visible = false;
     scene.add(character);
@@ -26775,6 +27375,12 @@ void main() {
     scene.add(bench);
     let carModel = null;
     let frame = null;
+    let eyeAnchor = null;
+    let exhaustAnchor = null;
+    let doorLocal = null;
+    let headLights = null;
+    const drive = { speed: 0, chase: false };
+    let lookOffset = 0;
     const loader = new GLTFLoader();
     function measureFrame(root) {
       root.updateMatrixWorld(true);
@@ -26895,6 +27501,59 @@ void main() {
       character.position.x += frame.right.x * 0.15;
       character.position.z += frame.right.z * 0.15;
       character.lookAt(frame.center.x, 0, frame.center.z);
+      carModel.updateMatrixWorld(true);
+      eyeAnchor = new Object3D();
+      carModel.worldToLocal(eyeAnchor.position.copy(frame.driverEye));
+      carModel.add(eyeAnchor);
+      exhaustAnchor = new Object3D();
+      carModel.worldToLocal(exhaustAnchor.position.copy(frame.exhaust));
+      carModel.add(exhaustAnchor);
+      doorLocal = carModel.worldToLocal(frame.driverStand.clone());
+      function plateTexture() {
+        const c = document.createElement("canvas");
+        c.width = 512;
+        c.height = 220;
+        const ctx = c.getContext("2d");
+        ctx.fillStyle = "#f7f9fc";
+        ctx.fillRect(0, 0, 512, 220);
+        ctx.strokeStyle = "#163a86";
+        ctx.lineWidth = 16;
+        ctx.strokeRect(8, 8, 496, 204);
+        ctx.fillStyle = "#163a86";
+        ctx.textAlign = "center";
+        ctx.font = "bold 28px sans-serif";
+        ctx.fillText("KWAZULU-NATAL", 256, 52);
+        ctx.font = "bold 72px sans-serif";
+        ctx.fillText("CP 43FW ZN", 256, 145);
+        const tex = new CanvasTexture(c);
+        tex.colorSpace = SRGBColorSpace;
+        return tex;
+      }
+      const plateMap = plateTexture();
+      const plateMat = new MeshBasicMaterial({ map: plateMap });
+      const frontPlate = new Mesh(new PlaneGeometry(0.46, 0.2), plateMat);
+      const frontPos = frame.center.clone().addScaledVector(frame.forward, frame.length * 0.49);
+      frontPos.y = frame.box.min.y + frame.size.y * 0.28;
+      carModel.add(frontPlate);
+      carModel.worldToLocal(frontPlate.position.copy(frontPos));
+      frontPlate.lookAt(frontPos.clone().add(frame.forward));
+      const rearPlate = new Mesh(new PlaneGeometry(0.46, 0.2), plateMat);
+      const rearPos = frame.center.clone().addScaledVector(frame.forward, -frame.length * 0.49);
+      rearPos.y = frontPos.y;
+      carModel.add(rearPlate);
+      carModel.worldToLocal(rearPlate.position.copy(rearPos));
+      rearPlate.lookAt(rearPos.clone().addScaledVector(frame.forward, -1));
+      headLights = new SpotLight(16774365, 0, 26, 0.5, 0.4, 1);
+      const nose = frame.center.clone().addScaledVector(frame.forward, frame.length * 0.46);
+      nose.y = frame.box.min.y + 0.55;
+      carModel.worldToLocal(headLights.position.copy(nose));
+      const aim = new Object3D();
+      const aimWorld = nose.clone().addScaledVector(frame.forward, 10);
+      carModel.worldToLocal(aim.position.copy(aimWorld));
+      carModel.add(headLights);
+      carModel.add(aim);
+      headLights.target = aim;
+      carModel.position.y -= 0.05;
       const hero = frame.center.clone().addScaledVector(frame.forward, frame.length * 0.95).addScaledVector(frame.right, frame.width * 0.7);
       hero.y = 1.55;
       camera.position.copy(hero);
@@ -26938,6 +27597,9 @@ void main() {
             if (child.material.color) child.material.color.setHex(14540253);
             child.material.needsUpdate = true;
           } else if (mn.includes("glass") || mn.includes("translucent")) {
+            child.material.transparent = true;
+            child.material.opacity = 0.35;
+            if (child.material.color) child.material.color.setHex(659480);
             child.material.envMap = envMap;
             child.material.envMapIntensity = 1.2;
             child.material.needsUpdate = true;
@@ -26951,7 +27613,7 @@ void main() {
         placeWorld();
         carReady = true;
         setProgress(100, "RunX in the bay");
-        say("Drag to orbit  ·  WASD to walk in  ·  E opens the laptop");
+        say("Drag to orbit  ·  WASD to walk in  ·  the strip is out the bay");
         setTimeout(hideLoad, 400);
         console.log("CAR FRAME", {
           center: frame.center.toArray().map((n) => +n.toFixed(2)),
@@ -27001,17 +27663,19 @@ void main() {
     scene.add(flameLight);
     let flameCursor = 0;
     function emitFlame() {
-      if (!frame) return;
+      if (!frame || !carModel) return;
+      const tip = exhaustAnchor ? exhaustAnchor.getWorldPosition(new Vector3()) : frame.exhaust;
+      const back = new Vector3(0, 0, -1).applyQuaternion(carModel.quaternion);
       for (let n = 0; n < 4; n++) {
         const i = flameCursor % flameCount;
         flameCursor++;
-        flamePos[i * 3] = frame.exhaust.x + (Math.random() - 0.5) * 0.08;
-        flamePos[i * 3 + 1] = frame.exhaust.y + Math.random() * 0.04;
-        flamePos[i * 3 + 2] = frame.exhaust.z + (Math.random() - 0.5) * 0.08;
-        const back = frame.forward.clone().multiplyScalar(-(0.9 + Math.random() * 1.4));
-        flameVel[i * 3] = back.x + (Math.random() - 0.5) * 0.3;
+        flamePos[i * 3] = tip.x + (Math.random() - 0.5) * 0.08;
+        flamePos[i * 3 + 1] = tip.y + Math.random() * 0.04;
+        flamePos[i * 3 + 2] = tip.z + (Math.random() - 0.5) * 0.08;
+        const kick = 0.9 + Math.random() * 1.4;
+        flameVel[i * 3] = back.x * kick + (Math.random() - 0.5) * 0.3;
         flameVel[i * 3 + 1] = 0.4 + Math.random() * 0.8;
-        flameVel[i * 3 + 2] = back.z + (Math.random() - 0.5) * 0.3;
+        flameVel[i * 3 + 2] = back.z * kick + (Math.random() - 0.5) * 0.3;
         flameLife[i] = 1;
       }
       flameGeo.attributes.position.needsUpdate = true;
@@ -27027,7 +27691,10 @@ void main() {
       }
       flameGeo.attributes.position.needsUpdate = true;
       flameLight.intensity = flameActive ? 6 + Math.sin(performance.now() * 0.03) * 2 : 0;
-      if (frame && flameActive) flameLight.position.copy(frame.exhaust);
+      if (frame && flameActive) {
+        const tip = exhaustAnchor ? exhaustAnchor.getWorldPosition(new Vector3()) : frame.exhaust;
+        flameLight.position.copy(tip);
+      }
       if (gasIndicator) gasIndicator.style.color = flameActive ? "rgba(255,120,40,0.95)" : "rgba(255,102,0,0)";
     }
     function toggleFlame() {
@@ -27055,7 +27722,6 @@ void main() {
       fromLook: new Vector3(),
       toLook: new Vector3()
     };
-    let fpYaw = 0;
     let fpPitch = -0.04;
     let pointerLocked = false;
     function applyShowcase() {
@@ -27090,18 +27756,22 @@ void main() {
       entry.from.copy(camera.position);
       entry.fromLook.copy(character.position);
       entry.fromLook.y = 1.2;
-      entry.to.copy(frame.driverEye);
-      entry.toLook.copy(frame.driverEye).addScaledVector(frame.forward, 4);
+      if (eyeAnchor) eyeAnchor.getWorldPosition(entry.to);
+      else entry.to.copy(frame.driverEye);
+      const nose = new Vector3(0, 0, 1).applyQuaternion(carModel.quaternion);
+      entry.toLook.copy(entry.to).addScaledVector(nose, 4);
       character.visible = false;
       say("Getting in…");
     }
     function finishEnter() {
       var _a, _b;
       mode = "driving";
-      fpYaw = Math.atan2(frame.forward.x, frame.forward.z);
+      lookOffset = 0;
       fpPitch = -0.06;
       noseLight.intensity = 0;
-      say("In the seat  ·  click to look  ·  SPACE rev  ·  E to get out");
+      if (headLights) headLights.intensity = 14;
+      drive.speed = 0;
+      say("W drive  ·  A/D steer  ·  S brake  ·  C chase  ·  SPACE flames  ·  E out");
       (_b = (_a = renderer.domElement).requestPointerLock) == null ? void 0 : _b.call(_a);
     }
     function exitCar() {
@@ -27114,19 +27784,27 @@ void main() {
       const dir = new Vector3();
       camera.getWorldDirection(dir);
       entry.fromLook.copy(camera.position).add(dir);
-      character.position.copy(frame.driverStand);
+      const stand = doorLocal ? carModel.localToWorld(doorLocal.clone()) : frame.driverStand.clone();
+      stand.y = 0;
+      character.position.copy(stand);
       character.visible = true;
-      entry.to.copy(frame.driverStand).add(new Vector3(0, 1.6, 0)).addScaledVector(frame.right, 1.6);
-      entry.toLook.copy(frame.center);
+      entry.to.copy(stand).add(new Vector3(0, 1.6, 0));
+      const carPos = new Vector3();
+      carModel.getWorldPosition(carPos);
+      entry.toLook.copy(carPos);
       entry.toLook.y = 0.8;
       say("Stepping out…");
     }
     function finishExit() {
       mode = "walk";
-      const back = frame.driverStand.clone().sub(frame.center);
+      const carNow = new Vector3();
+      carModel.getWorldPosition(carNow);
+      const back = character.position.clone().sub(carNow);
       back.y = 0;
       camYaw = Math.atan2(back.x, back.z);
       noseLight.intensity = 7;
+      if (headLights) headLights.intensity = 0;
+      drive.speed = 0;
       say("WASD  ·  rings on the floor are the doors");
     }
     function openLaptop() {
@@ -27217,7 +27895,18 @@ void main() {
                 <p><b style="color:#fff">Hush</b> — SA car social. ${link("https://hush-v1.vercel.app", "hush-v1.vercel.app")}</p>
                 <p><b style="color:#fff">AgenticBiz</b> — agentic systems, in public. ${link("https://www.agenticbiz.co.za/", "agenticbiz.co.za")}</p>
                 <p><b style="color:#fff">Comfort Shooting</b> — day job. Systems, portals, the unglamorous things that have to stay up.</p>
-                <p><b style="color:#fff">This bay</b> — the 3D workshop. Walk it. Sit in the car. The model is not mine; credit is on the floor of the page.</p>`
+                <p><b style="color:#fff">This bay</b> — walk it, then drive the strip. The mesh is OUTPISTON's RunX. The plate, the tint, and the road are yours.</p>`
+      },
+      journey: {
+        label: "Journey",
+        html: `
+                <h2 style="margin:0 0 12px;font-size:18px;color:#fff">Tongaat → Ballito</h2>
+                <p>The car is the constant. Tongaat driveway, KZN plate, gloss black, one pipe on the right. The work grew up next to it.</p>
+                <p>Comfort Shooting — lead web and app. The unglamorous systems that have to stay up.</p>
+                <p>Hush — take SA car culture off WhatsApp. ${link("https://hush-v1.vercel.app", "hush-v1.vercel.app")}</p>
+                <p>AgenticBiz — stop thinking in tickets, start thinking in outcomes. ${link("https://www.agenticbiz.co.za/", "agenticbiz.co.za")}</p>
+                <p>This city is that map, shrunk. Bay at the bottom. Hush on the left. AgenticBiz on the right. Comfort further out. Drive it.</p>
+                <p style="color:#8b93a7">Engine note is a stand-in until the rev-range recording lands in assets/audio/runx-rev.mp3. Face is the public Linktree portrait — LinkedIn would not serve the photo.</p>`
       },
       garage: {
         label: "Garage",
@@ -27289,6 +27978,7 @@ void main() {
         e.preventDefault();
         if (mode === "driving" || mode === "showcase" || mode === "walk" && ((_a = nearestZone()) == null ? void 0 : _a.action) === "rev") toggleFlame();
       }
+      if (e.code === "KeyC" && mode === "driving") drive.chase = !drive.chase;
       if (e.code === "Escape") closeLaptop();
     });
     addEventListener("keyup", (e) => {
@@ -27338,7 +28028,8 @@ void main() {
     });
     document.addEventListener("mousemove", (e) => {
       if (!pointerLocked || mode !== "driving") return;
-      fpYaw -= e.movementX * 25e-4;
+      lookOffset -= e.movementX * 25e-4;
+      lookOffset = Math.max(-1.2, Math.min(1.2, lookOffset));
       fpPitch -= e.movementY * 22e-4;
       fpPitch = Math.max(-0.6, Math.min(0.45, fpPitch));
     });
@@ -27405,7 +28096,62 @@ void main() {
       renderer.setSize(innerWidth, innerHeight);
       composer.setSize(innerWidth, innerHeight);
     });
-    if (hintEl) hintEl.textContent = "Drag to orbit  ·  WASD to walk in  ·  E interact  ·  SPACE rev";
+    if (hintEl) hintEl.textContent = "Walk in · sit in the RunX · W drives the strip · E laptop";
+    let audioCtx = null;
+    let engineGain = null;
+    let engineOsc = null;
+    let engineReady = false;
+    function bootAudio() {
+      if (audioCtx) return;
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+      audioCtx = new Ctx();
+      engineOsc = audioCtx.createOscillator();
+      engineOsc.type = "sawtooth";
+      engineOsc.frequency.value = 48;
+      const filter = audioCtx.createBiquadFilter();
+      filter.type = "lowpass";
+      filter.frequency.value = 240;
+      engineGain = audioCtx.createGain();
+      engineGain.gain.value = 0;
+      engineOsc.connect(filter);
+      filter.connect(engineGain);
+      engineGain.connect(audioCtx.destination);
+      engineOsc.start();
+      engineReady = true;
+      fetch("assets/audio/runx-rev.mp3").then((r) => r.ok ? r.arrayBuffer() : null).then((buf) => {
+        if (!buf || !audioCtx) return;
+        return audioCtx.decodeAudioData(buf).then((decoded) => {
+          audioCtx._runxClip = decoded;
+        });
+      }).catch(() => {
+      });
+    }
+    function updateEngine(amount, throttle) {
+      if (!engineReady) return;
+      const clip = audioCtx._runxClip;
+      if (clip && !audioCtx._runxSrc) {
+        const src = audioCtx.createBufferSource();
+        src.buffer = clip;
+        src.loop = true;
+        const g = audioCtx.createGain();
+        g.gain.value = 0.35;
+        src.connect(g);
+        g.connect(audioCtx.destination);
+        src.start();
+        audioCtx._runxSrc = src;
+        audioCtx._runxGain = g;
+        engineGain.gain.value = 0;
+      }
+      if (audioCtx._runxSrc) {
+        audioCtx._runxSrc.playbackRate.value = 0.55 + amount * 1.7 + (flameActive ? 0.25 : 0);
+        return;
+      }
+      engineOsc.frequency.value = 42 + amount * 90 + (throttle > 0 ? 18 : 0) + (flameActive ? 30 : 0);
+      engineGain.gain.value = mode === "driving" ? 0.015 + amount * 0.04 : 0;
+    }
+    addEventListener("keydown", bootAudio, { once: true });
+    addEventListener("pointerdown", bootAudio, { once: true });
     let prev = performance.now();
     function animate() {
       requestAnimationFrame(animate);
@@ -27450,20 +28196,50 @@ void main() {
         camera.lookAt(head);
         const zone = nearestZone();
         say(zone ? zone.prompt : "WASD  ·  cyan driver  ·  pink laptop  ·  orange rev");
-      } else if (mode === "driving" && frame) {
-        const bob = Math.sin(t * 11) * 4e-3;
-        camera.position.copy(frame.driverEye);
-        camera.position.y += bob;
-        if (flameActive) {
-          camera.position.x += (Math.random() - 0.5) * 0.01;
-          camera.position.y += (Math.random() - 0.5) * 6e-3;
+      } else if (mode === "driving" && frame && carModel && eyeAnchor) {
+        let throttle = 0;
+        if (moveState.forward) throttle = 1;
+        if (moveState.backward) throttle = -0.55;
+        drive.speed += throttle * 8 * dt;
+        drive.speed -= Math.sign(drive.speed) * 1.6 * dt;
+        if (Math.abs(drive.speed) < 0.04 && throttle === 0) drive.speed = 0;
+        drive.speed = Math.max(-4, Math.min(14, drive.speed));
+        const steer = (moveState.left ? 1 : 0) + (moveState.right ? -1 : 0);
+        if (Math.abs(drive.speed) > 0.2) {
+          carModel.rotation.y += steer * 1.5 * dt * Math.min(1, Math.abs(drive.speed) / 4) * Math.sign(drive.speed);
         }
-        const look = new Vector3(
-          Math.sin(fpYaw) * Math.cos(fpPitch),
-          Math.sin(fpPitch),
-          Math.cos(fpYaw) * Math.cos(fpPitch)
-        );
-        camera.lookAt(camera.position.clone().add(look));
+        const fwd = new Vector3(0, 0, 1).applyQuaternion(carModel.quaternion);
+        const next = carModel.position.clone().addScaledVector(fwd, drive.speed * dt);
+        if (!city.blocked(next.x, next.z)) carModel.position.copy(next);
+        else drive.speed *= -0.15;
+        updateEngine(Math.abs(drive.speed) / 14, throttle);
+        const kmh = Math.abs(drive.speed) * 3.6;
+        say(`${kmh.toFixed(0)} km/h  ·  W drive  ·  A/D steer  ·  C ${drive.chase ? "cabin" : "chase"}  ·  E out`);
+        if (drive.chase) {
+          const behind = fwd.clone().multiplyScalar(-6.2);
+          const ideal = carModel.position.clone().add(behind);
+          ideal.y = 2.1;
+          camera.position.lerp(ideal, 1 - Math.exp(-6 * dt));
+          const look = carModel.position.clone();
+          look.y = 0.8;
+          camera.lookAt(look);
+        } else {
+          const eye = new Vector3();
+          eyeAnchor.getWorldPosition(eye);
+          eye.y += Math.sin(t * 11) * 4e-3;
+          if (flameActive || throttle > 0.4) {
+            eye.x += (Math.random() - 0.5) * 8e-3;
+            eye.y += (Math.random() - 0.5) * 4e-3;
+          }
+          camera.position.copy(eye);
+          const yaw = carModel.rotation.y + lookOffset;
+          const look = new Vector3(
+            Math.sin(yaw) * Math.cos(fpPitch),
+            Math.sin(fpPitch),
+            Math.cos(yaw) * Math.cos(fpPitch)
+          );
+          camera.lookAt(camera.position.clone().add(look));
+        }
       }
       markers.forEach((z) => {
         const pulse = 0.9 + Math.sin(t * 3 + z.pos.x) * 0.08;

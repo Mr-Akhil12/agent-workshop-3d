@@ -2,7 +2,9 @@
 
 Interactive 3D portfolio. A lit cyberpunk bay, a gloss-black Toyota RunX, and a laptop that actually opens.
 
-Drag to orbit the poster shot. WASD walks you in. Cyan ring is the driver door (right-hand drive), pink is the laptop bench, orange is the rear — SPACE revs it.
+Drag to orbit the poster. WASD walks you in. Cyan ring is the driver door (right-hand drive). Once you're in the seat, W drives, A/D steers, S brakes, C flips to a chase camera, SPACE throws flames. The strip north of the bay is a small night city — Hush, AgenticBiz, Comfort, Ballito.
+
+Drop a rev-range recording at `assets/audio/runx-rev.mp3` and rebuild. Until then the engine note is a synth stand-in. The face on the walker is the public Linktree portrait; LinkedIn would not serve the photo.
 
 ## Live
 

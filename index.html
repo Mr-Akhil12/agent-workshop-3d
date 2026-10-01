@@ -101,13 +101,14 @@
 
     <script src="dist/bundle.iife.js"></script>
     <script>
-    document.fonts.ready.then(function() {
-        if (typeof AgentWorkshop !== 'undefined') {
-            AgentWorkshop.start();
-        } else {
-            document.getElementById('load-status').textContent = 'ERROR: Bundle not loaded';
-        }
-    });
+    function bootWorkshop() {
+        if (window.__workshopBooted) return;
+        window.__workshopBooted = true;
+        if (typeof AgentWorkshop !== 'undefined') AgentWorkshop.start();
+        else document.getElementById('load-status').textContent = 'ERROR: Bundle not loaded';
+    }
+    document.fonts.ready.then(bootWorkshop);
+    setTimeout(bootWorkshop, 800);
     </script>
 </body>
 </html>

@@ -10,6 +10,7 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { createEnvMap, makeFlakeBlackPaint } from './materials.js';
+import { buildCity } from './city.js';
 
 export function start() {
     'use strict';
@@ -46,9 +47,9 @@ export function start() {
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x07080e);
-    scene.fog = new THREE.Fog(0x07080e, 18, 42);
+    scene.fog = new THREE.Fog(0x07080e, 34, 96);
 
-    const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.05, 80);
+    const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.05, 180);
     camera.position.set(4.2, 1.7, 6.2);
 
     const composer = new EffectComposer(renderer);
@@ -239,6 +240,8 @@ export function start() {
         }
     });
     setProgress(28, 'Bay built');
+    const city = buildCity(THREE, scene);
+    setProgress(36, 'City laid out');
 
     // ── Character: hooded figure, not a light bomb ──
     const character = new THREE.Group();
@@ -258,6 +261,35 @@ export function start() {
     const visor = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.045, 0.04), visorMat);
     visor.position.set(0, 1.36, 0.13);
     character.add(visor);
+    const face = new THREE.Mesh(
+        new THREE.CircleGeometry(0.11, 24),
+        new THREE.MeshBasicMaterial({ color: 0x222222, transparent: true })
+    );
+    face.position.set(0, 1.37, 0.16);
+    face.visible = false;
+    character.add(face);
+    const faceImg = new Image();
+    faceImg.onload = () => {
+        const c = document.createElement('canvas');
+        c.width = 512;
+        c.height = 512;
+        const ctx = c.getContext('2d');
+        ctx.beginPath();
+        ctx.arc(256, 256, 248, 0, Math.PI * 2);
+        ctx.clip();
+        const sw = faceImg.width * 0.7;
+        const sh = faceImg.height * 0.55;
+        const sx = (faceImg.width - sw) / 2;
+        const sy = faceImg.height * 0.02;
+        ctx.drawImage(faceImg, sx, sy, sw, sh, 0, 0, 512, 512);
+        const tex = new THREE.CanvasTexture(c);
+        tex.colorSpace = THREE.SRGBColorSpace;
+        face.material.map = tex;
+        face.material.color.setHex(0xffffff);
+        face.material.needsUpdate = true;
+        face.visible = true;
+    };
+    faceImg.src = 'assets/portraits/akhil-face.jpg';
     character.position.set(1.7, 0, 2.4);
     character.visible = false;
     scene.add(character);
@@ -359,6 +391,12 @@ export function start() {
     // ── Car ──
     let carModel = null;
     let frame = null;
+    let eyeAnchor = null;
+    let exhaustAnchor = null;
+    let doorLocal = null;
+    let headLights = null;
+    const drive = { speed: 0, chase: false };
+    let lookOffset = 0;
     const loader = new GLTFLoader();
 
     function measureFrame(root) {
@@ -485,6 +523,63 @@ export function start() {
         character.position.z += frame.right.z * 0.15;
         character.lookAt(frame.center.x, 0, frame.center.z);
 
+        carModel.updateMatrixWorld(true);
+        eyeAnchor = new THREE.Object3D();
+        carModel.worldToLocal(eyeAnchor.position.copy(frame.driverEye));
+        carModel.add(eyeAnchor);
+        exhaustAnchor = new THREE.Object3D();
+        carModel.worldToLocal(exhaustAnchor.position.copy(frame.exhaust));
+        carModel.add(exhaustAnchor);
+        doorLocal = carModel.worldToLocal(frame.driverStand.clone());
+
+        function plateTexture() {
+            const c = document.createElement('canvas');
+            c.width = 512;
+            c.height = 220;
+            const ctx = c.getContext('2d');
+            ctx.fillStyle = '#f7f9fc';
+            ctx.fillRect(0, 0, 512, 220);
+            ctx.strokeStyle = '#163a86';
+            ctx.lineWidth = 16;
+            ctx.strokeRect(8, 8, 496, 204);
+            ctx.fillStyle = '#163a86';
+            ctx.textAlign = 'center';
+            ctx.font = 'bold 28px sans-serif';
+            ctx.fillText('KWAZULU-NATAL', 256, 52);
+            ctx.font = 'bold 72px sans-serif';
+            ctx.fillText('CP 43FW ZN', 256, 145);
+            const tex = new THREE.CanvasTexture(c);
+            tex.colorSpace = THREE.SRGBColorSpace;
+            return tex;
+        }
+        const plateMap = plateTexture();
+        const plateMat = new THREE.MeshBasicMaterial({ map: plateMap });
+        const frontPlate = new THREE.Mesh(new THREE.PlaneGeometry(0.46, 0.2), plateMat);
+        const frontPos = frame.center.clone().addScaledVector(frame.forward, frame.length * 0.49);
+        frontPos.y = frame.box.min.y + frame.size.y * 0.28;
+        carModel.add(frontPlate);
+        carModel.worldToLocal(frontPlate.position.copy(frontPos));
+        frontPlate.lookAt(frontPos.clone().add(frame.forward));
+        const rearPlate = new THREE.Mesh(new THREE.PlaneGeometry(0.46, 0.2), plateMat);
+        const rearPos = frame.center.clone().addScaledVector(frame.forward, -frame.length * 0.49);
+        rearPos.y = frontPos.y;
+        carModel.add(rearPlate);
+        carModel.worldToLocal(rearPlate.position.copy(rearPos));
+        rearPlate.lookAt(rearPos.clone().addScaledVector(frame.forward, -1));
+
+        headLights = new THREE.SpotLight(0xfff4dd, 0, 26, 0.5, 0.4, 1);
+        const nose = frame.center.clone().addScaledVector(frame.forward, frame.length * 0.46);
+        nose.y = frame.box.min.y + 0.55;
+        carModel.worldToLocal(headLights.position.copy(nose));
+        const aim = new THREE.Object3D();
+        const aimWorld = nose.clone().addScaledVector(frame.forward, 10);
+        carModel.worldToLocal(aim.position.copy(aimWorld));
+        carModel.add(headLights);
+        carModel.add(aim);
+        headLights.target = aim;
+
+        carModel.position.y -= 0.05;
+
         const hero = frame.center.clone()
             .addScaledVector(frame.forward, frame.length * 0.95)
             .addScaledVector(frame.right, frame.width * 0.7);
@@ -532,6 +627,9 @@ export function start() {
                     if (child.material.color) child.material.color.setHex(0xdddddd);
                     child.material.needsUpdate = true;
                 } else if (mn.includes('glass') || mn.includes('translucent')) {
+                    child.material.transparent = true;
+                    child.material.opacity = 0.35;
+                    if (child.material.color) child.material.color.setHex(0x0a1018);
                     child.material.envMap = envMap;
                     child.material.envMapIntensity = 1.2;
                     child.material.needsUpdate = true;
@@ -546,7 +644,7 @@ export function start() {
             placeWorld();
             carReady = true;
             setProgress(100, 'RunX in the bay');
-            say('Drag to orbit  ·  WASD to walk in  ·  E opens the laptop');
+            say('Drag to orbit  ·  WASD to walk in  ·  the strip is out the bay');
             setTimeout(hideLoad, 400);
             console.log('CAR FRAME', {
                 center: frame.center.toArray().map((n) => +n.toFixed(2)),
@@ -595,17 +693,19 @@ export function start() {
     let flameCursor = 0;
 
     function emitFlame() {
-        if (!frame) return;
+        if (!frame || !carModel) return;
+        const tip = exhaustAnchor ? exhaustAnchor.getWorldPosition(new THREE.Vector3()) : frame.exhaust;
+        const back = new THREE.Vector3(0, 0, -1).applyQuaternion(carModel.quaternion);
         for (let n = 0; n < 4; n++) {
             const i = flameCursor % flameCount;
             flameCursor++;
-            flamePos[i * 3] = frame.exhaust.x + (Math.random() - 0.5) * 0.08;
-            flamePos[i * 3 + 1] = frame.exhaust.y + Math.random() * 0.04;
-            flamePos[i * 3 + 2] = frame.exhaust.z + (Math.random() - 0.5) * 0.08;
-            const back = frame.forward.clone().multiplyScalar(-(0.9 + Math.random() * 1.4));
-            flameVel[i * 3] = back.x + (Math.random() - 0.5) * 0.3;
+            flamePos[i * 3] = tip.x + (Math.random() - 0.5) * 0.08;
+            flamePos[i * 3 + 1] = tip.y + Math.random() * 0.04;
+            flamePos[i * 3 + 2] = tip.z + (Math.random() - 0.5) * 0.08;
+            const kick = 0.9 + Math.random() * 1.4;
+            flameVel[i * 3] = back.x * kick + (Math.random() - 0.5) * 0.3;
             flameVel[i * 3 + 1] = 0.4 + Math.random() * 0.8;
-            flameVel[i * 3 + 2] = back.z + (Math.random() - 0.5) * 0.3;
+            flameVel[i * 3 + 2] = back.z * kick + (Math.random() - 0.5) * 0.3;
             flameLife[i] = 1;
         }
         flameGeo.attributes.position.needsUpdate = true;
@@ -621,7 +721,10 @@ export function start() {
         }
         flameGeo.attributes.position.needsUpdate = true;
         flameLight.intensity = flameActive ? 6 + Math.sin(performance.now() * 0.03) * 2 : 0;
-        if (frame && flameActive) flameLight.position.copy(frame.exhaust);
+        if (frame && flameActive) {
+            const tip = exhaustAnchor ? exhaustAnchor.getWorldPosition(new THREE.Vector3()) : frame.exhaust;
+            flameLight.position.copy(tip);
+        }
         if (gasIndicator) gasIndicator.style.color = flameActive ? 'rgba(255,120,40,0.95)' : 'rgba(255,102,0,0)';
     }
     function toggleFlame() {
@@ -683,17 +786,21 @@ export function start() {
         entry.from.copy(camera.position);
         entry.fromLook.copy(character.position);
         entry.fromLook.y = 1.2;
-        entry.to.copy(frame.driverEye);
-        entry.toLook.copy(frame.driverEye).addScaledVector(frame.forward, 4);
+        if (eyeAnchor) eyeAnchor.getWorldPosition(entry.to);
+        else entry.to.copy(frame.driverEye);
+        const nose = new THREE.Vector3(0, 0, 1).applyQuaternion(carModel.quaternion);
+        entry.toLook.copy(entry.to).addScaledVector(nose, 4);
         character.visible = false;
         say('Getting in…');
     }
     function finishEnter() {
         mode = 'driving';
-        fpYaw = Math.atan2(frame.forward.x, frame.forward.z);
+        lookOffset = 0;
         fpPitch = -0.06;
         noseLight.intensity = 0;
-        say('In the seat  ·  click to look  ·  SPACE rev  ·  E to get out');
+        if (headLights) headLights.intensity = 14;
+        drive.speed = 0;
+        say('W drive  ·  A/D steer  ·  S brake  ·  C chase  ·  SPACE flames  ·  E out');
         renderer.domElement.requestPointerLock?.();
     }
     function exitCar() {
@@ -706,19 +813,29 @@ export function start() {
         const dir = new THREE.Vector3();
         camera.getWorldDirection(dir);
         entry.fromLook.copy(camera.position).add(dir);
-        character.position.copy(frame.driverStand);
+        const stand = doorLocal
+            ? carModel.localToWorld(doorLocal.clone())
+            : frame.driverStand.clone();
+        stand.y = 0;
+        character.position.copy(stand);
         character.visible = true;
-        entry.to.copy(frame.driverStand).add(new THREE.Vector3(0, 1.6, 0)).addScaledVector(frame.right, 1.6);
-        entry.toLook.copy(frame.center);
+        entry.to.copy(stand).add(new THREE.Vector3(0, 1.6, 0));
+        const carPos = new THREE.Vector3();
+        carModel.getWorldPosition(carPos);
+        entry.toLook.copy(carPos);
         entry.toLook.y = 0.8;
         say('Stepping out…');
     }
     function finishExit() {
         mode = 'walk';
-        const back = frame.driverStand.clone().sub(frame.center);
+        const carNow = new THREE.Vector3();
+        carModel.getWorldPosition(carNow);
+        const back = character.position.clone().sub(carNow);
         back.y = 0;
         camYaw = Math.atan2(back.x, back.z);
         noseLight.intensity = 7;
+        if (headLights) headLights.intensity = 0;
+        drive.speed = 0;
         say('WASD  ·  rings on the floor are the doors');
     }
 
@@ -821,7 +938,18 @@ export function start() {
                 <p><b style="color:#fff">Hush</b> — SA car social. ${link('https://hush-v1.vercel.app', 'hush-v1.vercel.app')}</p>
                 <p><b style="color:#fff">AgenticBiz</b> — agentic systems, in public. ${link('https://www.agenticbiz.co.za/', 'agenticbiz.co.za')}</p>
                 <p><b style="color:#fff">Comfort Shooting</b> — day job. Systems, portals, the unglamorous things that have to stay up.</p>
-                <p><b style="color:#fff">This bay</b> — the 3D workshop. Walk it. Sit in the car. The model is not mine; credit is on the floor of the page.</p>`,
+                <p><b style="color:#fff">This bay</b> — walk it, then drive the strip. The mesh is OUTPISTON's RunX. The plate, the tint, and the road are yours.</p>`,
+        },
+        journey: {
+            label: 'Journey',
+            html: `
+                <h2 style="margin:0 0 12px;font-size:18px;color:#fff">Tongaat → Ballito</h2>
+                <p>The car is the constant. Tongaat driveway, KZN plate, gloss black, one pipe on the right. The work grew up next to it.</p>
+                <p>Comfort Shooting — lead web and app. The unglamorous systems that have to stay up.</p>
+                <p>Hush — take SA car culture off WhatsApp. ${link('https://hush-v1.vercel.app', 'hush-v1.vercel.app')}</p>
+                <p>AgenticBiz — stop thinking in tickets, start thinking in outcomes. ${link('https://www.agenticbiz.co.za/', 'agenticbiz.co.za')}</p>
+                <p>This city is that map, shrunk. Bay at the bottom. Hush on the left. AgenticBiz on the right. Comfort further out. Drive it.</p>
+                <p style="color:#8b93a7">Engine note is a stand-in until the rev-range recording lands in assets/audio/runx-rev.mp3. Face is the public Linktree portrait — LinkedIn would not serve the photo.</p>`,
         },
         garage: {
             label: 'Garage',
@@ -889,6 +1017,7 @@ export function start() {
             e.preventDefault();
             if (mode === 'driving' || mode === 'showcase' || (mode === 'walk' && nearestZone()?.action === 'rev')) toggleFlame();
         }
+        if (e.code === 'KeyC' && mode === 'driving') drive.chase = !drive.chase;
         if (e.code === 'Escape') closeLaptop();
     });
     addEventListener('keyup', (e) => {
@@ -937,7 +1066,8 @@ export function start() {
     });
     document.addEventListener('mousemove', (e) => {
         if (!pointerLocked || mode !== 'driving') return;
-        fpYaw -= e.movementX * 0.0025;
+        lookOffset -= e.movementX * 0.0025;
+        lookOffset = Math.max(-1.2, Math.min(1.2, lookOffset));
         fpPitch -= e.movementY * 0.0022;
         fpPitch = Math.max(-0.6, Math.min(0.45, fpPitch));
     });
@@ -999,7 +1129,62 @@ export function start() {
         composer.setSize(innerWidth, innerHeight);
     });
 
-    if (hintEl) hintEl.textContent = 'Drag to orbit  ·  WASD to walk in  ·  E interact  ·  SPACE rev';
+    if (hintEl) hintEl.textContent = 'Walk in · sit in the RunX · W drives the strip · E laptop';
+
+    let audioCtx = null;
+    let engineGain = null;
+    let engineOsc = null;
+    let engineReady = false;
+    function bootAudio() {
+        if (audioCtx) return;
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) return;
+        audioCtx = new Ctx();
+        engineOsc = audioCtx.createOscillator();
+        engineOsc.type = 'sawtooth';
+        engineOsc.frequency.value = 48;
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = 240;
+        engineGain = audioCtx.createGain();
+        engineGain.gain.value = 0;
+        engineOsc.connect(filter);
+        filter.connect(engineGain);
+        engineGain.connect(audioCtx.destination);
+        engineOsc.start();
+        engineReady = true;
+        fetch('assets/audio/runx-rev.mp3').then((r) => (r.ok ? r.arrayBuffer() : null)).then((buf) => {
+            if (!buf || !audioCtx) return;
+            return audioCtx.decodeAudioData(buf).then((decoded) => {
+                audioCtx._runxClip = decoded;
+            });
+        }).catch(() => {});
+    }
+    function updateEngine(amount, throttle) {
+        if (!engineReady) return;
+        const clip = audioCtx._runxClip;
+        if (clip && !audioCtx._runxSrc) {
+            const src = audioCtx.createBufferSource();
+            src.buffer = clip;
+            src.loop = true;
+            const g = audioCtx.createGain();
+            g.gain.value = 0.35;
+            src.connect(g);
+            g.connect(audioCtx.destination);
+            src.start();
+            audioCtx._runxSrc = src;
+            audioCtx._runxGain = g;
+            engineGain.gain.value = 0;
+        }
+        if (audioCtx._runxSrc) {
+            audioCtx._runxSrc.playbackRate.value = 0.55 + amount * 1.7 + (flameActive ? 0.25 : 0);
+            return;
+        }
+        engineOsc.frequency.value = 42 + amount * 90 + (throttle > 0 ? 18 : 0) + (flameActive ? 30 : 0);
+        engineGain.gain.value = mode === 'driving' ? 0.015 + amount * 0.04 : 0;
+    }
+    addEventListener('keydown', bootAudio, { once: true });
+    addEventListener('pointerdown', bootAudio, { once: true });
 
     // ── Loop ──
     let prev = performance.now();
@@ -1047,20 +1232,50 @@ export function start() {
             camera.lookAt(head);
             const zone = nearestZone();
             say(zone ? zone.prompt : 'WASD  ·  cyan driver  ·  pink laptop  ·  orange rev');
-        } else if (mode === 'driving' && frame) {
-            const bob = Math.sin(t * 11) * 0.004;
-            camera.position.copy(frame.driverEye);
-            camera.position.y += bob;
-            if (flameActive) {
-                camera.position.x += (Math.random() - 0.5) * 0.01;
-                camera.position.y += (Math.random() - 0.5) * 0.006;
+        } else if (mode === 'driving' && frame && carModel && eyeAnchor) {
+            let throttle = 0;
+            if (moveState.forward) throttle = 1;
+            if (moveState.backward) throttle = -0.55;
+            drive.speed += throttle * 8 * dt;
+            drive.speed -= Math.sign(drive.speed) * 1.6 * dt;
+            if (Math.abs(drive.speed) < 0.04 && throttle === 0) drive.speed = 0;
+            drive.speed = Math.max(-4, Math.min(14, drive.speed));
+            const steer = (moveState.left ? 1 : 0) + (moveState.right ? -1 : 0);
+            if (Math.abs(drive.speed) > 0.2) {
+                carModel.rotation.y += steer * 1.5 * dt * Math.min(1, Math.abs(drive.speed) / 4) * Math.sign(drive.speed);
             }
-            const look = new THREE.Vector3(
-                Math.sin(fpYaw) * Math.cos(fpPitch),
-                Math.sin(fpPitch),
-                Math.cos(fpYaw) * Math.cos(fpPitch)
-            );
-            camera.lookAt(camera.position.clone().add(look));
+            const fwd = new THREE.Vector3(0, 0, 1).applyQuaternion(carModel.quaternion);
+            const next = carModel.position.clone().addScaledVector(fwd, drive.speed * dt);
+            if (!city.blocked(next.x, next.z)) carModel.position.copy(next);
+            else drive.speed *= -0.15;
+            updateEngine(Math.abs(drive.speed) / 14, throttle);
+            const kmh = Math.abs(drive.speed) * 3.6;
+            say(`${kmh.toFixed(0)} km/h  ·  W drive  ·  A/D steer  ·  C ${drive.chase ? 'cabin' : 'chase'}  ·  E out`);
+            if (drive.chase) {
+                const behind = fwd.clone().multiplyScalar(-6.2);
+                const ideal = carModel.position.clone().add(behind);
+                ideal.y = 2.1;
+                camera.position.lerp(ideal, 1 - Math.exp(-6 * dt));
+                const look = carModel.position.clone();
+                look.y = 0.8;
+                camera.lookAt(look);
+            } else {
+                const eye = new THREE.Vector3();
+                eyeAnchor.getWorldPosition(eye);
+                eye.y += Math.sin(t * 11) * 0.004;
+                if (flameActive || throttle > 0.4) {
+                    eye.x += (Math.random() - 0.5) * 0.008;
+                    eye.y += (Math.random() - 0.5) * 0.004;
+                }
+                camera.position.copy(eye);
+                const yaw = carModel.rotation.y + lookOffset;
+                const look = new THREE.Vector3(
+                    Math.sin(yaw) * Math.cos(fpPitch),
+                    Math.sin(fpPitch),
+                    Math.cos(yaw) * Math.cos(fpPitch)
+                );
+                camera.lookAt(camera.position.clone().add(look));
+            }
         }
 
         markers.forEach((z) => {
