@@ -2,7 +2,7 @@
 
 A small driving portfolio. You start in the Tongaat driveway, in first person, looking at the RunX. The road north is a coastal city. Four stops are the work: Comfort Shooting, Hush, AgenticBiz, Ballito. Drive into the ring and the stop checks off.
 
-V switches first and third person. WASD walks. E at a driver door sits you in — the white hatch on the Hush avenue is the second car. In the seat, W drives, A/D steers, S brakes, SPACE throws flames, E gets out. The minimap is the city. The laptop is the table against the house.
+V switches first and third person. The seat is right-hand drive. WASD walks. E at a driver door sits you in — the white hatch on the Hush avenue is the second car. In the seat you are in a gearbox: 1–5, Shift up, Ctrl down, R for reverse when you are slow. W is throttle, S is brake. Fifth is capped at 190 km/h. Lift off or downshift and the RunX pops. E gets you out. The minimap is the city. The laptop is the table against the house.
 
 Drop `assets/models/civic.glb` and rebuild to replace the hatch. Drop `assets/audio/runx-rev.mp3` for the real engine note.
 

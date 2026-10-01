@@ -25751,19 +25751,19 @@ void main() {
   }
   function makeFlakeBlackPaint(envMap) {
     return new MeshPhysicalMaterial({
-      color: 460812,
-      metalness: 0.42,
-      roughness: 0.22,
+      color: 329224,
+      metalness: 0.06,
+      roughness: 0.38,
       clearcoat: 1,
-      clearcoatRoughness: 0.08,
+      clearcoatRoughness: 0.05,
       envMap,
-      envMapIntensity: 0.55,
-      reflectivity: 0.5,
-      specularIntensity: 0.7,
-      specularColor: new Color(14542062),
-      sheen: 0.05,
-      sheenRoughness: 0.4,
-      sheenColor: new Color(1711138)
+      envMapIntensity: 0.28,
+      reflectivity: 0.35,
+      specularIntensity: 0.45,
+      specularColor: new Color(12963028),
+      sheen: 0,
+      sheenRoughness: 0.5,
+      sheenColor: new Color(329224)
     });
   }
   function createDayEnv(THREE2, renderer) {
@@ -25897,7 +25897,7 @@ void main() {
     return {
       laptopSpot: new THREE2.Vector3(-1.55, 0, 5.4),
       blocked(x, z, r = 0.32) {
-        if (x < -120 || x > 110 || z < -8 || z > 240) return true;
+        if (x < -120 || x > 110 || z < -8 || z > 460) return true;
         for (const b of boxes) {
           if (x > b.minX - r && x < b.maxX + r && z > b.minZ - r && z < b.maxZ + r) return true;
         }
@@ -26133,7 +26133,11 @@ void main() {
     }
     palm(THREE2, scene, 88, 110);
     palm(THREE2, scene, 84, 156);
-    palm(THREE2, scene, 86, 190);
+    const highway = new THREE2.Mesh(new THREE2.PlaneGeometry(16, 220), roadMat);
+    highway.rotation.x = -Math.PI / 2;
+    highway.position.set(0, 0.015, 320);
+    highway.receiveShadow = true;
+    scene.add(highway);
     const pins = [
       {
         id: "comfort",
@@ -26189,7 +26193,7 @@ void main() {
       civicSpot: new THREE2.Vector3(42, 0, 96),
       boxes,
       blocked(x, z, r = 0.4) {
-        if (x < -110 || x > 102 || z < -6 || z > 230) return true;
+        if (x < -110 || x > 102 || z < -6 || z > 450) return true;
         for (const b of boxes) {
           if (x > b.minX - r && x < b.maxX + r && z > b.minZ - r && z < b.maxZ + r) return true;
         }
@@ -26347,7 +26351,7 @@ void main() {
       const el = $("loading");
       if (el) el.classList.add("hidden");
     }
-    if (hintEl) hintEl.textContent = "Drive the city  ·  V camera  ·  E sit, swap, or laptop  ·  hit the four stops";
+    if (hintEl) hintEl.textContent = "RHD seat  ·  1–5 or Shift/Ctrl  ·  R reverse  ·  lift off for the pop";
     const renderer = new WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
     renderer.setSize(innerWidth, innerHeight);
     renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.75));
@@ -26525,6 +26529,19 @@ void main() {
     let doorLocal = null;
     let headLights = null;
     const drive = { speed: 0 };
+    const GEARBOX = [
+      { name: "R", dir: -1, vmax: 9, pull: 18 },
+      { name: "1", dir: 1, vmax: 14.2, pull: 30 },
+      { name: "2", dir: 1, vmax: 24, pull: 22 },
+      { name: "3", dir: 1, vmax: 35, pull: 15 },
+      { name: "4", dir: 1, vmax: 45, pull: 10 },
+      { name: "5", dir: 1, vmax: 52.8, pull: 9 }
+    ];
+    let gear = 1;
+    let gearRpm = 0.15;
+    let wasThrottle = false;
+    let backfireUntil = 0;
+    let nextPop = 0;
     let flameOn = false;
     const loader = new GLTFLoader();
     loader.load("assets/models/runx.glb", (gltf) => {
@@ -26546,7 +26563,9 @@ void main() {
         const cb = new Box3().setFromObject(child);
         const cs = cb.getSize(new Vector3());
         const vol = cs.x * cs.y * cs.z;
-        const body2 = mn.includes("paint") && vol > 0.4 || mn.includes("silver") && vol > 2 && !mn.includes("rim");
+        const skip = /glass|translucent|tire|tyre|rim|light|chrome|mirror|wheel/;
+        const trim = /plastic|internal|interior/;
+        const body2 = !skip.test(mn) && !trim.test(mn) && (mn.includes("paint") || mn.includes("silver") || mn.includes("steel") || mn.includes("white") || vol > 1.3);
         if (body2) {
           child.material = makeFlakeBlackPaint(envMap);
         } else if (mn.includes("chrome") || mn.includes("rim") || mn.includes("aluminum")) {
@@ -26594,9 +26613,10 @@ void main() {
       function toLocal(worldPos) {
         return car.worldToLocal(worldPos.clone());
       }
+      const driverSide = right.clone().multiplyScalar(-1);
       eyeAnchor = new Object3D();
-      const eyeWorld = c.clone().addScaledVector(right, width * 0.14).addScaledVector(forward, length * 0.16);
-      eyeWorld.y = world.min.y + sz.y * 0.7;
+      const eyeWorld = c.clone().addScaledVector(driverSide, width * 0.3).addScaledVector(forward, length * 0.08);
+      eyeWorld.y = world.min.y + sz.y * 0.72;
       eyeAnchor.position.copy(toLocal(eyeWorld));
       car.add(eyeAnchor);
       exhaustAnchor = new Object3D();
@@ -26604,7 +26624,7 @@ void main() {
       exWorld.y = world.min.y + sz.y * 0.1;
       exhaustAnchor.position.copy(toLocal(exWorld));
       car.add(exhaustAnchor);
-      const doorWorld = c.clone().addScaledVector(right, width * 0.5 + 0.85);
+      const doorWorld = c.clone().addScaledVector(driverSide, width * 0.5 + 0.85);
       doorWorld.y = 0;
       doorLocal = toLocal(doorWorld);
       const front = c.clone().addScaledVector(forward, length * 0.49);
@@ -26771,14 +26791,14 @@ void main() {
       const sz = world.getSize(new Vector3());
       const frame2 = { forward: new Vector3(0, 0, 1), right: new Vector3(1, 0, 0), length: sz.z, width: sz.x };
       const eye = new Object3D();
-      const eyeWorld = new Vector3(c.x + 0.22, 1.12, c.z + 0.15);
+      const eyeWorld = new Vector3(c.x - 0.28, 1.15, c.z + 0.1);
       root.add(eye);
       root.worldToLocal(eye.position.copy(eyeWorld));
       const exhaust = new Object3D();
       const ex = new Vector3(c.x + 0.35, 0.32, c.z - sz.z * 0.42);
       root.add(exhaust);
       root.worldToLocal(exhaust.position.copy(ex));
-      const door = root.worldToLocal(new Vector3(c.x + sz.x * 0.5 + 0.9, 0, c.z));
+      const door = root.worldToLocal(new Vector3(c.x - sz.x * 0.5 - 0.9, 0, c.z));
       const lights = new SpotLight(16774890, 0, 22, 0.55, 0.45, 1);
       const nose = new Vector3(c.x, 0.5, c.z + sz.z * 0.46);
       root.add(lights);
@@ -26861,7 +26881,10 @@ void main() {
     }
     function viewLabel() {
       const cam = view === "first" ? "first person" : "third person";
-      if (mode === "drive") return `${carName}  ·  ${cam}  ·  ${Math.abs(drive.speed * 3.6).toFixed(0)} km/h  ·  ${visited.size}/4 stops  ·  V camera  ·  E out`;
+      if (mode === "drive") {
+        const g = GEARBOX[gear];
+        return `${carName}  ·  ${g.name}  ·  ${(drive.speed * 3.6).toFixed(0)} km/h  ·  Shift up  Ctrl down  ·  E out`;
+      }
       if (nearDoor()) return `${cam}  ·  E sit in  ·  ${visited.size}/4 stops`;
       if (nearLaptop()) return `${cam}  ·  E laptop  ·  V camera`;
       return `${cam}  ·  WASD  ·  V camera  ·  driver door is on the right of the car`;
@@ -26912,7 +26935,7 @@ void main() {
     function setEngine(throttle, speed) {
       if (!audioCtx) return;
       if (audioCtx.state === "suspended") audioCtx.resume();
-      const rpm = 0.15 + Math.min(1, Math.abs(speed) / 12) * 0.7 + (throttle ? 0.25 : 0);
+      const rpm = gearRpm;
       if (revBuffer) {
         if (!revSource) {
           revSource = audioCtx.createBufferSource();
@@ -26929,6 +26952,46 @@ void main() {
       engineOsc.frequency.setTargetAtTime(48 + rpm * 140, audioCtx.currentTime, 0.05);
       engineGain.gain.setTargetAtTime(mode === "drive" && (throttle || Math.abs(speed) > 0.2) ? 0.045 : 0, audioCtx.currentTime, 0.08);
     }
+    function shiftGear(dir) {
+      if (mode !== "drive") return;
+      shiftGearTo(gear + dir);
+    }
+    function shiftGearTo(next) {
+      if (mode !== "drive") return;
+      if (next < 0 || next >= GEARBOX.length || next === gear) return;
+      const crossing = GEARBOX[gear].dir !== GEARBOX[next].dir;
+      if (crossing && Math.abs(drive.speed) > 1.4) return;
+      const down = next < gear && GEARBOX[next].dir > 0;
+      gear = next;
+      bootAudio();
+      if (down) backfire(0.12);
+    }
+    function backfire(seconds) {
+      const now = performance.now();
+      backfireUntil = Math.max(backfireUntil, now + seconds * 1e3);
+      if (now < nextPop) return;
+      nextPop = now + 260;
+      emitFlame();
+      if (!audioCtx) return;
+      const dur = 0.09;
+      const buf = audioCtx.createBuffer(1, Math.floor(audioCtx.sampleRate * dur), audioCtx.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < data.length; i++) {
+        const t = i / data.length;
+        data[i] = (Math.random() * 2 - 1) * (1 - t) * (1 - t);
+      }
+      const src = audioCtx.createBufferSource();
+      src.buffer = buf;
+      const filter = audioCtx.createBiquadFilter();
+      filter.type = "bandpass";
+      filter.frequency.value = 140 + Math.random() * 180;
+      const gain = audioCtx.createGain();
+      gain.gain.value = 0.42;
+      src.connect(filter);
+      filter.connect(gain);
+      gain.connect(audioCtx.destination);
+      src.start();
+    }
     addEventListener("keydown", (e) => {
       var _a2;
       if (e.code === "KeyW" || e.code === "ArrowUp") keys.f = true;
@@ -26940,6 +27003,20 @@ void main() {
         flameOn = true;
         bootAudio();
       }
+      if (e.code === "ShiftLeft" || e.code === "ShiftRight") {
+        e.preventDefault();
+        shiftGear(1);
+      }
+      if (e.code === "ControlLeft" || e.code === "ControlRight") {
+        e.preventDefault();
+        shiftGear(-1);
+      }
+      if (e.code === "KeyR" && mode === "drive") shiftGearTo(0);
+      if (e.code === "Digit1") shiftGearTo(1);
+      if (e.code === "Digit2") shiftGearTo(2);
+      if (e.code === "Digit3") shiftGearTo(3);
+      if (e.code === "Digit4") shiftGearTo(4);
+      if (e.code === "Digit5") shiftGearTo(5);
       if (e.code === "KeyV") toggleView();
       if (e.code === "KeyE") {
         bootAudio();
@@ -27081,21 +27158,49 @@ void main() {
         player.rotation.y = yaw;
         player.visible = view === "third";
       } else if (car && frame) {
-        const accel = (keys.f ? 11 : 0) - (keys.b ? 12 : 0);
-        drive.speed += accel * dt;
-        drive.speed *= 1 - 1.4 * dt;
-        drive.speed = MathUtils.clamp(drive.speed, -4, 18);
+        const g = GEARBOX[gear];
+        const throttle = keys.f && !keys.b;
+        if (throttle) {
+          const along = drive.speed * g.dir;
+          const headroom = Math.max(0, g.vmax - Math.max(0, along));
+          const pull = 0.25 + 0.75 * (headroom / g.vmax);
+          if (along < g.vmax) drive.speed += g.dir * g.pull * pull * dt;
+        }
+        if (keys.b) {
+          const brake = 22 * dt;
+          if (Math.abs(drive.speed) <= brake) drive.speed = 0;
+          else drive.speed -= Math.sign(drive.speed) * brake;
+        } else if (!throttle) {
+          drive.speed *= 1 - 0.55 * dt;
+          if (Math.abs(drive.speed) < 0.15) drive.speed = 0;
+        }
+        if (drive.speed * g.dir > g.vmax) {
+          drive.speed -= g.dir * 10 * dt;
+        }
+        const span = Math.max(0.5, g.vmax * 0.85);
+        gearRpm = Math.min(1, Math.max(0.12, Math.abs(drive.speed) / span));
         const steer = (keys.l ? 1 : 0) - (keys.r ? 1 : 0);
-        if (Math.abs(drive.speed) > 0.15) car.rotation.y += steer * 1.35 * dt * Math.sign(drive.speed || 1);
+        const speedForSteer = Math.min(1, Math.abs(drive.speed) / 8);
+        if (Math.abs(drive.speed) > 0.2) car.rotation.y += steer * 1.15 * dt * Math.sign(drive.speed) * (0.45 + speedForSteer);
         const fwd = frame.forward.clone().applyAxisAngle(new Vector3(0, 1, 0), car.rotation.y);
         const step = fwd.multiplyScalar(drive.speed * dt);
-        const radius = Math.max(frame.width, 1.4) * 0.55;
-        const next = car.position.clone().add(step);
-        if (blocked(next.x, next.z, radius)) drive.speed *= -0.15;
-        else car.position.add(step);
-        if (headLights) headLights.intensity = keys.f || Math.abs(drive.speed) > 0.4 ? 10 : 4;
+        const radius = Math.max(frame.width || 1.6, 1.4) * 0.45;
+        const hops = Math.max(1, Math.ceil(step.length() / 0.7));
+        const sub = step.clone().multiplyScalar(1 / hops);
+        for (let i = 0; i < hops; i++) {
+          const next = car.position.clone().add(sub);
+          if (blocked(next.x, next.z, radius)) {
+            drive.speed *= -0.12;
+            break;
+          }
+          car.position.add(sub);
+        }
+        if (headLights) headLights.intensity = throttle || Math.abs(drive.speed) > 0.4 ? 10 : 4;
+        if (wasThrottle && !throttle && gearRpm > 0.55 && Math.abs(drive.speed) > 6) backfire(0.16);
+        else if (!throttle && gearRpm > 0.7 && Math.abs(drive.speed) > 10 && Math.random() < dt * 1.6) backfire(0.07);
+        wasThrottle = throttle;
       }
-      if (flameOn) emitFlame();
+      if (flameOn || performance.now() < backfireUntil) emitFlame();
       updateFlame(dt);
       setEngine(keys.f || flameOn, mode === "drive" ? drive.speed : 0);
       const focus = mode === "drive" && car ? car.position : player.position;

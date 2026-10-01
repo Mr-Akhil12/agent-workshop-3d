@@ -152,7 +152,11 @@ export function buildCity(THREE, scene) {
     }
     palm(THREE, scene, 88, 110);
     palm(THREE, scene, 84, 156);
-    palm(THREE, scene, 86, 190);
+    const highway = new THREE.Mesh(new THREE.PlaneGeometry(16, 220), roadMat);
+    highway.rotation.x = -Math.PI / 2;
+    highway.position.set(0, 0.015, 320);
+    highway.receiveShadow = true;
+    scene.add(highway);
 
     const pins = [
         {
@@ -212,7 +216,7 @@ export function buildCity(THREE, scene) {
         civicSpot: new THREE.Vector3(42, 0, 96),
         boxes,
         blocked(x, z, r = 0.4) {
-            if (x < -110 || x > 102 || z < -6 || z > 230) return true;
+            if (x < -110 || x > 102 || z < -6 || z > 450) return true;
             for (const b of boxes) {
                 if (x > b.minX - r && x < b.maxX + r && z > b.minZ - r && z < b.maxZ + r) return true;
             }

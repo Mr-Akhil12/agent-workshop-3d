@@ -31,19 +31,19 @@ export function createEnvMap(renderer) {
 
 export function makeFlakeBlackPaint(envMap) {
     return new THREE.MeshPhysicalMaterial({
-        color: 0x07080c,
-        metalness: 0.42,
-        roughness: 0.22,
+        color: 0x050608,
+        metalness: 0.06,
+        roughness: 0.38,
         clearcoat: 1.0,
-        clearcoatRoughness: 0.08,
+        clearcoatRoughness: 0.05,
         envMap: envMap,
-        envMapIntensity: 0.55,
-        reflectivity: 0.5,
-        specularIntensity: 0.7,
-        specularColor: new THREE.Color(0xdde4ee),
-        sheen: 0.05,
-        sheenRoughness: 0.4,
-        sheenColor: new THREE.Color(0x1a1c22),
+        envMapIntensity: 0.28,
+        reflectivity: 0.35,
+        specularIntensity: 0.45,
+        specularColor: new THREE.Color(0xc5ccd4),
+        sheen: 0,
+        sheenRoughness: 0.5,
+        sheenColor: new THREE.Color(0x050608),
     });
 }
 
