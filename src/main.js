@@ -7,6 +7,8 @@ import { THREE } from './three-setup.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { makeFlakeBlackPaint } from './materials.js';
 import { buildYard, createDayEnv } from './environment.js';
+import { buildCity } from './city.js';
+import { buildHatch } from './hatch.js';
 
 export function start() {
     const $ = (id) => document.getElementById(id);
@@ -25,7 +27,7 @@ export function start() {
         const el = $('loading');
         if (el) el.classList.add('hidden');
     }
-    if (hintEl) hintEl.textContent = 'Click to look  ·  WASD  ·  V first / third  ·  E sit or laptop';
+    if (hintEl) hintEl.textContent = 'Drive the city  ·  V camera  ·  E sit, swap, or laptop  ·  hit the four stops';
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     renderer.setSize(innerWidth, innerHeight);
@@ -39,9 +41,9 @@ export function start() {
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x8eb6dc);
-    scene.fog = new THREE.Fog(0xc5d4e2, 28, 78);
+    scene.fog = new THREE.Fog(0xc5d4e2, 48, 210);
 
-    const camera = new THREE.PerspectiveCamera(68, innerWidth / innerHeight, 0.08, 160);
+    const camera = new THREE.PerspectiveCamera(68, innerWidth / innerHeight, 0.08, 420);
     const envMap = createDayEnv(THREE, renderer);
     scene.environment = envMap;
 
@@ -66,7 +68,76 @@ export function start() {
     setProgress(12, 'Daylight');
 
     const yard = buildYard(THREE, scene);
-    setProgress(30, 'Driveway');
+    const city = buildCity(THREE, scene);
+    const visited = new Set();
+    const fleet = [];
+    let carName = 'RunX';
+    function blocked(x, z, r) {
+        return yard.blocked(x, z, r) || city.blocked(x, z, r);
+    }
+    function shorten(from, to) {
+        return city.shorten(from, yard.shorten(from, to));
+    }
+    setProgress(30, 'City laid out');
+    const hatch = buildHatch(THREE, envMap);
+    mountSimple(hatch, 'Hatch', city.civicSpot);
+    new GLTFLoader().load('assets/models/civic.glb', (gltf) => {
+        const old = fleet.find((v) => v.name === 'Hatch');
+        if (old) {
+            scene.remove(old.root);
+            fleet.splice(fleet.indexOf(old), 1);
+        }
+        const root = gltf.scene;
+        const box = new THREE.Box3().setFromObject(root);
+        const size = new THREE.Vector3();
+        box.getSize(size);
+        const maxDim = Math.max(size.x, size.y, size.z) || 1;
+        root.scale.setScalar(4.2 / maxDim);
+        mountSimple(root, 'Civic', city.civicSpot);
+    }, undefined, () => {});
+
+    const stopsEl = document.createElement('div');
+    stopsEl.id = 'stops';
+    stopsEl.style.cssText = 'position:fixed;top:18px;right:18px;z-index:20;background:rgba(8,10,16,0.72);color:#fff;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:10px 12px;font:12px/1.45 JetBrains Mono,monospace;min-width:148px;';
+    document.body.appendChild(stopsEl);
+    const mapCanvas = document.createElement('canvas');
+    mapCanvas.width = 168;
+    mapCanvas.height = 168;
+    mapCanvas.style.cssText = 'position:fixed;left:18px;bottom:52px;z-index:20;width:132px;height:132px;border-radius:10px;border:1px solid rgba(255,255,255,0.16);background:rgba(8,10,16,0.55);';
+    document.body.appendChild(mapCanvas);
+    const mapCtx = mapCanvas.getContext('2d');
+    const toast = document.createElement('div');
+    toast.style.cssText = 'display:none;position:fixed;top:72px;left:50%;transform:translateX(-50%);z-index:30;max-width:min(440px,90vw);background:#f6f1e8;color:#1c1916;border-radius:12px;padding:14px 16px;font:15px/1.45 Space Grotesk,sans-serif;';
+    document.body.appendChild(toast);
+    let toastUntil = 0;
+    function showStop(pin) {
+        toast.style.display = 'block';
+        toast.innerHTML = `<strong>${pin.title}</strong><div style="margin-top:4px;color:#5c564e">${pin.body}</div>`;
+        toastUntil = performance.now() + 6500;
+        if (pin.ring) pin.ring.material.color.setHex(0x3ddc97);
+    }
+    function drawMap(px, pz) {
+        const ctx = mapCtx;
+        ctx.clearRect(0, 0, 168, 168);
+        const X = (x) => ((x + 90) / 200) * 168;
+        const Z = (z) => 168 - ((z + 10) / 240) * 168;
+        ctx.strokeStyle = 'rgba(255,255,255,0.28)';
+        ctx.lineWidth = 2;
+        [-72, -36, 0, 36, 72].forEach((x) => {
+            ctx.beginPath(); ctx.moveTo(X(x), Z(40)); ctx.lineTo(X(x), Z(210)); ctx.stroke();
+        });
+        [48, 88, 128, 168, 208].forEach((z) => {
+            ctx.beginPath(); ctx.moveTo(X(-80), Z(z)); ctx.lineTo(X(80), Z(z)); ctx.stroke();
+        });
+        city.pins.forEach((pin) => {
+            ctx.fillStyle = visited.has(pin.id) ? '#3ddc97' : pin.color;
+            ctx.beginPath(); ctx.arc(X(pin.pos.x), Z(pin.pos.z), 4, 0, Math.PI * 2); ctx.fill();
+        });
+        ctx.fillStyle = '#fff';
+        ctx.beginPath(); ctx.arc(X(px), Z(pz), 3.5, 0, Math.PI * 2); ctx.fill();
+        const lines = city.pins.map((p) => `${visited.has(p.id) ? '✓' : '○'} ${p.title.split(' ')[0]}`);
+        stopsEl.innerHTML = `<div style="opacity:.55;margin-bottom:4px">${visited.size}/4</div>${lines.join('<br>')}`;
+    }
 
     const player = new THREE.Group();
     const cloth = new THREE.MeshStandardMaterial({ color: 0x2a2420, roughness: 0.8 });
@@ -247,9 +318,19 @@ export function start() {
         headLights.target = aim;
 
         yaw = Math.atan2(c.x - player.position.x, c.z - player.position.z);
+        fleet.push({ root: car, frame, eye: eyeAnchor, exhaust: exhaustAnchor, door: doorLocal, lights: headLights, name: 'RunX' });
         if (location.search.includes('view=third')) {
             view = 'third';
             player.visible = true;
+        }
+        if (location.search.includes('city=1')) {
+            car.position.set(0, car.position.y, 90);
+            mode = 'drive';
+            view = 'first';
+            pitch = 0.12;
+            player.visible = false;
+            keys.f = true;
+            if (headLights) headLights.intensity = 8;
         }
         if (location.search.includes('drive=1')) {
             mode = 'drive';
@@ -364,21 +445,68 @@ export function start() {
     function openLaptop() { overlay.style.display = 'flex'; }
     overlay.addEventListener('click', (e) => { if (e.target === overlay) closeLaptop(); });
 
+    function mountSimple(root, name, spot) {
+        root.position.set(spot.x, 0, spot.z);
+        scene.add(root);
+        root.updateMatrixWorld(true);
+        const world = new THREE.Box3().setFromObject(root);
+        const c = world.getCenter(new THREE.Vector3());
+        const sz = world.getSize(new THREE.Vector3());
+        const frame = { forward: new THREE.Vector3(0, 0, 1), right: new THREE.Vector3(1, 0, 0), length: sz.z, width: sz.x };
+        const eye = new THREE.Object3D();
+        const eyeWorld = new THREE.Vector3(c.x + 0.22, 1.12, c.z + 0.15);
+        root.add(eye);
+        root.worldToLocal(eye.position.copy(eyeWorld));
+        const exhaust = new THREE.Object3D();
+        const ex = new THREE.Vector3(c.x + 0.35, 0.32, c.z - sz.z * 0.42);
+        root.add(exhaust);
+        root.worldToLocal(exhaust.position.copy(ex));
+        const door = root.worldToLocal(new THREE.Vector3(c.x + sz.x * 0.5 + 0.9, 0, c.z));
+        const lights = new THREE.SpotLight(0xfff6ea, 0, 22, 0.55, 0.45, 1);
+        const nose = new THREE.Vector3(c.x, 0.5, c.z + sz.z * 0.46);
+        root.add(lights);
+        root.worldToLocal(lights.position.copy(nose));
+        const aim = new THREE.Object3D();
+        root.add(aim);
+        root.worldToLocal(aim.position.copy(nose.clone().add(new THREE.Vector3(0, 0, 10))));
+        lights.target = aim;
+        fleet.push({ root, frame, eye, exhaust, door, lights, name });
+    }
+    function nearestVehicle() {
+        let best = null;
+        let bestD = 1.7;
+        fleet.forEach((v) => {
+            if (!v.root || !v.door) return;
+            const door = v.root.localToWorld(v.door.clone());
+            door.y = 0;
+            const d = player.position.distanceTo(door);
+            if (d < bestD) { bestD = d; best = v; }
+        });
+        return best;
+    }
+    function bindVehicle(v) {
+        car = v.root;
+        frame = v.frame;
+        eyeAnchor = v.eye;
+        exhaustAnchor = v.exhaust;
+        doorLocal = v.door;
+        headLights = v.lights;
+        carName = v.name;
+    }
     function nearLaptop() {
         return player.position.distanceTo(yard.laptopSpot) < 1.6;
     }
     function nearDoor() {
-        if (!car || !doorLocal) return false;
-        const door = car.localToWorld(doorLocal.clone());
-        door.y = 0;
-        return player.position.distanceTo(door) < 1.5;
+        return !!nearestVehicle();
     }
     function baseYaw() {
         if (!frame || !car) return 0;
         return Math.atan2(frame.forward.x, frame.forward.z) + car.rotation.y;
     }
     function enterCar() {
-        if (!car || mode !== 'walk') return;
+        const v = nearestVehicle();
+        if (!v || mode !== 'walk') return;
+        bindVehicle(v);
         mode = 'drive';
         drive.speed = 0;
         lookOffset = 0;
@@ -392,7 +520,7 @@ export function start() {
         if (mode !== 'drive' || !car || !doorLocal) return;
         const stand = car.localToWorld(doorLocal.clone());
         stand.y = 0;
-        if (yard.blocked(stand.x, stand.z, 0.3)) stand.z += 1.2;
+        if (blocked(stand.x, stand.z, 0.3)) stand.z += 1.2;
         player.position.copy(stand);
         mode = 'walk';
         drive.speed = 0;
@@ -412,20 +540,20 @@ export function start() {
     }
     function viewLabel() {
         const cam = view === 'first' ? 'first person' : 'third person';
-        if (mode === 'drive') return `${cam}  ·  ${Math.abs(drive.speed * 3.6).toFixed(0)} km/h  ·  W drive  A/D steer  V camera  E out`;
-        if (nearDoor()) return `${cam}  ·  E sit in  ·  V camera`;
+        if (mode === 'drive') return `${carName}  ·  ${cam}  ·  ${Math.abs(drive.speed * 3.6).toFixed(0)} km/h  ·  ${visited.size}/4 stops  ·  V camera  ·  E out`;
+        if (nearDoor()) return `${cam}  ·  E sit in  ·  ${visited.size}/4 stops`;
         if (nearLaptop()) return `${cam}  ·  E laptop  ·  V camera`;
         return `${cam}  ·  WASD  ·  V camera  ·  driver door is on the right of the car`;
     }
     function slide(pos, delta, radius) {
         const next = pos.clone().add(delta);
-        if (!yard.blocked(next.x, next.z, radius)) return next;
+        if (!blocked(next.x, next.z, radius)) return next;
         const xOnly = pos.clone();
         xOnly.x += delta.x;
-        if (!yard.blocked(xOnly.x, xOnly.z, radius)) return xOnly;
+        if (!blocked(xOnly.x, xOnly.z, radius)) return xOnly;
         const zOnly = pos.clone();
         zOnly.z += delta.z;
-        if (!yard.blocked(zOnly.x, zOnly.z, radius)) return zOnly;
+        if (!blocked(zOnly.x, zOnly.z, radius)) return zOnly;
         return pos;
     }
 
@@ -614,17 +742,17 @@ export function start() {
             player.rotation.y = yaw;
             player.visible = view === 'third';
         } else if (car && frame) {
-            const accel = (keys.f ? 7.5 : 0) - (keys.b ? 10 : 0);
+            const accel = (keys.f ? 11 : 0) - (keys.b ? 12 : 0);
             drive.speed += accel * dt;
             drive.speed *= 1 - 1.4 * dt;
-            drive.speed = THREE.MathUtils.clamp(drive.speed, -3.5, 12);
+            drive.speed = THREE.MathUtils.clamp(drive.speed, -4, 18);
             const steer = (keys.l ? 1 : 0) - (keys.r ? 1 : 0);
-            if (Math.abs(drive.speed) > 0.15) car.rotation.y += steer * 1.5 * dt * Math.sign(drive.speed || 1);
+            if (Math.abs(drive.speed) > 0.15) car.rotation.y += steer * 1.35 * dt * Math.sign(drive.speed || 1);
             const fwd = frame.forward.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), car.rotation.y);
             const step = fwd.multiplyScalar(drive.speed * dt);
             const radius = Math.max(frame.width, 1.4) * 0.55;
             const next = car.position.clone().add(step);
-            if (yard.blocked(next.x, next.z, radius)) drive.speed *= -0.15;
+            if (blocked(next.x, next.z, radius)) drive.speed *= -0.15;
             else car.position.add(step);
             if (headLights) headLights.intensity = keys.f || Math.abs(drive.speed) > 0.4 ? 10 : 4;
         }
@@ -638,7 +766,10 @@ export function start() {
         sun.target.position.set(focus.x, 0, focus.z);
         sun.target.updateMatrixWorld();
 
-        if (view === 'first') {
+        if (location.search.includes('overview=1') && car) {
+            camera.position.set(28, 42, 8);
+            camera.lookAt(0, 0, 90);
+        } else if (view === 'first') {
             if (mode === 'drive' && eyeAnchor && frame) {
                 eyeAnchor.getWorldPosition(camera.position);
                 const fwd = frame.forward.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), car.rotation.y + lookOffset);
@@ -654,7 +785,7 @@ export function start() {
             const ay = baseYaw();
             headPos.set(car.position.x, 1.05, car.position.z);
             desired.set(headPos.x - Math.sin(ay) * 5.6, 1.85, headPos.z - Math.cos(ay) * 5.6);
-            const safe = yard.shorten(headPos, desired);
+            const safe = shorten(headPos, desired);
             camera.position.lerp(safe, 1 - Math.exp(-8 * dt));
             camera.lookAt(headPos);
         } else {
@@ -662,10 +793,25 @@ export function start() {
             const side = Math.cos(yaw) * 1.15;
             const sideZ = -Math.sin(yaw) * 1.15;
             desired.set(headPos.x - Math.sin(yaw) * 3.8 + side, 1.7, headPos.z - Math.cos(yaw) * 3.8 + sideZ);
-            const safe = yard.shorten(headPos, desired);
+            const safe = shorten(headPos, desired);
             camera.position.lerp(safe, 1 - Math.exp(-10 * dt));
             camera.lookAt(headPos.x, 1.4, headPos.z);
         }
+
+        if (mode === 'drive' && car) {
+            city.pins.forEach((pin) => {
+                if (visited.has(pin.id)) return;
+                const dx = car.position.x - pin.pos.x;
+                const dz = car.position.z - pin.pos.z;
+                if (dx * dx + dz * dz < 144) {
+                    visited.add(pin.id);
+                    showStop(pin);
+                }
+            });
+        }
+        if (toastUntil && performance.now() > toastUntil) toast.style.display = 'none';
+        const focusNow = mode === 'drive' && car ? car.position : player.position;
+        drawMap(focusNow.x, focusNow.z);
 
         labelTick += dt;
         if (labelTick > 0.25) {

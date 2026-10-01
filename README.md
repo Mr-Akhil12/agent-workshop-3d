@@ -1,10 +1,10 @@
 # The Agent's Workshop
 
-Daylight Tongaat driveway. The gloss-black RunX is the only mesh kept from the first build. No garage box — the houses are set pieces, and the camera stops at them instead of clipping through.
+A small driving portfolio. You start in the Tongaat driveway, in first person, looking at the RunX. The road north is a coastal city. Four stops are the work: Comfort Shooting, Hush, AgenticBiz, Ballito. Drive into the ring and the stop checks off.
 
-You start in first person, standing in the mouth of the driveway looking at the car. V switches to third person. WASD walks. E at the driver door (right-hand side) sits you in. In the seat, W drives, A/D steers, S brakes, V flips between the cabin and a chase camera, SPACE throws flames. E gets you back out. The laptop is on the table against the house.
+V switches first and third person. WASD walks. E at a driver door sits you in — the white hatch on the Hush avenue is the second car. In the seat, W drives, A/D steers, S brakes, SPACE throws flames, E gets out. The minimap is the city. The laptop is the table against the house.
 
-Drop a rev-range recording at `assets/audio/runx-rev.mp3` and rebuild. Until then the engine note is a synth stand-in. The face on the walker is the public Linktree portrait; LinkedIn would not serve the photo.
+Drop `assets/models/civic.glb` and rebuild to replace the hatch. Drop `assets/audio/runx-rev.mp3` for the real engine note.
 
 ## Live
 

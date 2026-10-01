@@ -153,7 +153,7 @@ export function buildYard(THREE, scene) {
     return {
         laptopSpot: new THREE.Vector3(-1.55, 0, 5.4),
         blocked(x, z, r = 0.32) {
-            if (x < -22 || x > 22 || z < -4.2 || z > 58) return true;
+            if (x < -120 || x > 110 || z < -8 || z > 240) return true;
             for (const b of boxes) {
                 if (x > b.minX - r && x < b.maxX + r && z > b.minZ - r && z < b.maxZ + r) return true;
             }
