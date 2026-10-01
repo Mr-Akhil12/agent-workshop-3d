@@ -6,8 +6,6 @@ var AgentWorkshop = function(exports) {
    * SPDX-License-Identifier: MIT
    */
   const REVISION = "170";
-  const MOUSE = { ROTATE: 0, DOLLY: 1, PAN: 2 };
-  const TOUCH = { ROTATE: 0, PAN: 1, DOLLY_PAN: 2, DOLLY_ROTATE: 3 };
   const CullFaceNone = 0;
   const CullFaceBack = 1;
   const CullFaceFront = 2;
@@ -6974,13 +6972,13 @@ var AgentWorkshop = function(exports) {
     }
   }
   function checkIntersection$1(object, material, raycaster, ray, pA, pB, pC, point) {
-    let intersect2;
+    let intersect;
     if (material.side === BackSide) {
-      intersect2 = ray.intersectTriangle(pC, pB, pA, true, point);
+      intersect = ray.intersectTriangle(pC, pB, pA, true, point);
     } else {
-      intersect2 = ray.intersectTriangle(pA, pB, pC, material.side === FrontSide, point);
+      intersect = ray.intersectTriangle(pA, pB, pC, material.side === FrontSide, point);
     }
-    if (intersect2 === null) return null;
+    if (intersect === null) return null;
     _intersectionPointWorld.copy(point);
     _intersectionPointWorld.applyMatrix4(object.matrixWorld);
     const distance = raycaster.ray.origin.distanceTo(_intersectionPointWorld);
@@ -18247,6 +18245,27 @@ void main() {
       gl.unpackColorSpace = ColorManagement._getUnpackColorSpace();
     }
   }
+  class Fog {
+    constructor(color, near = 1, far = 1e3) {
+      this.isFog = true;
+      this.name = "";
+      this.color = new Color(color);
+      this.near = near;
+      this.far = far;
+    }
+    clone() {
+      return new Fog(this.color, this.near, this.far);
+    }
+    toJSON() {
+      return {
+        type: "Fog",
+        name: this.name,
+        color: this.color.getHex(),
+        near: this.near,
+        far: this.far
+      };
+    }
+  }
   class Scene extends Object3D {
     constructor() {
       super();
@@ -18554,6 +18573,147 @@ void main() {
         };
       }
     }
+  }
+  class SpriteMaterial extends Material {
+    static get type() {
+      return "SpriteMaterial";
+    }
+    constructor(parameters) {
+      super();
+      this.isSpriteMaterial = true;
+      this.color = new Color(16777215);
+      this.map = null;
+      this.alphaMap = null;
+      this.rotation = 0;
+      this.sizeAttenuation = true;
+      this.transparent = true;
+      this.fog = true;
+      this.setValues(parameters);
+    }
+    copy(source) {
+      super.copy(source);
+      this.color.copy(source.color);
+      this.map = source.map;
+      this.alphaMap = source.alphaMap;
+      this.rotation = source.rotation;
+      this.sizeAttenuation = source.sizeAttenuation;
+      this.fog = source.fog;
+      return this;
+    }
+  }
+  let _geometry$1;
+  const _intersectPoint = /* @__PURE__ */ new Vector3();
+  const _worldScale = /* @__PURE__ */ new Vector3();
+  const _mvPosition = /* @__PURE__ */ new Vector3();
+  const _alignedPosition = /* @__PURE__ */ new Vector2();
+  const _rotatedPosition = /* @__PURE__ */ new Vector2();
+  const _viewWorldMatrix = /* @__PURE__ */ new Matrix4();
+  const _vA = /* @__PURE__ */ new Vector3();
+  const _vB = /* @__PURE__ */ new Vector3();
+  const _vC = /* @__PURE__ */ new Vector3();
+  const _uvA = /* @__PURE__ */ new Vector2();
+  const _uvB = /* @__PURE__ */ new Vector2();
+  const _uvC = /* @__PURE__ */ new Vector2();
+  class Sprite extends Object3D {
+    constructor(material = new SpriteMaterial()) {
+      super();
+      this.isSprite = true;
+      this.type = "Sprite";
+      if (_geometry$1 === void 0) {
+        _geometry$1 = new BufferGeometry();
+        const float32Array = new Float32Array([
+          -0.5,
+          -0.5,
+          0,
+          0,
+          0,
+          0.5,
+          -0.5,
+          0,
+          1,
+          0,
+          0.5,
+          0.5,
+          0,
+          1,
+          1,
+          -0.5,
+          0.5,
+          0,
+          0,
+          1
+        ]);
+        const interleavedBuffer = new InterleavedBuffer(float32Array, 5);
+        _geometry$1.setIndex([0, 1, 2, 0, 2, 3]);
+        _geometry$1.setAttribute("position", new InterleavedBufferAttribute(interleavedBuffer, 3, 0, false));
+        _geometry$1.setAttribute("uv", new InterleavedBufferAttribute(interleavedBuffer, 2, 3, false));
+      }
+      this.geometry = _geometry$1;
+      this.material = material;
+      this.center = new Vector2(0.5, 0.5);
+    }
+    raycast(raycaster, intersects) {
+      if (raycaster.camera === null) {
+        console.error('THREE.Sprite: "Raycaster.camera" needs to be set in order to raycast against sprites.');
+      }
+      _worldScale.setFromMatrixScale(this.matrixWorld);
+      _viewWorldMatrix.copy(raycaster.camera.matrixWorld);
+      this.modelViewMatrix.multiplyMatrices(raycaster.camera.matrixWorldInverse, this.matrixWorld);
+      _mvPosition.setFromMatrixPosition(this.modelViewMatrix);
+      if (raycaster.camera.isPerspectiveCamera && this.material.sizeAttenuation === false) {
+        _worldScale.multiplyScalar(-_mvPosition.z);
+      }
+      const rotation = this.material.rotation;
+      let sin, cos;
+      if (rotation !== 0) {
+        cos = Math.cos(rotation);
+        sin = Math.sin(rotation);
+      }
+      const center = this.center;
+      transformVertex(_vA.set(-0.5, -0.5, 0), _mvPosition, center, _worldScale, sin, cos);
+      transformVertex(_vB.set(0.5, -0.5, 0), _mvPosition, center, _worldScale, sin, cos);
+      transformVertex(_vC.set(0.5, 0.5, 0), _mvPosition, center, _worldScale, sin, cos);
+      _uvA.set(0, 0);
+      _uvB.set(1, 0);
+      _uvC.set(1, 1);
+      let intersect = raycaster.ray.intersectTriangle(_vA, _vB, _vC, false, _intersectPoint);
+      if (intersect === null) {
+        transformVertex(_vB.set(-0.5, 0.5, 0), _mvPosition, center, _worldScale, sin, cos);
+        _uvB.set(0, 1);
+        intersect = raycaster.ray.intersectTriangle(_vA, _vC, _vB, false, _intersectPoint);
+        if (intersect === null) {
+          return;
+        }
+      }
+      const distance = raycaster.ray.origin.distanceTo(_intersectPoint);
+      if (distance < raycaster.near || distance > raycaster.far) return;
+      intersects.push({
+        distance,
+        point: _intersectPoint.clone(),
+        uv: Triangle.getInterpolation(_intersectPoint, _vA, _vB, _vC, _uvA, _uvB, _uvC, new Vector2()),
+        face: null,
+        object: this
+      });
+    }
+    copy(source, recursive) {
+      super.copy(source, recursive);
+      if (source.center !== void 0) this.center.copy(source.center);
+      this.material = source.material;
+      return this;
+    }
+  }
+  function transformVertex(vertexPosition, mvPosition, center, scale, sin, cos) {
+    _alignedPosition.subVectors(vertexPosition, center).addScalar(0.5).multiply(scale);
+    if (sin !== void 0) {
+      _rotatedPosition.x = cos * _alignedPosition.x - sin * _alignedPosition.y;
+      _rotatedPosition.y = sin * _alignedPosition.x + cos * _alignedPosition.y;
+    } else {
+      _rotatedPosition.copy(_alignedPosition);
+    }
+    vertexPosition.copy(mvPosition);
+    vertexPosition.x += _rotatedPosition.x;
+    vertexPosition.y += _rotatedPosition.y;
+    vertexPosition.applyMatrix4(_viewWorldMatrix);
   }
   const _basePosition = /* @__PURE__ */ new Vector3();
   const _skinIndex = /* @__PURE__ */ new Vector4();
@@ -18951,10 +19111,10 @@ void main() {
         _mesh$1.matrixWorld = _instanceWorldMatrix;
         _mesh$1.raycast(raycaster, _instanceIntersects);
         for (let i = 0, l = _instanceIntersects.length; i < l; i++) {
-          const intersect2 = _instanceIntersects[i];
-          intersect2.instanceId = instanceId;
-          intersect2.object = this;
-          intersects.push(intersect2);
+          const intersect = _instanceIntersects[i];
+          intersect.instanceId = instanceId;
+          intersect.object = this;
+          intersects.push(intersect);
         }
         _instanceIntersects.length = 0;
       }
@@ -19084,32 +19244,32 @@ void main() {
         for (let i = start2, l = end - 1; i < l; i += step) {
           const a = index.getX(i);
           const b = index.getX(i + 1);
-          const intersect2 = checkIntersection(this, raycaster, _ray$1, localThresholdSq, a, b);
-          if (intersect2) {
-            intersects.push(intersect2);
+          const intersect = checkIntersection(this, raycaster, _ray$1, localThresholdSq, a, b);
+          if (intersect) {
+            intersects.push(intersect);
           }
         }
         if (this.isLineLoop) {
           const a = index.getX(end - 1);
           const b = index.getX(start2);
-          const intersect2 = checkIntersection(this, raycaster, _ray$1, localThresholdSq, a, b);
-          if (intersect2) {
-            intersects.push(intersect2);
+          const intersect = checkIntersection(this, raycaster, _ray$1, localThresholdSq, a, b);
+          if (intersect) {
+            intersects.push(intersect);
           }
         }
       } else {
         const start2 = Math.max(0, drawRange.start);
         const end = Math.min(positionAttribute.count, drawRange.start + drawRange.count);
         for (let i = start2, l = end - 1; i < l; i += step) {
-          const intersect2 = checkIntersection(this, raycaster, _ray$1, localThresholdSq, i, i + 1);
-          if (intersect2) {
-            intersects.push(intersect2);
+          const intersect = checkIntersection(this, raycaster, _ray$1, localThresholdSq, i, i + 1);
+          if (intersect) {
+            intersects.push(intersect);
           }
         }
         if (this.isLineLoop) {
-          const intersect2 = checkIntersection(this, raycaster, _ray$1, localThresholdSq, end - 1, start2);
-          if (intersect2) {
-            intersects.push(intersect2);
+          const intersect = checkIntersection(this, raycaster, _ray$1, localThresholdSq, end - 1, start2);
+          if (intersect) {
+            intersects.push(intersect);
           }
         }
       }
@@ -19213,7 +19373,7 @@ void main() {
     }
   }
   const _inverseMatrix = /* @__PURE__ */ new Matrix4();
-  const _ray$4 = /* @__PURE__ */ new Ray();
+  const _ray = /* @__PURE__ */ new Ray();
   const _sphere = /* @__PURE__ */ new Sphere();
   const _position$2 = /* @__PURE__ */ new Vector3();
   class Points extends Object3D {
@@ -19242,7 +19402,7 @@ void main() {
       _sphere.radius += threshold;
       if (raycaster.ray.intersectsSphere(_sphere) === false) return;
       _inverseMatrix.copy(matrixWorld).invert();
-      _ray$4.copy(raycaster.ray).applyMatrix4(_inverseMatrix);
+      _ray.copy(raycaster.ray).applyMatrix4(_inverseMatrix);
       const localThreshold = threshold / ((this.scale.x + this.scale.y + this.scale.z) / 3);
       const localThresholdSq = localThreshold * localThreshold;
       const index = geometry.index;
@@ -19284,10 +19444,10 @@ void main() {
     }
   }
   function testPoint(point, index, localThresholdSq, matrixWorld, raycaster, intersects, object) {
-    const rayPointDistanceSq = _ray$4.distanceSqToPoint(point);
+    const rayPointDistanceSq = _ray.distanceSqToPoint(point);
     if (rayPointDistanceSq < localThresholdSq) {
       const intersectPoint = new Vector3();
-      _ray$4.closestPointToPoint(point, intersectPoint);
+      _ray.closestPointToPoint(point, intersectPoint);
       intersectPoint.applyMatrix4(matrixWorld);
       const distance = raycaster.ray.origin.distanceTo(intersectPoint);
       if (distance < raycaster.near || distance > raycaster.far) return;
@@ -20446,126 +20606,43 @@ void main() {
       return new CapsuleGeometry(data.radius, data.length, data.capSegments, data.radialSegments);
     }
   }
-  class CylinderGeometry extends BufferGeometry {
-    constructor(radiusTop = 1, radiusBottom = 1, height = 1, radialSegments = 32, heightSegments = 1, openEnded = false, thetaStart = 0, thetaLength = Math.PI * 2) {
+  class CircleGeometry extends BufferGeometry {
+    constructor(radius = 1, segments = 32, thetaStart = 0, thetaLength = Math.PI * 2) {
       super();
-      this.type = "CylinderGeometry";
+      this.type = "CircleGeometry";
       this.parameters = {
-        radiusTop,
-        radiusBottom,
-        height,
-        radialSegments,
-        heightSegments,
-        openEnded,
+        radius,
+        segments,
         thetaStart,
         thetaLength
       };
-      const scope = this;
-      radialSegments = Math.floor(radialSegments);
-      heightSegments = Math.floor(heightSegments);
+      segments = Math.max(3, segments);
       const indices = [];
       const vertices = [];
       const normals = [];
       const uvs = [];
-      let index = 0;
-      const indexArray = [];
-      const halfHeight = height / 2;
-      let groupStart = 0;
-      generateTorso();
-      if (openEnded === false) {
-        if (radiusTop > 0) generateCap(true);
-        if (radiusBottom > 0) generateCap(false);
+      const vertex2 = new Vector3();
+      const uv = new Vector2();
+      vertices.push(0, 0, 0);
+      normals.push(0, 0, 1);
+      uvs.push(0.5, 0.5);
+      for (let s = 0, i = 3; s <= segments; s++, i += 3) {
+        const segment = thetaStart + s / segments * thetaLength;
+        vertex2.x = radius * Math.cos(segment);
+        vertex2.y = radius * Math.sin(segment);
+        vertices.push(vertex2.x, vertex2.y, vertex2.z);
+        normals.push(0, 0, 1);
+        uv.x = (vertices[i] / radius + 1) / 2;
+        uv.y = (vertices[i + 1] / radius + 1) / 2;
+        uvs.push(uv.x, uv.y);
+      }
+      for (let i = 1; i <= segments; i++) {
+        indices.push(i, i + 1, 0);
       }
       this.setIndex(indices);
       this.setAttribute("position", new Float32BufferAttribute(vertices, 3));
       this.setAttribute("normal", new Float32BufferAttribute(normals, 3));
       this.setAttribute("uv", new Float32BufferAttribute(uvs, 2));
-      function generateTorso() {
-        const normal = new Vector3();
-        const vertex2 = new Vector3();
-        let groupCount = 0;
-        const slope = (radiusBottom - radiusTop) / height;
-        for (let y = 0; y <= heightSegments; y++) {
-          const indexRow = [];
-          const v = y / heightSegments;
-          const radius = v * (radiusBottom - radiusTop) + radiusTop;
-          for (let x = 0; x <= radialSegments; x++) {
-            const u = x / radialSegments;
-            const theta = u * thetaLength + thetaStart;
-            const sinTheta = Math.sin(theta);
-            const cosTheta = Math.cos(theta);
-            vertex2.x = radius * sinTheta;
-            vertex2.y = -v * height + halfHeight;
-            vertex2.z = radius * cosTheta;
-            vertices.push(vertex2.x, vertex2.y, vertex2.z);
-            normal.set(sinTheta, slope, cosTheta).normalize();
-            normals.push(normal.x, normal.y, normal.z);
-            uvs.push(u, 1 - v);
-            indexRow.push(index++);
-          }
-          indexArray.push(indexRow);
-        }
-        for (let x = 0; x < radialSegments; x++) {
-          for (let y = 0; y < heightSegments; y++) {
-            const a = indexArray[y][x];
-            const b = indexArray[y + 1][x];
-            const c = indexArray[y + 1][x + 1];
-            const d = indexArray[y][x + 1];
-            if (radiusTop > 0 || y !== 0) {
-              indices.push(a, b, d);
-              groupCount += 3;
-            }
-            if (radiusBottom > 0 || y !== heightSegments - 1) {
-              indices.push(b, c, d);
-              groupCount += 3;
-            }
-          }
-        }
-        scope.addGroup(groupStart, groupCount, 0);
-        groupStart += groupCount;
-      }
-      function generateCap(top) {
-        const centerIndexStart = index;
-        const uv = new Vector2();
-        const vertex2 = new Vector3();
-        let groupCount = 0;
-        const radius = top === true ? radiusTop : radiusBottom;
-        const sign = top === true ? 1 : -1;
-        for (let x = 1; x <= radialSegments; x++) {
-          vertices.push(0, halfHeight * sign, 0);
-          normals.push(0, sign, 0);
-          uvs.push(0.5, 0.5);
-          index++;
-        }
-        const centerIndexEnd = index;
-        for (let x = 0; x <= radialSegments; x++) {
-          const u = x / radialSegments;
-          const theta = u * thetaLength + thetaStart;
-          const cosTheta = Math.cos(theta);
-          const sinTheta = Math.sin(theta);
-          vertex2.x = radius * sinTheta;
-          vertex2.y = halfHeight * sign;
-          vertex2.z = radius * cosTheta;
-          vertices.push(vertex2.x, vertex2.y, vertex2.z);
-          normals.push(0, sign, 0);
-          uv.x = cosTheta * 0.5 + 0.5;
-          uv.y = sinTheta * 0.5 * sign + 0.5;
-          uvs.push(uv.x, uv.y);
-          index++;
-        }
-        for (let x = 0; x < radialSegments; x++) {
-          const c = centerIndexStart + x;
-          const i = centerIndexEnd + x;
-          if (top === true) {
-            indices.push(i, i + 1, c);
-          } else {
-            indices.push(i + 1, i, c);
-          }
-          groupCount += 3;
-        }
-        scope.addGroup(groupStart, groupCount, top === true ? 1 : 2);
-        groupStart += groupCount;
-      }
     }
     copy(source) {
       super.copy(source);
@@ -20573,7 +20650,7 @@ void main() {
       return this;
     }
     static fromJSON(data) {
-      return new CylinderGeometry(data.radiusTop, data.radiusBottom, data.height, data.radialSegments, data.heightSegments, data.openEnded, data.thetaStart, data.thetaLength);
+      return new CircleGeometry(data.radius, data.segments, data.thetaStart, data.thetaLength);
     }
   }
   const _v0 = /* @__PURE__ */ new Vector3();
@@ -20660,6 +20737,67 @@ void main() {
       super.copy(source);
       this.parameters = Object.assign({}, source.parameters);
       return this;
+    }
+  }
+  class RingGeometry extends BufferGeometry {
+    constructor(innerRadius = 0.5, outerRadius = 1, thetaSegments = 32, phiSegments = 1, thetaStart = 0, thetaLength = Math.PI * 2) {
+      super();
+      this.type = "RingGeometry";
+      this.parameters = {
+        innerRadius,
+        outerRadius,
+        thetaSegments,
+        phiSegments,
+        thetaStart,
+        thetaLength
+      };
+      thetaSegments = Math.max(3, thetaSegments);
+      phiSegments = Math.max(1, phiSegments);
+      const indices = [];
+      const vertices = [];
+      const normals = [];
+      const uvs = [];
+      let radius = innerRadius;
+      const radiusStep = (outerRadius - innerRadius) / phiSegments;
+      const vertex2 = new Vector3();
+      const uv = new Vector2();
+      for (let j = 0; j <= phiSegments; j++) {
+        for (let i = 0; i <= thetaSegments; i++) {
+          const segment = thetaStart + i / thetaSegments * thetaLength;
+          vertex2.x = radius * Math.cos(segment);
+          vertex2.y = radius * Math.sin(segment);
+          vertices.push(vertex2.x, vertex2.y, vertex2.z);
+          normals.push(0, 0, 1);
+          uv.x = (vertex2.x / outerRadius + 1) / 2;
+          uv.y = (vertex2.y / outerRadius + 1) / 2;
+          uvs.push(uv.x, uv.y);
+        }
+        radius += radiusStep;
+      }
+      for (let j = 0; j < phiSegments; j++) {
+        const thetaSegmentLevel = j * (thetaSegments + 1);
+        for (let i = 0; i < thetaSegments; i++) {
+          const segment = i + thetaSegmentLevel;
+          const a = segment;
+          const b = segment + thetaSegments + 1;
+          const c = segment + thetaSegments + 2;
+          const d = segment + 1;
+          indices.push(a, b, d);
+          indices.push(b, c, d);
+        }
+      }
+      this.setIndex(indices);
+      this.setAttribute("position", new Float32BufferAttribute(vertices, 3));
+      this.setAttribute("normal", new Float32BufferAttribute(normals, 3));
+      this.setAttribute("uv", new Float32BufferAttribute(uvs, 2));
+    }
+    copy(source) {
+      super.copy(source);
+      this.parameters = Object.assign({}, source.parameters);
+      return this;
+    }
+    static fromJSON(data) {
+      return new RingGeometry(data.innerRadius, data.outerRadius, data.thetaSegments, data.phiSegments, data.thetaStart, data.thetaLength);
     }
   }
   class SphereGeometry extends BufferGeometry {
@@ -22121,6 +22259,21 @@ void main() {
       return data;
     }
   }
+  class HemisphereLight extends Light {
+    constructor(skyColor, groundColor, intensity) {
+      super(skyColor, intensity);
+      this.isHemisphereLight = true;
+      this.type = "HemisphereLight";
+      this.position.copy(Object3D.DEFAULT_UP);
+      this.updateMatrix();
+      this.groundColor = new Color(groundColor);
+    }
+    copy(source, recursive) {
+      super.copy(source, recursive);
+      this.groundColor.copy(source.groundColor);
+      return this;
+    }
+  }
   const _projScreenMatrix$1 = /* @__PURE__ */ new Matrix4();
   const _lightPositionWorld$1 = /* @__PURE__ */ new Vector3();
   const _lookTarget$1 = /* @__PURE__ */ new Vector3();
@@ -22920,116 +23073,6 @@ void main() {
       PropertyBinding.prototype._setValue_fromArray_setMatrixWorldNeedsUpdate
     ]
   ];
-  const _matrix = /* @__PURE__ */ new Matrix4();
-  class Raycaster {
-    constructor(origin, direction, near = 0, far = Infinity) {
-      this.ray = new Ray(origin, direction);
-      this.near = near;
-      this.far = far;
-      this.camera = null;
-      this.layers = new Layers();
-      this.params = {
-        Mesh: {},
-        Line: { threshold: 1 },
-        LOD: {},
-        Points: { threshold: 1 },
-        Sprite: {}
-      };
-    }
-    set(origin, direction) {
-      this.ray.set(origin, direction);
-    }
-    setFromCamera(coords, camera) {
-      if (camera.isPerspectiveCamera) {
-        this.ray.origin.setFromMatrixPosition(camera.matrixWorld);
-        this.ray.direction.set(coords.x, coords.y, 0.5).unproject(camera).sub(this.ray.origin).normalize();
-        this.camera = camera;
-      } else if (camera.isOrthographicCamera) {
-        this.ray.origin.set(coords.x, coords.y, (camera.near + camera.far) / (camera.near - camera.far)).unproject(camera);
-        this.ray.direction.set(0, 0, -1).transformDirection(camera.matrixWorld);
-        this.camera = camera;
-      } else {
-        console.error("THREE.Raycaster: Unsupported camera type: " + camera.type);
-      }
-    }
-    setFromXRController(controller) {
-      _matrix.identity().extractRotation(controller.matrixWorld);
-      this.ray.origin.setFromMatrixPosition(controller.matrixWorld);
-      this.ray.direction.set(0, 0, -1).applyMatrix4(_matrix);
-      return this;
-    }
-    intersectObject(object, recursive = true, intersects = []) {
-      intersect(object, this, intersects, recursive);
-      intersects.sort(ascSort);
-      return intersects;
-    }
-    intersectObjects(objects, recursive = true, intersects = []) {
-      for (let i = 0, l = objects.length; i < l; i++) {
-        intersect(objects[i], this, intersects, recursive);
-      }
-      intersects.sort(ascSort);
-      return intersects;
-    }
-  }
-  function ascSort(a, b) {
-    return a.distance - b.distance;
-  }
-  function intersect(object, raycaster, intersects, recursive) {
-    let propagate = true;
-    if (object.layers.test(raycaster.layers)) {
-      const result = object.raycast(raycaster, intersects);
-      if (result === false) propagate = false;
-    }
-    if (propagate === true && recursive === true) {
-      const children = object.children;
-      for (let i = 0, l = children.length; i < l; i++) {
-        intersect(children[i], raycaster, intersects, true);
-      }
-    }
-  }
-  class Spherical {
-    constructor(radius = 1, phi = 0, theta = 0) {
-      this.radius = radius;
-      this.phi = phi;
-      this.theta = theta;
-      return this;
-    }
-    set(radius, phi, theta) {
-      this.radius = radius;
-      this.phi = phi;
-      this.theta = theta;
-      return this;
-    }
-    copy(other) {
-      this.radius = other.radius;
-      this.phi = other.phi;
-      this.theta = other.theta;
-      return this;
-    }
-    // restrict phi to be between EPS and PI-EPS
-    makeSafe() {
-      const EPS = 1e-6;
-      this.phi = Math.max(EPS, Math.min(Math.PI - EPS, this.phi));
-      return this;
-    }
-    setFromVector3(v) {
-      return this.setFromCartesianCoords(v.x, v.y, v.z);
-    }
-    setFromCartesianCoords(x, y, z) {
-      this.radius = Math.sqrt(x * x + y * y + z * z);
-      if (this.radius === 0) {
-        this.theta = 0;
-        this.phi = 0;
-      } else {
-        this.theta = Math.atan2(x, z);
-        this.phi = Math.acos(clamp(y / this.radius, -1, 1));
-      }
-      return this;
-    }
-    clone() {
-      return new this.constructor().copy(this);
-    }
-  }
   class GridHelper extends LineSegments {
     constructor(size = 10, divisions = 10, color1 = 4473924, color2 = 8947848) {
       color1 = new Color(color1);
@@ -23063,26 +23106,6 @@ void main() {
       this.material.dispose();
     }
   }
-  class Controls extends EventDispatcher {
-    constructor(object, domElement = null) {
-      super();
-      this.object = object;
-      this.domElement = domElement;
-      this.enabled = true;
-      this.state = -1;
-      this.keys = {};
-      this.mouseButtons = { LEFT: null, MIDDLE: null, RIGHT: null };
-      this.touches = { ONE: null, TWO: null };
-    }
-    connect() {
-    }
-    disconnect() {
-    }
-    dispose() {
-    }
-    update() {
-    }
-  }
   if (typeof __THREE_DEVTOOLS__ !== "undefined") {
     __THREE_DEVTOOLS__.dispatchEvent(new CustomEvent("register", { detail: {
       revision: REVISION
@@ -23093,790 +23116,6 @@ void main() {
       console.warn("WARNING: Multiple instances of Three.js being imported.");
     } else {
       window.__THREE__ = REVISION;
-    }
-  }
-  const _changeEvent = { type: "change" };
-  const _startEvent = { type: "start" };
-  const _endEvent = { type: "end" };
-  const _ray = new Ray();
-  const _plane = new Plane();
-  const _TILT_LIMIT = Math.cos(70 * MathUtils.DEG2RAD);
-  const _v = new Vector3();
-  const _twoPI = 2 * Math.PI;
-  const _STATE = {
-    NONE: -1,
-    ROTATE: 0,
-    DOLLY: 1,
-    PAN: 2,
-    TOUCH_ROTATE: 3,
-    TOUCH_PAN: 4,
-    TOUCH_DOLLY_PAN: 5,
-    TOUCH_DOLLY_ROTATE: 6
-  };
-  const _EPS = 1e-6;
-  class OrbitControls extends Controls {
-    constructor(object, domElement = null) {
-      super(object, domElement);
-      this.state = _STATE.NONE;
-      this.enabled = true;
-      this.target = new Vector3();
-      this.cursor = new Vector3();
-      this.minDistance = 0;
-      this.maxDistance = Infinity;
-      this.minZoom = 0;
-      this.maxZoom = Infinity;
-      this.minTargetRadius = 0;
-      this.maxTargetRadius = Infinity;
-      this.minPolarAngle = 0;
-      this.maxPolarAngle = Math.PI;
-      this.minAzimuthAngle = -Infinity;
-      this.maxAzimuthAngle = Infinity;
-      this.enableDamping = false;
-      this.dampingFactor = 0.05;
-      this.enableZoom = true;
-      this.zoomSpeed = 1;
-      this.enableRotate = true;
-      this.rotateSpeed = 1;
-      this.enablePan = true;
-      this.panSpeed = 1;
-      this.screenSpacePanning = true;
-      this.keyPanSpeed = 7;
-      this.zoomToCursor = false;
-      this.autoRotate = false;
-      this.autoRotateSpeed = 2;
-      this.keys = { LEFT: "ArrowLeft", UP: "ArrowUp", RIGHT: "ArrowRight", BOTTOM: "ArrowDown" };
-      this.mouseButtons = { LEFT: MOUSE.ROTATE, MIDDLE: MOUSE.DOLLY, RIGHT: MOUSE.PAN };
-      this.touches = { ONE: TOUCH.ROTATE, TWO: TOUCH.DOLLY_PAN };
-      this.target0 = this.target.clone();
-      this.position0 = this.object.position.clone();
-      this.zoom0 = this.object.zoom;
-      this._domElementKeyEvents = null;
-      this._lastPosition = new Vector3();
-      this._lastQuaternion = new Quaternion();
-      this._lastTargetPosition = new Vector3();
-      this._quat = new Quaternion().setFromUnitVectors(object.up, new Vector3(0, 1, 0));
-      this._quatInverse = this._quat.clone().invert();
-      this._spherical = new Spherical();
-      this._sphericalDelta = new Spherical();
-      this._scale = 1;
-      this._panOffset = new Vector3();
-      this._rotateStart = new Vector2();
-      this._rotateEnd = new Vector2();
-      this._rotateDelta = new Vector2();
-      this._panStart = new Vector2();
-      this._panEnd = new Vector2();
-      this._panDelta = new Vector2();
-      this._dollyStart = new Vector2();
-      this._dollyEnd = new Vector2();
-      this._dollyDelta = new Vector2();
-      this._dollyDirection = new Vector3();
-      this._mouse = new Vector2();
-      this._performCursorZoom = false;
-      this._pointers = [];
-      this._pointerPositions = {};
-      this._controlActive = false;
-      this._onPointerMove = onPointerMove.bind(this);
-      this._onPointerDown = onPointerDown.bind(this);
-      this._onPointerUp = onPointerUp.bind(this);
-      this._onContextMenu = onContextMenu.bind(this);
-      this._onMouseWheel = onMouseWheel.bind(this);
-      this._onKeyDown = onKeyDown.bind(this);
-      this._onTouchStart = onTouchStart.bind(this);
-      this._onTouchMove = onTouchMove.bind(this);
-      this._onMouseDown = onMouseDown.bind(this);
-      this._onMouseMove = onMouseMove.bind(this);
-      this._interceptControlDown = interceptControlDown.bind(this);
-      this._interceptControlUp = interceptControlUp.bind(this);
-      if (this.domElement !== null) {
-        this.connect();
-      }
-      this.update();
-    }
-    connect() {
-      this.domElement.addEventListener("pointerdown", this._onPointerDown);
-      this.domElement.addEventListener("pointercancel", this._onPointerUp);
-      this.domElement.addEventListener("contextmenu", this._onContextMenu);
-      this.domElement.addEventListener("wheel", this._onMouseWheel, { passive: false });
-      const document2 = this.domElement.getRootNode();
-      document2.addEventListener("keydown", this._interceptControlDown, { passive: true, capture: true });
-      this.domElement.style.touchAction = "none";
-    }
-    disconnect() {
-      this.domElement.removeEventListener("pointerdown", this._onPointerDown);
-      this.domElement.removeEventListener("pointermove", this._onPointerMove);
-      this.domElement.removeEventListener("pointerup", this._onPointerUp);
-      this.domElement.removeEventListener("pointercancel", this._onPointerUp);
-      this.domElement.removeEventListener("wheel", this._onMouseWheel);
-      this.domElement.removeEventListener("contextmenu", this._onContextMenu);
-      this.stopListenToKeyEvents();
-      const document2 = this.domElement.getRootNode();
-      document2.removeEventListener("keydown", this._interceptControlDown, { capture: true });
-      this.domElement.style.touchAction = "auto";
-    }
-    dispose() {
-      this.disconnect();
-    }
-    getPolarAngle() {
-      return this._spherical.phi;
-    }
-    getAzimuthalAngle() {
-      return this._spherical.theta;
-    }
-    getDistance() {
-      return this.object.position.distanceTo(this.target);
-    }
-    listenToKeyEvents(domElement) {
-      domElement.addEventListener("keydown", this._onKeyDown);
-      this._domElementKeyEvents = domElement;
-    }
-    stopListenToKeyEvents() {
-      if (this._domElementKeyEvents !== null) {
-        this._domElementKeyEvents.removeEventListener("keydown", this._onKeyDown);
-        this._domElementKeyEvents = null;
-      }
-    }
-    saveState() {
-      this.target0.copy(this.target);
-      this.position0.copy(this.object.position);
-      this.zoom0 = this.object.zoom;
-    }
-    reset() {
-      this.target.copy(this.target0);
-      this.object.position.copy(this.position0);
-      this.object.zoom = this.zoom0;
-      this.object.updateProjectionMatrix();
-      this.dispatchEvent(_changeEvent);
-      this.update();
-      this.state = _STATE.NONE;
-    }
-    update(deltaTime = null) {
-      const position = this.object.position;
-      _v.copy(position).sub(this.target);
-      _v.applyQuaternion(this._quat);
-      this._spherical.setFromVector3(_v);
-      if (this.autoRotate && this.state === _STATE.NONE) {
-        this._rotateLeft(this._getAutoRotationAngle(deltaTime));
-      }
-      if (this.enableDamping) {
-        this._spherical.theta += this._sphericalDelta.theta * this.dampingFactor;
-        this._spherical.phi += this._sphericalDelta.phi * this.dampingFactor;
-      } else {
-        this._spherical.theta += this._sphericalDelta.theta;
-        this._spherical.phi += this._sphericalDelta.phi;
-      }
-      let min = this.minAzimuthAngle;
-      let max = this.maxAzimuthAngle;
-      if (isFinite(min) && isFinite(max)) {
-        if (min < -Math.PI) min += _twoPI;
-        else if (min > Math.PI) min -= _twoPI;
-        if (max < -Math.PI) max += _twoPI;
-        else if (max > Math.PI) max -= _twoPI;
-        if (min <= max) {
-          this._spherical.theta = Math.max(min, Math.min(max, this._spherical.theta));
-        } else {
-          this._spherical.theta = this._spherical.theta > (min + max) / 2 ? Math.max(min, this._spherical.theta) : Math.min(max, this._spherical.theta);
-        }
-      }
-      this._spherical.phi = Math.max(this.minPolarAngle, Math.min(this.maxPolarAngle, this._spherical.phi));
-      this._spherical.makeSafe();
-      if (this.enableDamping === true) {
-        this.target.addScaledVector(this._panOffset, this.dampingFactor);
-      } else {
-        this.target.add(this._panOffset);
-      }
-      this.target.sub(this.cursor);
-      this.target.clampLength(this.minTargetRadius, this.maxTargetRadius);
-      this.target.add(this.cursor);
-      let zoomChanged = false;
-      if (this.zoomToCursor && this._performCursorZoom || this.object.isOrthographicCamera) {
-        this._spherical.radius = this._clampDistance(this._spherical.radius);
-      } else {
-        const prevRadius = this._spherical.radius;
-        this._spherical.radius = this._clampDistance(this._spherical.radius * this._scale);
-        zoomChanged = prevRadius != this._spherical.radius;
-      }
-      _v.setFromSpherical(this._spherical);
-      _v.applyQuaternion(this._quatInverse);
-      position.copy(this.target).add(_v);
-      this.object.lookAt(this.target);
-      if (this.enableDamping === true) {
-        this._sphericalDelta.theta *= 1 - this.dampingFactor;
-        this._sphericalDelta.phi *= 1 - this.dampingFactor;
-        this._panOffset.multiplyScalar(1 - this.dampingFactor);
-      } else {
-        this._sphericalDelta.set(0, 0, 0);
-        this._panOffset.set(0, 0, 0);
-      }
-      if (this.zoomToCursor && this._performCursorZoom) {
-        let newRadius = null;
-        if (this.object.isPerspectiveCamera) {
-          const prevRadius = _v.length();
-          newRadius = this._clampDistance(prevRadius * this._scale);
-          const radiusDelta = prevRadius - newRadius;
-          this.object.position.addScaledVector(this._dollyDirection, radiusDelta);
-          this.object.updateMatrixWorld();
-          zoomChanged = !!radiusDelta;
-        } else if (this.object.isOrthographicCamera) {
-          const mouseBefore = new Vector3(this._mouse.x, this._mouse.y, 0);
-          mouseBefore.unproject(this.object);
-          const prevZoom = this.object.zoom;
-          this.object.zoom = Math.max(this.minZoom, Math.min(this.maxZoom, this.object.zoom / this._scale));
-          this.object.updateProjectionMatrix();
-          zoomChanged = prevZoom !== this.object.zoom;
-          const mouseAfter = new Vector3(this._mouse.x, this._mouse.y, 0);
-          mouseAfter.unproject(this.object);
-          this.object.position.sub(mouseAfter).add(mouseBefore);
-          this.object.updateMatrixWorld();
-          newRadius = _v.length();
-        } else {
-          console.warn("WARNING: OrbitControls.js encountered an unknown camera type - zoom to cursor disabled.");
-          this.zoomToCursor = false;
-        }
-        if (newRadius !== null) {
-          if (this.screenSpacePanning) {
-            this.target.set(0, 0, -1).transformDirection(this.object.matrix).multiplyScalar(newRadius).add(this.object.position);
-          } else {
-            _ray.origin.copy(this.object.position);
-            _ray.direction.set(0, 0, -1).transformDirection(this.object.matrix);
-            if (Math.abs(this.object.up.dot(_ray.direction)) < _TILT_LIMIT) {
-              this.object.lookAt(this.target);
-            } else {
-              _plane.setFromNormalAndCoplanarPoint(this.object.up, this.target);
-              _ray.intersectPlane(_plane, this.target);
-            }
-          }
-        }
-      } else if (this.object.isOrthographicCamera) {
-        const prevZoom = this.object.zoom;
-        this.object.zoom = Math.max(this.minZoom, Math.min(this.maxZoom, this.object.zoom / this._scale));
-        if (prevZoom !== this.object.zoom) {
-          this.object.updateProjectionMatrix();
-          zoomChanged = true;
-        }
-      }
-      this._scale = 1;
-      this._performCursorZoom = false;
-      if (zoomChanged || this._lastPosition.distanceToSquared(this.object.position) > _EPS || 8 * (1 - this._lastQuaternion.dot(this.object.quaternion)) > _EPS || this._lastTargetPosition.distanceToSquared(this.target) > _EPS) {
-        this.dispatchEvent(_changeEvent);
-        this._lastPosition.copy(this.object.position);
-        this._lastQuaternion.copy(this.object.quaternion);
-        this._lastTargetPosition.copy(this.target);
-        return true;
-      }
-      return false;
-    }
-    _getAutoRotationAngle(deltaTime) {
-      if (deltaTime !== null) {
-        return _twoPI / 60 * this.autoRotateSpeed * deltaTime;
-      } else {
-        return _twoPI / 60 / 60 * this.autoRotateSpeed;
-      }
-    }
-    _getZoomScale(delta) {
-      const normalizedDelta = Math.abs(delta * 0.01);
-      return Math.pow(0.95, this.zoomSpeed * normalizedDelta);
-    }
-    _rotateLeft(angle) {
-      this._sphericalDelta.theta -= angle;
-    }
-    _rotateUp(angle) {
-      this._sphericalDelta.phi -= angle;
-    }
-    _panLeft(distance, objectMatrix) {
-      _v.setFromMatrixColumn(objectMatrix, 0);
-      _v.multiplyScalar(-distance);
-      this._panOffset.add(_v);
-    }
-    _panUp(distance, objectMatrix) {
-      if (this.screenSpacePanning === true) {
-        _v.setFromMatrixColumn(objectMatrix, 1);
-      } else {
-        _v.setFromMatrixColumn(objectMatrix, 0);
-        _v.crossVectors(this.object.up, _v);
-      }
-      _v.multiplyScalar(distance);
-      this._panOffset.add(_v);
-    }
-    // deltaX and deltaY are in pixels; right and down are positive
-    _pan(deltaX, deltaY) {
-      const element = this.domElement;
-      if (this.object.isPerspectiveCamera) {
-        const position = this.object.position;
-        _v.copy(position).sub(this.target);
-        let targetDistance = _v.length();
-        targetDistance *= Math.tan(this.object.fov / 2 * Math.PI / 180);
-        this._panLeft(2 * deltaX * targetDistance / element.clientHeight, this.object.matrix);
-        this._panUp(2 * deltaY * targetDistance / element.clientHeight, this.object.matrix);
-      } else if (this.object.isOrthographicCamera) {
-        this._panLeft(deltaX * (this.object.right - this.object.left) / this.object.zoom / element.clientWidth, this.object.matrix);
-        this._panUp(deltaY * (this.object.top - this.object.bottom) / this.object.zoom / element.clientHeight, this.object.matrix);
-      } else {
-        console.warn("WARNING: OrbitControls.js encountered an unknown camera type - pan disabled.");
-        this.enablePan = false;
-      }
-    }
-    _dollyOut(dollyScale) {
-      if (this.object.isPerspectiveCamera || this.object.isOrthographicCamera) {
-        this._scale /= dollyScale;
-      } else {
-        console.warn("WARNING: OrbitControls.js encountered an unknown camera type - dolly/zoom disabled.");
-        this.enableZoom = false;
-      }
-    }
-    _dollyIn(dollyScale) {
-      if (this.object.isPerspectiveCamera || this.object.isOrthographicCamera) {
-        this._scale *= dollyScale;
-      } else {
-        console.warn("WARNING: OrbitControls.js encountered an unknown camera type - dolly/zoom disabled.");
-        this.enableZoom = false;
-      }
-    }
-    _updateZoomParameters(x, y) {
-      if (!this.zoomToCursor) {
-        return;
-      }
-      this._performCursorZoom = true;
-      const rect = this.domElement.getBoundingClientRect();
-      const dx = x - rect.left;
-      const dy = y - rect.top;
-      const w = rect.width;
-      const h = rect.height;
-      this._mouse.x = dx / w * 2 - 1;
-      this._mouse.y = -(dy / h) * 2 + 1;
-      this._dollyDirection.set(this._mouse.x, this._mouse.y, 1).unproject(this.object).sub(this.object.position).normalize();
-    }
-    _clampDistance(dist) {
-      return Math.max(this.minDistance, Math.min(this.maxDistance, dist));
-    }
-    //
-    // event callbacks - update the object state
-    //
-    _handleMouseDownRotate(event) {
-      this._rotateStart.set(event.clientX, event.clientY);
-    }
-    _handleMouseDownDolly(event) {
-      this._updateZoomParameters(event.clientX, event.clientX);
-      this._dollyStart.set(event.clientX, event.clientY);
-    }
-    _handleMouseDownPan(event) {
-      this._panStart.set(event.clientX, event.clientY);
-    }
-    _handleMouseMoveRotate(event) {
-      this._rotateEnd.set(event.clientX, event.clientY);
-      this._rotateDelta.subVectors(this._rotateEnd, this._rotateStart).multiplyScalar(this.rotateSpeed);
-      const element = this.domElement;
-      this._rotateLeft(_twoPI * this._rotateDelta.x / element.clientHeight);
-      this._rotateUp(_twoPI * this._rotateDelta.y / element.clientHeight);
-      this._rotateStart.copy(this._rotateEnd);
-      this.update();
-    }
-    _handleMouseMoveDolly(event) {
-      this._dollyEnd.set(event.clientX, event.clientY);
-      this._dollyDelta.subVectors(this._dollyEnd, this._dollyStart);
-      if (this._dollyDelta.y > 0) {
-        this._dollyOut(this._getZoomScale(this._dollyDelta.y));
-      } else if (this._dollyDelta.y < 0) {
-        this._dollyIn(this._getZoomScale(this._dollyDelta.y));
-      }
-      this._dollyStart.copy(this._dollyEnd);
-      this.update();
-    }
-    _handleMouseMovePan(event) {
-      this._panEnd.set(event.clientX, event.clientY);
-      this._panDelta.subVectors(this._panEnd, this._panStart).multiplyScalar(this.panSpeed);
-      this._pan(this._panDelta.x, this._panDelta.y);
-      this._panStart.copy(this._panEnd);
-      this.update();
-    }
-    _handleMouseWheel(event) {
-      this._updateZoomParameters(event.clientX, event.clientY);
-      if (event.deltaY < 0) {
-        this._dollyIn(this._getZoomScale(event.deltaY));
-      } else if (event.deltaY > 0) {
-        this._dollyOut(this._getZoomScale(event.deltaY));
-      }
-      this.update();
-    }
-    _handleKeyDown(event) {
-      let needsUpdate = false;
-      switch (event.code) {
-        case this.keys.UP:
-          if (event.ctrlKey || event.metaKey || event.shiftKey) {
-            this._rotateUp(_twoPI * this.rotateSpeed / this.domElement.clientHeight);
-          } else {
-            this._pan(0, this.keyPanSpeed);
-          }
-          needsUpdate = true;
-          break;
-        case this.keys.BOTTOM:
-          if (event.ctrlKey || event.metaKey || event.shiftKey) {
-            this._rotateUp(-_twoPI * this.rotateSpeed / this.domElement.clientHeight);
-          } else {
-            this._pan(0, -this.keyPanSpeed);
-          }
-          needsUpdate = true;
-          break;
-        case this.keys.LEFT:
-          if (event.ctrlKey || event.metaKey || event.shiftKey) {
-            this._rotateLeft(_twoPI * this.rotateSpeed / this.domElement.clientHeight);
-          } else {
-            this._pan(this.keyPanSpeed, 0);
-          }
-          needsUpdate = true;
-          break;
-        case this.keys.RIGHT:
-          if (event.ctrlKey || event.metaKey || event.shiftKey) {
-            this._rotateLeft(-_twoPI * this.rotateSpeed / this.domElement.clientHeight);
-          } else {
-            this._pan(-this.keyPanSpeed, 0);
-          }
-          needsUpdate = true;
-          break;
-      }
-      if (needsUpdate) {
-        event.preventDefault();
-        this.update();
-      }
-    }
-    _handleTouchStartRotate(event) {
-      if (this._pointers.length === 1) {
-        this._rotateStart.set(event.pageX, event.pageY);
-      } else {
-        const position = this._getSecondPointerPosition(event);
-        const x = 0.5 * (event.pageX + position.x);
-        const y = 0.5 * (event.pageY + position.y);
-        this._rotateStart.set(x, y);
-      }
-    }
-    _handleTouchStartPan(event) {
-      if (this._pointers.length === 1) {
-        this._panStart.set(event.pageX, event.pageY);
-      } else {
-        const position = this._getSecondPointerPosition(event);
-        const x = 0.5 * (event.pageX + position.x);
-        const y = 0.5 * (event.pageY + position.y);
-        this._panStart.set(x, y);
-      }
-    }
-    _handleTouchStartDolly(event) {
-      const position = this._getSecondPointerPosition(event);
-      const dx = event.pageX - position.x;
-      const dy = event.pageY - position.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      this._dollyStart.set(0, distance);
-    }
-    _handleTouchStartDollyPan(event) {
-      if (this.enableZoom) this._handleTouchStartDolly(event);
-      if (this.enablePan) this._handleTouchStartPan(event);
-    }
-    _handleTouchStartDollyRotate(event) {
-      if (this.enableZoom) this._handleTouchStartDolly(event);
-      if (this.enableRotate) this._handleTouchStartRotate(event);
-    }
-    _handleTouchMoveRotate(event) {
-      if (this._pointers.length == 1) {
-        this._rotateEnd.set(event.pageX, event.pageY);
-      } else {
-        const position = this._getSecondPointerPosition(event);
-        const x = 0.5 * (event.pageX + position.x);
-        const y = 0.5 * (event.pageY + position.y);
-        this._rotateEnd.set(x, y);
-      }
-      this._rotateDelta.subVectors(this._rotateEnd, this._rotateStart).multiplyScalar(this.rotateSpeed);
-      const element = this.domElement;
-      this._rotateLeft(_twoPI * this._rotateDelta.x / element.clientHeight);
-      this._rotateUp(_twoPI * this._rotateDelta.y / element.clientHeight);
-      this._rotateStart.copy(this._rotateEnd);
-    }
-    _handleTouchMovePan(event) {
-      if (this._pointers.length === 1) {
-        this._panEnd.set(event.pageX, event.pageY);
-      } else {
-        const position = this._getSecondPointerPosition(event);
-        const x = 0.5 * (event.pageX + position.x);
-        const y = 0.5 * (event.pageY + position.y);
-        this._panEnd.set(x, y);
-      }
-      this._panDelta.subVectors(this._panEnd, this._panStart).multiplyScalar(this.panSpeed);
-      this._pan(this._panDelta.x, this._panDelta.y);
-      this._panStart.copy(this._panEnd);
-    }
-    _handleTouchMoveDolly(event) {
-      const position = this._getSecondPointerPosition(event);
-      const dx = event.pageX - position.x;
-      const dy = event.pageY - position.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      this._dollyEnd.set(0, distance);
-      this._dollyDelta.set(0, Math.pow(this._dollyEnd.y / this._dollyStart.y, this.zoomSpeed));
-      this._dollyOut(this._dollyDelta.y);
-      this._dollyStart.copy(this._dollyEnd);
-      const centerX = (event.pageX + position.x) * 0.5;
-      const centerY = (event.pageY + position.y) * 0.5;
-      this._updateZoomParameters(centerX, centerY);
-    }
-    _handleTouchMoveDollyPan(event) {
-      if (this.enableZoom) this._handleTouchMoveDolly(event);
-      if (this.enablePan) this._handleTouchMovePan(event);
-    }
-    _handleTouchMoveDollyRotate(event) {
-      if (this.enableZoom) this._handleTouchMoveDolly(event);
-      if (this.enableRotate) this._handleTouchMoveRotate(event);
-    }
-    // pointers
-    _addPointer(event) {
-      this._pointers.push(event.pointerId);
-    }
-    _removePointer(event) {
-      delete this._pointerPositions[event.pointerId];
-      for (let i = 0; i < this._pointers.length; i++) {
-        if (this._pointers[i] == event.pointerId) {
-          this._pointers.splice(i, 1);
-          return;
-        }
-      }
-    }
-    _isTrackingPointer(event) {
-      for (let i = 0; i < this._pointers.length; i++) {
-        if (this._pointers[i] == event.pointerId) return true;
-      }
-      return false;
-    }
-    _trackPointer(event) {
-      let position = this._pointerPositions[event.pointerId];
-      if (position === void 0) {
-        position = new Vector2();
-        this._pointerPositions[event.pointerId] = position;
-      }
-      position.set(event.pageX, event.pageY);
-    }
-    _getSecondPointerPosition(event) {
-      const pointerId = event.pointerId === this._pointers[0] ? this._pointers[1] : this._pointers[0];
-      return this._pointerPositions[pointerId];
-    }
-    //
-    _customWheelEvent(event) {
-      const mode = event.deltaMode;
-      const newEvent = {
-        clientX: event.clientX,
-        clientY: event.clientY,
-        deltaY: event.deltaY
-      };
-      switch (mode) {
-        case 1:
-          newEvent.deltaY *= 16;
-          break;
-        case 2:
-          newEvent.deltaY *= 100;
-          break;
-      }
-      if (event.ctrlKey && !this._controlActive) {
-        newEvent.deltaY *= 10;
-      }
-      return newEvent;
-    }
-  }
-  function onPointerDown(event) {
-    if (this.enabled === false) return;
-    if (this._pointers.length === 0) {
-      this.domElement.setPointerCapture(event.pointerId);
-      this.domElement.addEventListener("pointermove", this._onPointerMove);
-      this.domElement.addEventListener("pointerup", this._onPointerUp);
-    }
-    if (this._isTrackingPointer(event)) return;
-    this._addPointer(event);
-    if (event.pointerType === "touch") {
-      this._onTouchStart(event);
-    } else {
-      this._onMouseDown(event);
-    }
-  }
-  function onPointerMove(event) {
-    if (this.enabled === false) return;
-    if (event.pointerType === "touch") {
-      this._onTouchMove(event);
-    } else {
-      this._onMouseMove(event);
-    }
-  }
-  function onPointerUp(event) {
-    this._removePointer(event);
-    switch (this._pointers.length) {
-      case 0:
-        this.domElement.releasePointerCapture(event.pointerId);
-        this.domElement.removeEventListener("pointermove", this._onPointerMove);
-        this.domElement.removeEventListener("pointerup", this._onPointerUp);
-        this.dispatchEvent(_endEvent);
-        this.state = _STATE.NONE;
-        break;
-      case 1:
-        const pointerId = this._pointers[0];
-        const position = this._pointerPositions[pointerId];
-        this._onTouchStart({ pointerId, pageX: position.x, pageY: position.y });
-        break;
-    }
-  }
-  function onMouseDown(event) {
-    let mouseAction;
-    switch (event.button) {
-      case 0:
-        mouseAction = this.mouseButtons.LEFT;
-        break;
-      case 1:
-        mouseAction = this.mouseButtons.MIDDLE;
-        break;
-      case 2:
-        mouseAction = this.mouseButtons.RIGHT;
-        break;
-      default:
-        mouseAction = -1;
-    }
-    switch (mouseAction) {
-      case MOUSE.DOLLY:
-        if (this.enableZoom === false) return;
-        this._handleMouseDownDolly(event);
-        this.state = _STATE.DOLLY;
-        break;
-      case MOUSE.ROTATE:
-        if (event.ctrlKey || event.metaKey || event.shiftKey) {
-          if (this.enablePan === false) return;
-          this._handleMouseDownPan(event);
-          this.state = _STATE.PAN;
-        } else {
-          if (this.enableRotate === false) return;
-          this._handleMouseDownRotate(event);
-          this.state = _STATE.ROTATE;
-        }
-        break;
-      case MOUSE.PAN:
-        if (event.ctrlKey || event.metaKey || event.shiftKey) {
-          if (this.enableRotate === false) return;
-          this._handleMouseDownRotate(event);
-          this.state = _STATE.ROTATE;
-        } else {
-          if (this.enablePan === false) return;
-          this._handleMouseDownPan(event);
-          this.state = _STATE.PAN;
-        }
-        break;
-      default:
-        this.state = _STATE.NONE;
-    }
-    if (this.state !== _STATE.NONE) {
-      this.dispatchEvent(_startEvent);
-    }
-  }
-  function onMouseMove(event) {
-    switch (this.state) {
-      case _STATE.ROTATE:
-        if (this.enableRotate === false) return;
-        this._handleMouseMoveRotate(event);
-        break;
-      case _STATE.DOLLY:
-        if (this.enableZoom === false) return;
-        this._handleMouseMoveDolly(event);
-        break;
-      case _STATE.PAN:
-        if (this.enablePan === false) return;
-        this._handleMouseMovePan(event);
-        break;
-    }
-  }
-  function onMouseWheel(event) {
-    if (this.enabled === false || this.enableZoom === false || this.state !== _STATE.NONE) return;
-    event.preventDefault();
-    this.dispatchEvent(_startEvent);
-    this._handleMouseWheel(this._customWheelEvent(event));
-    this.dispatchEvent(_endEvent);
-  }
-  function onKeyDown(event) {
-    if (this.enabled === false || this.enablePan === false) return;
-    this._handleKeyDown(event);
-  }
-  function onTouchStart(event) {
-    this._trackPointer(event);
-    switch (this._pointers.length) {
-      case 1:
-        switch (this.touches.ONE) {
-          case TOUCH.ROTATE:
-            if (this.enableRotate === false) return;
-            this._handleTouchStartRotate(event);
-            this.state = _STATE.TOUCH_ROTATE;
-            break;
-          case TOUCH.PAN:
-            if (this.enablePan === false) return;
-            this._handleTouchStartPan(event);
-            this.state = _STATE.TOUCH_PAN;
-            break;
-          default:
-            this.state = _STATE.NONE;
-        }
-        break;
-      case 2:
-        switch (this.touches.TWO) {
-          case TOUCH.DOLLY_PAN:
-            if (this.enableZoom === false && this.enablePan === false) return;
-            this._handleTouchStartDollyPan(event);
-            this.state = _STATE.TOUCH_DOLLY_PAN;
-            break;
-          case TOUCH.DOLLY_ROTATE:
-            if (this.enableZoom === false && this.enableRotate === false) return;
-            this._handleTouchStartDollyRotate(event);
-            this.state = _STATE.TOUCH_DOLLY_ROTATE;
-            break;
-          default:
-            this.state = _STATE.NONE;
-        }
-        break;
-      default:
-        this.state = _STATE.NONE;
-    }
-    if (this.state !== _STATE.NONE) {
-      this.dispatchEvent(_startEvent);
-    }
-  }
-  function onTouchMove(event) {
-    this._trackPointer(event);
-    switch (this.state) {
-      case _STATE.TOUCH_ROTATE:
-        if (this.enableRotate === false) return;
-        this._handleTouchMoveRotate(event);
-        this.update();
-        break;
-      case _STATE.TOUCH_PAN:
-        if (this.enablePan === false) return;
-        this._handleTouchMovePan(event);
-        this.update();
-        break;
-      case _STATE.TOUCH_DOLLY_PAN:
-        if (this.enableZoom === false && this.enablePan === false) return;
-        this._handleTouchMoveDollyPan(event);
-        this.update();
-        break;
-      case _STATE.TOUCH_DOLLY_ROTATE:
-        if (this.enableZoom === false && this.enableRotate === false) return;
-        this._handleTouchMoveDollyRotate(event);
-        this.update();
-        break;
-      default:
-        this.state = _STATE.NONE;
-    }
-  }
-  function onContextMenu(event) {
-    if (this.enabled === false) return;
-    event.preventDefault();
-  }
-  function interceptControlDown(event) {
-    if (event.key === "Control") {
-      this._controlActive = true;
-      const document2 = this.domElement.getRootNode();
-      document2.addEventListener("keyup", this._interceptControlUp, { passive: true, capture: true });
-    }
-  }
-  function interceptControlUp(event) {
-    if (event.key === "Control") {
-      this._controlActive = false;
-      const document2 = this.domElement.getRootNode();
-      document2.removeEventListener("keyup", this._interceptControlUp, { passive: true, capture: true });
     }
   }
   function toTrianglesDrawMode(geometry, drawMode) {
@@ -27215,240 +26454,457 @@ void main() {
     });
   }
   function start() {
-    const $ = (s) => document.getElementById(s);
-    const barEl = $("load-bar"), statusEl = $("load-status");
-    let progress = 0;
+    const $ = (id) => document.getElementById(id);
+    const barEl = $("load-bar");
+    const statusEl = $("load-status");
+    const infoBar = $("info-bar");
+    const gasIndicator = $("gas-indicator");
+    const hintEl = $("hint");
+    let carReady = false;
     function setProgress(p, msg) {
-      progress = Math.min(100, p);
-      barEl.style.width = progress + "%";
-      if (msg) statusEl.textContent = msg;
+      if (barEl) barEl.style.width = Math.min(100, p) + "%";
+      if (msg && statusEl) statusEl.textContent = msg;
     }
     function hideLoad() {
-      $("loading").classList.add("hidden");
-      setTimeout(() => {
-        $("hint").style.opacity = "0";
-      }, 8e3);
+      const el = $("loading");
+      if (el) el.classList.add("hidden");
     }
-    const W = innerWidth, H = innerHeight;
+    function say(text) {
+      if (infoBar) infoBar.textContent = text;
+    }
     const renderer = new WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
-    renderer.setSize(W, H);
-    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = PCFSoftShadowMap;
     renderer.toneMapping = ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 0.9;
+    renderer.toneMappingExposure = 1.25;
     renderer.outputColorSpace = SRGBColorSpace;
     document.body.appendChild(renderer.domElement);
     const scene = new Scene();
-    scene.background = new Color(131590);
-    const camera = new PerspectiveCamera(65, W / H, 0.05, 200);
-    camera.position.set(5, 3.5, 6);
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.target.set(0, 0.5, 1);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.06;
-    controls.minDistance = 2;
-    controls.maxDistance = 16;
-    controls.maxPolarAngle = Math.PI * 0.48;
-    controls.minPolarAngle = Math.PI * 0.08;
-    controls.enablePan = false;
-    controls.update();
-    let playerState = "walking";
-    let fpYaw = 0, fpPitch = 0;
-    let isPointerLocked = false;
-    let entryAnim = { active: false, t: 0, duration: 0.8, fromPos: new Vector3(), toPos: new Vector3(), fromLook: new Vector3(), toLook: new Vector3() };
-    let carModel = null;
-    let laptop = null;
-    let laptopScreenCanvas = null;
-    let laptopScreenTexture = null;
-    const streamlitState = { activePage: "dashboard" };
-    let cabinCenter = new Vector3(0, 0.6, 1);
-    let driverEyePos = new Vector3(-0.4, 1, 1.2);
-    let exhaustWorldPos = new Vector3(0, 0.15, -0.5);
-    const envMap = createEnvMap(renderer);
+    scene.background = new Color(460814);
+    scene.fog = new Fog(460814, 18, 42);
+    const camera = new PerspectiveCamera(58, innerWidth / innerHeight, 0.05, 80);
+    camera.position.set(4.2, 1.7, 6.2);
     const composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
-    const bloom = new UnrealBloomPass(new Vector2(W, H), 0.7, 0.4, 0.3);
+    const bloom = new UnrealBloomPass(new Vector2(innerWidth, innerHeight), 0.32, 0.4, 0.85);
     composer.addPass(bloom);
     composer.addPass(new OutputPass());
-    setProgress(10, "Scene initialized");
-    scene.add(new AmbientLight(1118488, 0.5));
-    const keyLight = new DirectionalLight(16772829, 0.6);
-    keyLight.position.set(3, 8, 4);
+    const envMap = createEnvMap(renderer);
+    scene.environment = envMap;
+    setProgress(8, "Lighting the bay");
+    scene.add(new HemisphereLight(9086152, 1708556, 0.55));
+    scene.add(new AmbientLight(1711144, 0.35));
+    const keyLight = new DirectionalLight(16773600, 1.35);
+    keyLight.position.set(6, 8, 7);
     keyLight.castShadow = true;
-    keyLight.shadow.mapSize.set(1024, 1024);
+    keyLight.shadow.mapSize.set(2048, 2048);
     keyLight.shadow.camera.near = 0.5;
-    keyLight.shadow.camera.far = 20;
+    keyLight.shadow.camera.far = 28;
     keyLight.shadow.camera.left = -8;
     keyLight.shadow.camera.right = 8;
     keyLight.shadow.camera.top = 8;
     keyLight.shadow.camera.bottom = -8;
-    keyLight.shadow.bias = -1e-3;
+    keyLight.shadow.bias = -4e-4;
     scene.add(keyLight);
-    const fillLight = new DirectionalLight(4482815, 0.15);
-    fillLight.position.set(-4, 3, -2);
-    scene.add(fillLight);
-    const ground = new Mesh(
-      new PlaneGeometry(40, 40),
-      new MeshStandardMaterial({ color: 526348, metalness: 0.85, roughness: 0.25 })
-    );
+    const rim = new DirectionalLight(6737151, 0.55);
+    rim.position.set(-6, 4, -2);
+    scene.add(rim);
+    const plCyan = new PointLight(52479, 8, 14, 2);
+    plCyan.position.set(0, 2.6, -3.2);
+    scene.add(plCyan);
+    const plPink = new PointLight(16711816, 5, 12, 2);
+    plPink.position.set(0, 1.8, -3.2);
+    scene.add(plPink);
+    const bayLightL = new PointLight(16774365, 6, 10, 2);
+    bayLightL.position.set(-1.6, 3.1, 0.4);
+    scene.add(bayLightL);
+    const bayLightR = new PointLight(16774365, 6, 10, 2);
+    bayLightR.position.set(1.6, 3.1, 0.4);
+    scene.add(bayLightR);
+    const underglow = new PointLight(43775, 3.5, 5.5, 2);
+    underglow.position.set(0, 0.18, 1);
+    scene.add(underglow);
+    const noseLight = new SpotLight(16774894, 7, 14, 0.7, 0.55, 1);
+    noseLight.position.set(2.4, 3.4, 4.2);
+    noseLight.target.position.set(0, 0.7, 1);
+    noseLight.castShadow = false;
+    scene.add(noseLight);
+    scene.add(noseLight.target);
+    const floorMat = new MeshStandardMaterial({
+      color: 1711142,
+      metalness: 0.55,
+      roughness: 0.38,
+      envMap,
+      envMapIntensity: 0.55
+    });
+    const ground = new Mesh(new PlaneGeometry(40, 40), floorMat);
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
     scene.add(ground);
-    const gridHelper = new GridHelper(40, 80, 1118496, 657940);
-    gridHelper.position.y = 3e-3;
-    scene.add(gridHelper);
-    setProgress(20, "Ground ready");
-    const wallMat = new MeshStandardMaterial({ color: 789524, metalness: 0.15, roughness: 0.85 });
-    const backWall = new Mesh(new BoxGeometry(8, 3.5, 0.2), wallMat);
-    backWall.position.set(0, 1.75, -4);
-    backWall.castShadow = true;
+    const grid = new GridHelper(40, 40, 3818072, 2369592);
+    grid.position.y = 4e-3;
+    scene.add(grid);
+    function bayLine(x, z, w, d, color) {
+      const m = new Mesh(
+        new PlaneGeometry(w, d),
+        new MeshBasicMaterial({ color, transparent: true, opacity: 0.55 })
+      );
+      m.rotation.x = -Math.PI / 2;
+      m.position.set(x, 8e-3, z);
+      scene.add(m);
+    }
+    bayLine(-1.15, 1.1, 0.04, 4.2, 52479);
+    bayLine(1.15, 1.1, 0.04, 4.2, 52479);
+    bayLine(0, -0.95, 2.2, 0.04, 16755200);
+    const wallMat = new MeshStandardMaterial({ color: 2237491, metalness: 0.25, roughness: 0.72 });
+    const backWall = new Mesh(new BoxGeometry(8.2, 3.6, 0.16), wallMat);
+    backWall.position.set(0, 1.8, -4);
     backWall.receiveShadow = true;
+    backWall.castShadow = true;
     scene.add(backWall);
-    const leftWall = new Mesh(new BoxGeometry(0.2, 3.5, 5), wallMat);
-    leftWall.position.set(-4, 1.75, -1.5);
-    leftWall.castShadow = true;
+    const leftWall = new Mesh(new BoxGeometry(0.16, 3.6, 6.2), wallMat);
+    leftWall.position.set(-4.05, 1.8, -0.9);
     leftWall.receiveShadow = true;
     scene.add(leftWall);
-    const rightWall = new Mesh(new BoxGeometry(0.2, 3.5, 5), wallMat);
-    rightWall.position.set(4, 1.75, -1.5);
-    rightWall.castShadow = true;
-    rightWall.receiveShadow = true;
+    const rightWall = leftWall.clone();
+    rightWall.position.x = 4.05;
     scene.add(rightWall);
-    const roof = new Mesh(new BoxGeometry(8.4, 0.15, 5.4), new MeshStandardMaterial({ color: 657936, metalness: 0.3, roughness: 0.7 }));
-    roof.position.set(0, 3.55, -1.5);
-    roof.castShadow = true;
+    const roof = new Mesh(
+      new BoxGeometry(8.4, 0.08, 6.4),
+      new MeshStandardMaterial({ color: 1184540, metalness: 0.4, roughness: 0.6 })
+    );
+    roof.position.set(0, 3.6, -0.9);
     scene.add(roof);
-    const beamMat = new MeshStandardMaterial({ color: 1710626, metalness: 0.5, roughness: 0.4 });
-    for (let bx = -3; bx <= 3; bx += 2) {
-      const b = new Mesh(new BoxGeometry(0.08, 0.08, 5), beamMat);
-      b.position.set(bx, 3.45, -1.5);
-      scene.add(b);
+    function tube(x, z, len, color, intensity) {
+      const mesh = new Mesh(
+        new BoxGeometry(len, 0.045, 0.045),
+        new MeshStandardMaterial({ color, emissive: color, emissiveIntensity: intensity })
+      );
+      mesh.position.set(x, 3.42, z);
+      scene.add(mesh);
     }
-    function createNeonText(text, color, fontSize, width, height) {
+    tube(0, -1.2, 6.4, 16773853, 2.2);
+    tube(0, 0.8, 6.4, 8969727, 1.4);
+    function neonSign(text, color, w, h, y) {
+      const canvas = document.createElement("canvas");
+      canvas.width = 1024;
+      canvas.height = 256;
+      const ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, 1024, 256);
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 28;
+      ctx.fillStyle = color;
+      ctx.font = 'bold 120px "JetBrains Mono", monospace';
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(text, 512, 128);
+      const tex = new CanvasTexture(canvas);
+      tex.colorSpace = SRGBColorSpace;
+      const mesh = new Mesh(
+        new PlaneGeometry(w, h),
+        new MeshBasicMaterial({ map: tex, transparent: true })
+      );
+      mesh.position.set(0, y, -3.9);
+      scene.add(mesh);
+      const frame2 = new LineSegments(
+        new EdgesGeometry(new PlaneGeometry(w + 0.18, h + 0.12)),
+        new LineBasicMaterial({ color })
+      );
+      frame2.position.copy(mesh.position);
+      frame2.position.z += 0.01;
+      scene.add(frame2);
+    }
+    neonSign("AGENTIC BIZ", "#7af6ff", 3.4, 0.72, 2.85);
+    neonSign("HERMES", "#ff4d9a", 2.2, 0.42, 2.15);
+    const toolMat = new MeshStandardMaterial({ color: 3817038, metalness: 0.7, roughness: 0.35 });
+    [[-2.6, 1.5, 0.55, 0.08, 0.9], [-2.2, 1.7, 0.08, 0.5, 0.08], [-3.1, 1.2, 0.35, 0.08, 0.35]].forEach((t) => {
+      const tool = new Mesh(new BoxGeometry(t[2], t[3], t[4]), toolMat);
+      tool.position.set(t[0], t[1], -3.88);
+      scene.add(tool);
+    });
+    const bldgMat = new MeshStandardMaterial({ color: 1184798, metalness: 0.15, roughness: 0.8 });
+    const buildings = [
+      [-10, -16, 2.4, 9, 2],
+      [-6, -18, 1.8, 13, 1.6],
+      [-2, -15, 2.6, 7, 2],
+      [2, -17, 2, 11, 1.8],
+      [6, -16, 2.4, 8, 2],
+      [10, -19, 1.6, 15, 1.6],
+      [13, -15, 2.8, 6.5, 2.2],
+      [-13, -18, 2, 10, 2]
+    ];
+    const winGeo = new BoxGeometry(0.12, 0.16, 0.04);
+    const winMats = [
+      new MeshBasicMaterial({ color: 16769448 }),
+      new MeshBasicMaterial({ color: 10475519 }),
+      new MeshBasicMaterial({ color: 16748472 })
+    ];
+    buildings.forEach((b, i) => {
+      const mesh = new Mesh(new BoxGeometry(b[2], b[3], b[4]), bldgMat);
+      mesh.position.set(b[0], b[3] / 2, b[1]);
+      scene.add(mesh);
+      const cols = 3;
+      const rows = Math.max(3, Math.floor(b[3] / 1.4));
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          if ((r * 3 + c + i) % 3 === 0) continue;
+          const w = new Mesh(winGeo, winMats[(r + c + i) % 3]);
+          w.position.set(
+            b[0] - b[2] * 0.28 + c * b[2] * 0.28,
+            0.8 + r * 1.15,
+            b[1] + b[4] * 0.5 + 0.02
+          );
+          scene.add(w);
+        }
+      }
+    });
+    setProgress(28, "Bay built");
+    const character = new Group();
+    const cloth = new MeshStandardMaterial({ color: 1842728, roughness: 0.75, metalness: 0.08 });
+    const visorMat = new MeshStandardMaterial({
+      color: 462872,
+      emissive: 52479,
+      emissiveIntensity: 1.6,
+      roughness: 0.2,
+      metalness: 0.4
+    });
+    const legs = new Mesh(new CapsuleGeometry(0.11, 0.42, 4, 8), cloth);
+    legs.position.y = 0.38;
+    character.add(legs);
+    const torso = new Mesh(new CapsuleGeometry(0.2, 0.38, 4, 8), cloth);
+    torso.position.y = 0.95;
+    character.add(torso);
+    const hood = new Mesh(new SphereGeometry(0.16, 16, 12), cloth);
+    hood.position.y = 1.38;
+    character.add(hood);
+    const visor = new Mesh(new BoxGeometry(0.2, 0.045, 0.04), visorMat);
+    visor.position.set(0, 1.36, 0.13);
+    character.add(visor);
+    character.position.set(1.7, 0, 2.4);
+    character.visible = false;
+    scene.add(character);
+    const moveState = { forward: false, backward: false, left: false, right: false };
+    const speed = 2.7;
+    const markers = [];
+    function makeRing(color) {
+      const ring = new Mesh(
+        new RingGeometry(0.38, 0.48, 32),
+        new MeshBasicMaterial({ color, transparent: true, opacity: 0.85, side: DoubleSide })
+      );
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.y = 0.02;
+      scene.add(ring);
+      return ring;
+    }
+    function makeTag(text, color) {
       const canvas = document.createElement("canvas");
       canvas.width = 512;
       canvas.height = 128;
       const ctx = canvas.getContext("2d");
-      ctx.clearRect(0, 0, 512, 128);
       ctx.fillStyle = color;
-      ctx.font = `bold ${fontSize}px "JetBrains Mono", monospace`;
+      ctx.font = 'bold 64px "JetBrains Mono", monospace';
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText(text, 256, 64);
       const tex = new CanvasTexture(canvas);
-      tex.minFilter = LinearFilter;
-      return new Mesh(new PlaneGeometry(width, height), new MeshBasicMaterial({ map: tex, transparent: true }));
+      tex.colorSpace = SRGBColorSpace;
+      const sprite = new Sprite(new SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+      sprite.scale.set(1.35, 0.34, 1);
+      scene.add(sprite);
+      return sprite;
     }
-    const neonSign1 = createNeonText("AGENTIC BIZ", "#00ccff", 52, 3, 0.75);
-    neonSign1.position.set(0, 2.8, -3.85);
-    scene.add(neonSign1);
-    const neonBorder = new LineSegments(new EdgesGeometry(new PlaneGeometry(3.2, 0.95)), new LineBasicMaterial({ color: 52479 }));
-    neonBorder.position.copy(neonSign1.position);
-    neonBorder.position.z += 0.01;
-    scene.add(neonBorder);
-    const neonSign2 = createNeonText("⚡ HERMES AGENT", "#ff0088", 40, 2.8, 0.6);
-    neonSign2.position.set(0, 2, -3.85);
-    scene.add(neonSign2);
-    const plCyan = new PointLight(52479, 6, 12, 2);
-    plCyan.position.set(0, 2.8, -3.2);
-    scene.add(plCyan);
-    const plPink = new PointLight(16711816, 4, 10, 2);
-    plPink.position.set(0, 2, -3.2);
-    scene.add(plPink);
-    const plOrange = new PointLight(16737792, 3, 8, 2);
-    plOrange.position.set(3.8, 2, 0);
-    scene.add(plOrange);
-    const plPurple = new PointLight(10027263, 3, 8, 2);
-    plPurple.position.set(-3.5, 4.5, 1.5);
-    scene.add(plPurple);
-    setProgress(35, "Workshop built");
-    const bldgMat = new MeshStandardMaterial({ color: 394768, metalness: 0.2, roughness: 0.8 });
-    [
-      { x: -10, z: -14, w: 2.5, h: 8, d: 2 },
-      { x: -6, z: -16, w: 1.8, h: 12, d: 1.5 },
-      { x: -3, z: -18, w: 3, h: 6, d: 2 },
-      { x: 1, z: -15, w: 2, h: 10, d: 1.8 },
-      { x: 5, z: -17, w: 2.5, h: 7, d: 2 },
-      { x: 8, z: -14, w: 1.5, h: 14, d: 1.5 },
-      { x: 12, z: -16, w: 3, h: 9, d: 2.5 },
-      { x: -12, z: -18, w: 2, h: 11, d: 2 },
-      { x: 14, z: -19, w: 2.8, h: 6.5, d: 2 }
-    ].forEach((b) => {
-      const mesh = new Mesh(new BoxGeometry(b.w, b.h, b.d), bldgMat);
-      mesh.position.set(b.x, b.h / 2, b.z);
-      scene.add(mesh);
-    });
-    for (let gx = -2; gx <= 2; gx += 2) {
-      for (let gz = -1; gz <= 1; gz += 2) {
-        const pl = new PointLight(16774630, 3, 6, 2);
-        pl.position.set(gx, 3.3, gz);
-        scene.add(pl);
-      }
-    }
-    const barrelGeo = new CylinderGeometry(0.35, 0.35, 0.9, 12);
-    const barrelMat = new MeshStandardMaterial({ color: 1118481, metalness: 0.5, roughness: 0.5 });
-    [[3.2, 0.45, -2.5], [3.7, 0.45, -2.2], [3.4, 0.45, -1.8]].forEach((p) => {
-      const b = new Mesh(barrelGeo, barrelMat);
-      b.position.set(p[0], p[1], p[2]);
-      b.castShadow = true;
-      b.receiveShadow = true;
-      scene.add(b);
-    });
-    setProgress(45, "Environment done");
-    const character = new Group();
-    const bodyMesh = new Mesh(new CapsuleGeometry(0.25, 0.6, 4, 8), new MeshStandardMaterial({ color: 2236979, metalness: 0.1, roughness: 0.8 }));
-    bodyMesh.position.y = 0.55;
-    character.add(bodyMesh);
-    const headMesh = new Mesh(new SphereGeometry(0.15, 8, 8), new MeshStandardMaterial({ color: 14531481, metalness: 0.1, roughness: 0.7 }));
-    headMesh.position.y = 1.1;
-    character.add(headMesh);
-    const charLight = new PointLight(4491519, 2, 4, 2);
-    charLight.position.y = 1.5;
-    character.add(charLight);
-    character.position.set(2.5, 0, 2.5);
-    character.visible = true;
-    scene.add(character);
-    const moveState = { forward: false, backward: false, left: false, right: false };
-    const characterSpeed = 3;
-    document.addEventListener("keydown", (e) => {
-      if (e.code === "KeyW" || e.code === "ArrowUp") moveState.forward = true;
-      if (e.code === "KeyS" || e.code === "ArrowDown") moveState.backward = true;
-      if (e.code === "KeyA" || e.code === "ArrowLeft") moveState.left = true;
-      if (e.code === "KeyD" || e.code === "ArrowRight") moveState.right = true;
-    });
-    document.addEventListener("keyup", (e) => {
-      if (e.code === "KeyW" || e.code === "ArrowUp") moveState.forward = false;
-      if (e.code === "KeyS" || e.code === "ArrowDown") moveState.backward = false;
-      if (e.code === "KeyA" || e.code === "ArrowLeft") moveState.left = false;
-      if (e.code === "KeyD" || e.code === "ArrowRight") moveState.right = false;
-    });
-    function buildLaptopMesh() {
+    let laptop = null;
+    let laptopScreenTexture = null;
+    function buildLaptop() {
       const group = new Group();
-      const baseMat = new MeshStandardMaterial({ color: 1710618, metalness: 0.8, roughness: 0.2 });
-      group.add(new Mesh(new BoxGeometry(0.7, 0.035, 0.45), baseMat));
-      const screenM = new MeshStandardMaterial({ color: 1118481, metalness: 0.9, roughness: 0.1 });
-      const screenMesh = new Mesh(new BoxGeometry(0.7, 0.42, 0.015), screenM);
-      screenMesh.position.set(0, 0.23, -0.22);
-      screenMesh.rotation.x = -0.3;
-      group.add(screenMesh);
-      laptopScreenCanvas = document.createElement("canvas");
-      laptopScreenCanvas.width = 512;
-      laptopScreenCanvas.height = 320;
-      laptopScreenTexture = new CanvasTexture(laptopScreenCanvas);
-      laptopScreenTexture.minFilter = LinearFilter;
-      const displayMesh = new Mesh(new PlaneGeometry(0.65, 0.37), new MeshBasicMaterial({ map: laptopScreenTexture }));
-      displayMesh.position.set(0, 0.24, -0.21);
-      displayMesh.rotation.x = -0.3;
-      group.add(displayMesh);
-      const kb = new Mesh(new PlaneGeometry(0.55, 0.28), new MeshStandardMaterial({ color: 657930, metalness: 0.3, roughness: 0.8 }));
-      kb.position.set(0, 0.02, 0.04);
-      kb.rotation.x = -Math.PI / 2;
-      group.add(kb);
+      const base = new Mesh(
+        new BoxGeometry(0.62, 0.028, 0.4),
+        new MeshStandardMaterial({ color: 1710618, metalness: 0.85, roughness: 0.25 })
+      );
+      group.add(base);
+      const lid = new Mesh(
+        new BoxGeometry(0.62, 0.4, 0.018),
+        new MeshStandardMaterial({ color: 1118481, metalness: 0.9, roughness: 0.18 })
+      );
+      lid.position.set(0, 0.22, -0.19);
+      lid.rotation.x = -0.22;
+      group.add(lid);
+      const canvas = document.createElement("canvas");
+      canvas.width = 512;
+      canvas.height = 320;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#0e1117";
+      ctx.fillRect(0, 0, 512, 320);
+      ctx.fillStyle = "#00ccff";
+      ctx.font = "bold 28px monospace";
+      ctx.fillText("HERMES", 24, 48);
+      ctx.fillStyle = "#e8e8e8";
+      ctx.font = "16px monospace";
+      ctx.fillText("akhil pillay", 24, 90);
+      ctx.fillStyle = "#8b93a7";
+      ctx.fillText("press E  —  open", 24, 124);
+      laptopScreenTexture = new CanvasTexture(canvas);
+      laptopScreenTexture.colorSpace = SRGBColorSpace;
+      const screen = new Mesh(
+        new PlaneGeometry(0.56, 0.32),
+        new MeshBasicMaterial({ map: laptopScreenTexture })
+      );
+      screen.position.set(0, 0.23, -0.175);
+      screen.rotation.x = -0.22;
+      group.add(screen);
       return group;
     }
-    const interactive = [];
+    const bench = new Group();
+    const benchTop = new Mesh(
+      new BoxGeometry(1.1, 0.06, 0.55),
+      new MeshStandardMaterial({ color: 2761756, roughness: 0.65, metalness: 0.15 })
+    );
+    benchTop.position.y = 0.78;
+    benchTop.castShadow = true;
+    benchTop.receiveShadow = true;
+    bench.add(benchTop);
+    const legMat = new MeshStandardMaterial({ color: 1118481, metalness: 0.6, roughness: 0.4 });
+    [[-0.45, -0.2], [0.45, -0.2], [-0.45, 0.2], [0.45, 0.2]].forEach((p) => {
+      const leg = new Mesh(new BoxGeometry(0.05, 0.78, 0.05), legMat);
+      leg.position.set(p[0], 0.39, p[1]);
+      bench.add(leg);
+    });
+    bench.visible = false;
+    scene.add(bench);
+    let carModel = null;
+    let frame = null;
     const loader = new GLTFLoader();
+    function measureFrame(root) {
+      root.updateMatrixWorld(true);
+      const box = new Box3().setFromObject(root);
+      const center = box.getCenter(new Vector3());
+      const size = box.getSize(new Vector3());
+      const frontPts = [];
+      root.traverse((obj) => {
+        const name = (obj.name || "").toLowerCase();
+        if (!name.includes("front-gla")) return;
+        const b = new Box3().setFromObject(obj);
+        if (b.isEmpty()) return;
+        frontPts.push(b.getCenter(new Vector3()));
+      });
+      const forward = new Vector3(0, 0, 1);
+      if (frontPts.length) {
+        const front = frontPts.reduce((a, p) => a.add(p), new Vector3()).multiplyScalar(1 / frontPts.length);
+        forward.copy(front).sub(center);
+      }
+      forward.y = 0;
+      if (forward.lengthSq() < 1e-6) forward.set(0, 0, 1);
+      forward.normalize();
+      const right = new Vector3().crossVectors(new Vector3(0, 1, 0), forward).normalize();
+      const halfW = size.x * 0.5;
+      const halfL = Math.max(size.x, size.z) * 0.5;
+      const length = Math.abs(size.dot(new Vector3(Math.abs(forward.x), 0, Math.abs(forward.z)))) || size.z;
+      const width = Math.abs(size.dot(new Vector3(Math.abs(right.x), 0, Math.abs(right.z)))) || size.x;
+      const driverStand = center.clone().addScaledVector(right, width * 0.5 + 0.85);
+      driverStand.y = 0;
+      const passengerStand = center.clone().addScaledVector(right, -(width * 0.5 + 1.15));
+      passengerStand.y = 0;
+      const rearStand = center.clone().addScaledVector(forward, -(length * 0.5 + 0.9));
+      rearStand.y = 0;
+      const driverEye = center.clone().addScaledVector(right, width * 0.18).addScaledVector(forward, length * 0.02);
+      driverEye.y = box.min.y + size.y * 0.62;
+      const exhaust = center.clone().addScaledVector(forward, -(length * 0.48)).addScaledVector(right, width * 0.22);
+      exhaust.y = box.min.y + size.y * 0.1;
+      return {
+        box,
+        center,
+        size,
+        forward,
+        right,
+        length,
+        width,
+        halfW,
+        halfL,
+        driverStand,
+        passengerStand,
+        rearStand,
+        driverEye,
+        exhaust
+      };
+    }
+    function placeWorld() {
+      frame = measureFrame(carModel);
+      const shadow = new Mesh(
+        new CircleGeometry(1, 40),
+        new MeshBasicMaterial({ color: 0, transparent: true, opacity: 0.5, depthWrite: false })
+      );
+      shadow.rotation.x = -Math.PI / 2;
+      shadow.position.copy(frame.center);
+      shadow.position.y = 0.01;
+      shadow.scale.set(frame.width * 0.55, frame.length * 0.42, 1);
+      scene.add(shadow);
+      underglow.position.set(frame.center.x, 0.16, frame.center.z);
+      noseLight.position.copy(frame.center).addScaledVector(frame.forward, frame.length * 0.55).addScaledVector(frame.right, frame.width * 1.15);
+      noseLight.position.y = 3.4;
+      noseLight.target.position.copy(frame.center);
+      noseLight.target.position.y = 0.65;
+      const mouth = frame.center.clone().addScaledVector(frame.forward, frame.length * 0.5 + 3.4);
+      mouth.y = 0;
+      const mouthMat = new MeshStandardMaterial({
+        color: 8058623,
+        emissive: 52479,
+        emissiveIntensity: 2.2,
+        roughness: 0.4
+      });
+      const span = 4.4;
+      const postH = 2.7;
+      [-1, 1].forEach((side2) => {
+        const post = new Mesh(new BoxGeometry(0.07, postH, 0.07), mouthMat);
+        post.position.copy(mouth).addScaledVector(frame.right, side2 * span * 0.5);
+        post.position.y = postH / 2;
+        scene.add(post);
+      });
+      const header = new Mesh(new BoxGeometry(span, 0.07, 0.07), mouthMat);
+      header.position.copy(mouth);
+      header.position.y = postH;
+      header.quaternion.setFromUnitVectors(new Vector3(1, 0, 0), frame.right.clone().normalize());
+      scene.add(header);
+      const apron = new PointLight(10475519, 5, 12, 2);
+      apron.position.copy(mouth).addScaledVector(frame.forward, -1.6);
+      apron.position.y = 1.1;
+      scene.add(apron);
+      const zones = [
+        { id: "driver", label: "DRIVER", color: 52479, pos: frame.driverStand, action: "enter", prompt: "E  —  sit in the RunX" },
+        { id: "laptop", label: "LAPTOP", color: 16731546, pos: frame.passengerStand, action: "laptop", prompt: "E  —  open the laptop" },
+        { id: "rev", label: "REV", color: 16737792, pos: frame.rearStand, action: "rev", prompt: "SPACE  —  rev it" }
+      ];
+      zones.forEach((z) => {
+        const ring = makeRing(z.color);
+        ring.position.x = z.pos.x;
+        ring.position.z = z.pos.z;
+        const tag = makeTag(z.label, "#" + z.color.toString(16).padStart(6, "0"));
+        tag.position.set(z.pos.x, 1.15, z.pos.z);
+        markers.push({ ...z, ring, tag });
+      });
+      bench.position.copy(frame.passengerStand);
+      bench.position.y = 0;
+      bench.lookAt(frame.center.x, 0, frame.center.z);
+      bench.visible = true;
+      laptop = buildLaptop();
+      laptop.position.set(0, 0.84, 0);
+      laptop.rotation.y = Math.PI;
+      bench.add(laptop);
+      character.position.copy(frame.driverStand);
+      character.position.x += frame.right.x * 0.15;
+      character.position.z += frame.right.z * 0.15;
+      character.lookAt(frame.center.x, 0, frame.center.z);
+      const hero = frame.center.clone().addScaledVector(frame.forward, frame.length * 0.95).addScaledVector(frame.right, frame.width * 0.7);
+      hero.y = 1.55;
+      camera.position.copy(hero);
+      showcase.focus.copy(frame.center);
+      showcase.focus.y = 0.72;
+      showcase.theta = Math.atan2(hero.x - showcase.focus.x, hero.z - showcase.focus.z);
+      showcase.dist = hero.distanceTo(showcase.focus);
+      showcase.phi = 0.22;
+      applyShowcase();
+    }
     loader.load("assets/models/runx.glb", (gltf) => {
       try {
         carModel = gltf.scene;
@@ -27461,19 +26917,11 @@ void main() {
         const center = new Vector3();
         box.getCenter(center);
         carModel.position.set(-center.x * S, -box.min.y * S, 1 - center.z * S);
-        const meshNames = [];
-        carModel.traverse((child) => {
-          if (child.isMesh) {
-            meshNames.push(child.name + " | mat:" + (child.material ? child.material.name : "none"));
-          }
-        });
-        console.log("CAR MESHES:", meshNames.join(" ;; "));
         let paintCount = 0;
         carModel.traverse((child) => {
-          if (!child.isMesh) return;
+          if (!child.isMesh || !child.material) return;
           child.castShadow = true;
           child.receiveShadow = true;
-          if (!child.material) return;
           const mn = (child.material.name || "").toLowerCase();
           if (mn === "paint1" || mn.includes("paint")) {
             const cb = new Box3().setFromObject(child);
@@ -27482,750 +26930,556 @@ void main() {
               child.material = makeFlakeBlackPaint(envMap);
               paintCount++;
             }
-          }
-          if (mn.includes("chrome") || mn === "silver_metallic_199") {
-            if (child.material.color) child.material.color.setHex(13421772);
+          } else if (mn.includes("chrome") || mn.includes("silver") || mn.includes("rim")) {
             child.material.metalness = 1;
-            child.material.roughness = 0.05;
+            child.material.roughness = 0.08;
             child.material.envMap = envMap;
-            child.material.envMapIntensity = 2;
+            child.material.envMapIntensity = 1.6;
+            if (child.material.color) child.material.color.setHex(14540253);
             child.material.needsUpdate = true;
-          }
-          if (mn.includes("glass") || mn.includes("translucent")) {
+          } else if (mn.includes("glass") || mn.includes("translucent")) {
             child.material.envMap = envMap;
-            child.material.envMapIntensity = 1.5;
+            child.material.envMapIntensity = 1.2;
+            child.material.needsUpdate = true;
+          } else if (mn.includes("light")) {
+            child.material.emissive = new Color(16742178);
+            child.material.emissiveIntensity = 1.4;
             child.material.needsUpdate = true;
           }
         });
-        const carBox = new Box3().setFromObject(carModel);
-        const carMin = carBox.min;
-        const carMax = carBox.max;
-        const carWorldPos = carModel.position;
-        const cabinLocal = new Vector3(
-          0,
-          // centered left-right
-          (carMax.y - carMin.y) * S * 0.55,
-          // mid-height of car body
-          (carMax.z - carMin.z) * S * 0.1
-          // slightly forward of center (cabin)
-        );
-        cabinCenter = cabinLocal.clone().add(carWorldPos);
-        driverEyePos = new Vector3(
-          carWorldPos.x - (carMax.x - carMin.x) * S * 0.25,
-          // left side (driver)
-          carWorldPos.y + (carMax.y - carMin.y) * S * 0.6,
-          // eye height
-          carWorldPos.z + (carMax.z - carMin.z) * S * 0.1
-          // cabin area
-        );
-        let exhaustFound = false;
-        carModel.traverse((child) => {
-          if (!child.isMesh) return;
-          const mn = (child.name || "").toLowerCase();
-          if (mn.includes("exhaust") || mn.includes("pipe") || mn.includes("muffler") || mn.includes("tailpipe") || mn.includes("tip") || mn.includes("rear_bumper") || mn.includes("back") || mn.includes("diffuser")) {
-            child.getWorldPosition(exhaustWorldPos);
-            exhaustFound = true;
-            console.log("EXHAUST FOUND:", child.name, exhaustWorldPos);
-          }
-        });
-        if (!exhaustFound) {
-          exhaustWorldPos.set(
-            carWorldPos.x + (carMax.x - carMin.x) * S * 0.35,
-            // right side (exhaust is usually right)
-            carWorldPos.y + (carMax.y - carMin.y) * S * 0.12,
-            // low, near bumper
-            carWorldPos.z - (carMax.z - carMin.z) * S * 0.48
-            // well behind car rear
-          );
-          console.log("EXHAUST FALLBACK:", exhaustWorldPos);
-        }
-        laptop = buildLaptopMesh();
-        laptop.position.set(
-          carWorldPos.x + (carMax.x - carMin.x) * S * 0.22,
-          // right side (passenger)
-          carWorldPos.y + (carMax.y - carMin.y) * S * 0.42,
-          // above seat cushion
-          carWorldPos.z - (carMax.z - carMin.z) * S * 0.05
-          // slightly behind center (cabin seat area)
-        );
-        laptop.rotation.y = -0.4;
-        laptop.rotation.x = -0.08;
-        laptop.scale.setScalar(0.18);
-        scene.add(laptop);
         scene.add(carModel);
-        interactive.push({ mesh: carModel, data: { label: "GARAGE", type: "car" } });
-        interactive.push({ mesh: laptop, data: { label: "LAPTOP", type: "laptop" } });
-        renderStreamlitDashboard();
-        setProgress(100, `Car loaded • ${paintCount} panels resprayed 🖤`);
-        setTimeout(hideLoad, 600);
-      } catch (e) {
-        console.error("Car load error:", e);
-        setProgress(100, "Car load error");
-        setTimeout(hideLoad, 600);
+        placeWorld();
+        carReady = true;
+        setProgress(100, "RunX in the bay");
+        say("Drag to orbit  ·  WASD to walk in  ·  E opens the laptop");
+        setTimeout(hideLoad, 400);
+        console.log("CAR FRAME", {
+          center: frame.center.toArray().map((n) => +n.toFixed(2)),
+          forward: frame.forward.toArray().map((n) => +n.toFixed(2)),
+          paintCount
+        });
+      } catch (err) {
+        console.error(err);
+        setProgress(100, "Car failed to place");
+        hideLoad();
       }
     }, (xhr) => {
-      if (xhr.total > 0) setProgress(50 + Math.round(xhr.loaded / xhr.total * 40), `Loading car: ${Math.round(xhr.loaded / xhr.total * 100)}%`);
+      if (xhr.total) setProgress(30 + Math.round(xhr.loaded / xhr.total * 60), "Loading the RunX");
     }, (err) => {
-      console.error("GLB error:", err);
-      cabinCenter.set(0, 0.6, 1);
-      driverEyePos.set(-0.4, 1, 1.2);
-      exhaustWorldPos.set(0.3, 0.15, -0.5);
-      laptop = buildLaptopMesh();
-      laptop.position.set(0.4, 0.4, 1);
-      laptop.rotation.y = -0.3;
-      laptop.scale.setScalar(0.2);
-      scene.add(laptop);
-      interactive.push({ mesh: laptop, data: { label: "LAPTOP", type: "laptop" } });
-      renderStreamlitDashboard();
-      setProgress(100, "Loaded (no car model)");
-      setTimeout(hideLoad, 600);
+      console.error(err);
+      setProgress(100, "Car model missing");
+      hideLoad();
     });
+    setTimeout(() => {
+      if (!carReady) {
+        setProgress(100, "Still waiting on the car");
+        hideLoad();
+      }
+    }, 12e3);
     let flameActive = false;
-    let flameParticles = null;
-    let flameLight = null;
-    let flameEmitIndex = 0;
-    function createFlameSystem() {
-      const count = 60;
-      const geo = new BufferGeometry();
-      const positions = new Float32Array(count * 3);
-      const velocities = new Float32Array(count * 3);
-      const lifetimes = new Float32Array(count);
-      for (let i = 0; i < count; i++) {
-        positions[i * 3 + 1] = -1e3;
-        lifetimes[i] = 0;
-      }
-      geo.setAttribute("position", new BufferAttribute(positions, 3));
-      geo.setAttribute("velocity", new BufferAttribute(velocities, 3));
-      geo.setAttribute("lifetime", new BufferAttribute(lifetimes, 1));
-      const mat = new PointsMaterial({ color: 16737792, size: 0.12, transparent: true, opacity: 0.8, blending: AdditiveBlending, depthWrite: false, sizeAttenuation: true });
-      flameParticles = new Points(geo, mat);
-      flameParticles.userData = { velocities, lifetimes };
-      scene.add(flameParticles);
-      flameLight = new PointLight(16729088, 0, 5, 2);
-      scene.add(flameLight);
-    }
-    createFlameSystem();
+    const flameCount = 80;
+    const flameGeo = new BufferGeometry();
+    const flamePos = new Float32Array(flameCount * 3);
+    const flameVel = new Float32Array(flameCount * 3);
+    const flameLife = new Float32Array(flameCount);
+    for (let i = 0; i < flameCount; i++) flamePos[i * 3 + 1] = -100;
+    flameGeo.setAttribute("position", new BufferAttribute(flamePos, 3));
+    const flames = new Points(
+      flameGeo,
+      new PointsMaterial({
+        color: 16738816,
+        size: 0.22,
+        transparent: true,
+        opacity: 0.9,
+        blending: AdditiveBlending,
+        depthWrite: false,
+        sizeAttenuation: true
+      })
+    );
+    scene.add(flames);
+    const flameLight = new PointLight(16729088, 0, 6, 2);
+    scene.add(flameLight);
+    let flameCursor = 0;
     function emitFlame() {
-      if (!flameParticles) return;
-      const geo = flameParticles.geometry;
-      const pos = geo.attributes.position.array;
-      const vel = flameParticles.userData.velocities;
-      const life = flameParticles.userData.lifetimes;
-      const count = pos.length / 3;
-      for (let n = 0; n < 3; n++) {
-        const i = flameEmitIndex % count;
-        pos[i * 3] = exhaustWorldPos.x + (Math.random() - 0.5) * 0.12;
-        pos[i * 3 + 1] = exhaustWorldPos.y + Math.random() * 0.04;
-        pos[i * 3 + 2] = exhaustWorldPos.z + (Math.random() - 0.5) * 0.08 - 0.2;
-        vel[i * 3] = (Math.random() - 0.5) * 0.015;
-        vel[i * 3 + 1] = Math.random() * 0.05 + 0.02;
-        vel[i * 3 + 2] = -Math.random() * 0.06 - 0.03;
-        life[i] = 1;
-        flameEmitIndex++;
+      if (!frame) return;
+      for (let n = 0; n < 4; n++) {
+        const i = flameCursor % flameCount;
+        flameCursor++;
+        flamePos[i * 3] = frame.exhaust.x + (Math.random() - 0.5) * 0.08;
+        flamePos[i * 3 + 1] = frame.exhaust.y + Math.random() * 0.04;
+        flamePos[i * 3 + 2] = frame.exhaust.z + (Math.random() - 0.5) * 0.08;
+        const back = frame.forward.clone().multiplyScalar(-(0.9 + Math.random() * 1.4));
+        flameVel[i * 3] = back.x + (Math.random() - 0.5) * 0.3;
+        flameVel[i * 3 + 1] = 0.4 + Math.random() * 0.8;
+        flameVel[i * 3 + 2] = back.z + (Math.random() - 0.5) * 0.3;
+        flameLife[i] = 1;
       }
-      geo.attributes.position.needsUpdate = true;
-      geo.attributes.lifetime.needsUpdate = true;
+      flameGeo.attributes.position.needsUpdate = true;
     }
     function updateFlame(dt) {
-      if (!flameParticles) return;
-      const geo = flameParticles.geometry;
-      const pos = geo.attributes.position.array;
-      const vel = flameParticles.userData.velocities;
-      const life = flameParticles.userData.lifetimes;
-      const count = pos.length / 3;
-      for (let i = 0; i < count; i++) {
-        if (life[i] <= 0) continue;
-        life[i] -= dt * 2.5;
-        pos[i * 3] += vel[i * 3] * dt;
-        pos[i * 3 + 1] += vel[i * 3 + 1] * dt;
-        pos[i * 3 + 2] += vel[i * 3 + 2] * dt;
-        vel[i * 3 + 1] *= 0.98;
-        if (life[i] <= 0) pos[i * 3 + 1] = -1e3;
+      for (let i = 0; i < flameCount; i++) {
+        if (flameLife[i] <= 0) continue;
+        flameLife[i] -= dt * 1.8;
+        flamePos[i * 3] += flameVel[i * 3] * dt;
+        flamePos[i * 3 + 1] += flameVel[i * 3 + 1] * dt;
+        flamePos[i * 3 + 2] += flameVel[i * 3 + 2] * dt;
+        if (flameLife[i] <= 0) flamePos[i * 3 + 1] = -100;
       }
-      geo.attributes.position.needsUpdate = true;
-      geo.attributes.lifetime.needsUpdate = true;
-      if (flameLight) {
-        flameLight.intensity = flameActive ? 3 + Math.sin(performance.now() * 0.02) * 1.5 : 0;
-        if (flameActive) flameLight.position.copy(exhaustWorldPos);
-      }
+      flameGeo.attributes.position.needsUpdate = true;
+      flameLight.intensity = flameActive ? 6 + Math.sin(performance.now() * 0.03) * 2 : 0;
+      if (frame && flameActive) flameLight.position.copy(frame.exhaust);
+      if (gasIndicator) gasIndicator.style.color = flameActive ? "rgba(255,120,40,0.95)" : "rgba(255,102,0,0)";
     }
-    setProgress(50, "Flame system ready");
-    function getPageTitle(page) {
-      const t = { dashboard: "> AGENT_DASHBOARD", projects: "> PROJECTS.md", garage: "> GARAGE.glb", agents: "> HERMES.exe", contact: "> CONTACT.json", videos: "> VIDEOS.mp4" };
-      return t[page] || page;
+    function toggleFlame() {
+      flameActive = !flameActive;
     }
-    function getPageContent(page) {
-      const c = {
-        dashboard: ["", "$ whoami", "→ akhil.pillay — sa | kzn | tongaat", "", "$ hermes --status", "● gateway    — running (v2.4.0)", "● provider   — openrouter/free", "● memory     — 96% (4809/5000)", "● cron jobs  — 4 active", "", "$ ls projects/", "→ agenticbiz    [live] 🟢", "→ hush-v1       [live] 🟢", "→ dirt-hands    [dev]  🟡", "→ comfort-shoot [auto] 🟢", "", "$ runx --specs", "→ 140rt | toyota | full black | manual", "→ flames: yes (when hot 🔥)"],
-        projects: ["", "## Active Projects", "", "[1] AgenticBiz", "    AI agent deployment", "    → agenticbiz.vercel.app", "", "[2] Hush v1", "    Car social platform (SA)", "    → hush-v1.vercel.app", "", "[3] Dirt Hands Crew", "    JDM mobile game", "    Godot 4.4+ | Supabase", "", "[4] Ventrix Petroleum", "    Industrial fuel co.", "    React + Vite | Parallax"],
-        garage: ["", "## The Garage", "", "VEHICLE: Toyota 140rt Runx", "COLOR:   Gloss black + metallic", "TRANS:   Manual", "FUEL:    95 + NOS 😏", "", "SPECS:", "→ Weekly drags: Link Road", "→ Strip: King Shaka Airport Rd", "→ Flames: YES (on demand 🔥)", "", "MOD LIST:", "→ Full black paint w/ metallic", "→ Tinted windows | Lowered", "→ Custom exhaust (flame-capable)", "", "$ status: BORN TO DRAG"],
-        agents: ["", "## Hermes Agent System", "", "CAPABILITIES:", "• Wix form → WhatsApp pipeline", "• XAUUSD trading analysis", "• Video production (HyperFrames)", "• Client mgmt automation", "• Cron-based monitoring", "", "INFRA:", "→ Local: Lenovo IdeaPad 3", "  (32GB RAM | RTX 3050)", "→ Cloud: Daytona + Orgo", "", '"Stop thinking in endless manual', "implementation. Start thinking in", "outcomes, systems, and intelligent", 'execution."'],
-        contact: ["", "## Get In Touch", "", "{", '  "name":    "Akhil Pillay",', '  "location": "Tongaat, KZN, SA",', '  "email":   "akhilpillay2.0@gmail.com",', '  "phone":   "067 865 9396",', '  "whatsapp": "wa.me/27678659396",', '  "youtube":  "youtube.com/@that-it-dude",', '  "tiktok":   "tiktok.com/@that_it_.guy",', '  "web":      "agenticbiz.vercel.app"', "}", "", "$ ping akhil — response: fast ⚡"],
-        videos: ["", "## 🎬 Durban Drag Videos", "", "▶ Link Road Drags", "  Every weekend — Durban North", "", "▶ King Shaka Airport Strip", "  Full throttle runs", "", "▶ 140rt Runx Build Series", "  Full black | Flame exhaust | Manual", "", "▶ Car Meet Highlights", "  SA car culture — Durban", "", "[ Click PLAY to watch ]"]
-      };
-      return c[page] || ["coming soon..."];
+    let mode = "showcase";
+    const showcase = {
+      focus: new Vector3(0, 0.7, 1),
+      theta: 0.6,
+      phi: 0.28,
+      dist: 6.2
+    };
+    let camYaw = 0.4;
+    let camDist = 4.2;
+    let dragging = false;
+    let dragMoved = false;
+    let lastX = 0;
+    let lastY = 0;
+    const entry = {
+      active: false,
+      t: 0,
+      dur: 0.85,
+      from: new Vector3(),
+      to: new Vector3(),
+      fromLook: new Vector3(),
+      toLook: new Vector3()
+    };
+    let fpYaw = 0;
+    let fpPitch = -0.04;
+    let pointerLocked = false;
+    function applyShowcase() {
+      const h = Math.cos(showcase.phi) * showcase.dist;
+      camera.position.set(
+        showcase.focus.x + Math.sin(showcase.theta) * h,
+        showcase.focus.y + Math.sin(showcase.phi) * showcase.dist,
+        showcase.focus.z + Math.cos(showcase.theta) * h
+      );
+      camera.lookAt(showcase.focus);
     }
-    function renderStreamlitDashboard() {
-      if (!laptopScreenCanvas) return;
-      const ctx = laptopScreenCanvas.getContext("2d");
-      const cw = laptopScreenCanvas.width, ch = laptopScreenCanvas.height;
-      ctx.fillStyle = "#0e1117";
-      ctx.fillRect(0, 0, cw, ch);
-      const sbW = 120;
-      {
-        ctx.fillStyle = "#1a1d27";
-        ctx.fillRect(0, 0, sbW, ch);
-        ctx.fillStyle = "#00ccff";
-        ctx.font = 'bold 11px "JetBrains Mono", monospace';
-        ctx.fillText("⚡ HERMES", 8, 24);
-        ctx.fillStyle = "#666";
-        ctx.font = '9px "JetBrains Mono", monospace';
-        ctx.fillText("v2.4.0 — free", 8, 38);
-        ["dashboard", "projects", "garage", "agents", "contact", "videos"].forEach((p, i) => {
-          const y = 58 + i * 26;
-          if (streamlitState.activePage === p) {
-            ctx.fillStyle = "rgba(0,204,255,0.1)";
-            ctx.fillRect(0, y - 12, sbW, 24);
-            ctx.fillStyle = "#00ccff";
-          } else ctx.fillStyle = "#888";
-          ctx.font = '10px "JetBrains Mono", monospace';
-          ctx.fillText(["📊", "🚀", "🏎️", "⚡", "📬", "🎬"][i] + " " + p, 8, y);
-        });
-      }
-      const mx = sbW + 12;
-      ctx.fillStyle = "#fff";
-      ctx.font = 'bold 14px "JetBrains Mono", monospace';
-      ctx.fillText(getPageTitle(streamlitState.activePage), mx, 30);
-      ctx.strokeStyle = "#333";
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(mx, 40);
-      ctx.lineTo(cw - 12, 40);
-      ctx.stroke();
-      ctx.fillStyle = "#ccc";
-      ctx.font = '10px "JetBrains Mono", monospace';
-      getPageContent(streamlitState.activePage).forEach((line, i) => {
-        ctx.fillText(line, mx, 58 + i * 16);
+    function nearestZone() {
+      if (!frame || mode !== "walk") return null;
+      let best = null;
+      let bestD = 1.35;
+      markers.forEach((z) => {
+        const dx = character.position.x - z.pos.x;
+        const dz = character.position.z - z.pos.z;
+        const d = Math.hypot(dx, dz);
+        if (d < bestD) {
+          bestD = d;
+          best = z;
+        }
       });
-      ctx.fillStyle = "#0a0c12";
-      ctx.fillRect(0, ch - 20, cw, 20);
-      ctx.fillStyle = "#00ff88";
-      ctx.font = '9px "JetBrains Mono", monospace';
-      ctx.fillText("● ONLINE", 8, ch - 7);
-      ctx.fillStyle = "#666";
-      ctx.fillText("OpenRouter // free tier", sbW + 8, ch - 7);
-      if (laptopScreenTexture) laptopScreenTexture.needsUpdate = true;
-    }
-    function getZonePrompt() {
-      if (!carModel && !laptop) return null;
-      const carPos = carModel ? carModel.position : new Vector3(0, 0, 1);
-      const charPos = character.position;
-      const dx = charPos.x - carPos.x;
-      const dz = charPos.z - carPos.z;
-      const dist = Math.sqrt(dx * dx + dz * dz);
-      if (dist > 5) return null;
-      if (dz < -1.5 && Math.abs(dx) < 2.5) {
-        return { text: "🔥 Press SPACE to rev the engine", action: "rev" };
-      }
-      if (dx < -1 && dx > -3.5 && dz > -1.5 && dz < 2) {
-        return { text: "🚗 Press E to get in the driver seat", action: "enter_driver" };
-      }
-      if (dx > 0.5 && dx < 3.5 && dz > -1.5 && dz < 2) {
-        return { text: "💻 Press E to access the laptop", action: "laptop" };
-      }
-      if (dist < 3.5) {
-        return { text: "🚶 Walk to driver door, passenger door, or rear", action: null };
-      }
-      return null;
+      return best;
     }
     function enterCar() {
-      if (playerState !== "walking") return;
-      playerState = "entering";
-      if (isPointerLocked) document.exitPointerLock();
-      entryAnim.active = true;
-      entryAnim.t = 0;
-      entryAnim.fromPos.copy(camera.position);
-      entryAnim.fromLook.copy(controls.target);
-      entryAnim.toPos.copy(driverEyePos);
-      entryAnim.toLook.set(driverEyePos.x, driverEyePos.y, driverEyePos.z + 4);
+      if (!frame || mode !== "walk") return;
+      mode = "entering";
+      entry.active = true;
+      entry.t = 0;
+      entry.from.copy(camera.position);
+      entry.fromLook.copy(character.position);
+      entry.fromLook.y = 1.2;
+      entry.to.copy(frame.driverEye);
+      entry.toLook.copy(frame.driverEye).addScaledVector(frame.forward, 4);
       character.visible = false;
-      controls.enabled = false;
-      $("info-bar").textContent = "🚗 Entering driver seat...";
+      say("Getting in…");
+    }
+    function finishEnter() {
+      var _a, _b;
+      mode = "driving";
+      fpYaw = Math.atan2(frame.forward.x, frame.forward.z);
+      fpPitch = -0.06;
+      noseLight.intensity = 0;
+      say("In the seat  ·  click to look  ·  SPACE rev  ·  E to get out");
+      (_b = (_a = renderer.domElement).requestPointerLock) == null ? void 0 : _b.call(_a);
     }
     function exitCar() {
-      if (playerState !== "driving") return;
-      playerState = "exiting";
-      if (isPointerLocked) document.exitPointerLock();
-      entryAnim.active = true;
-      entryAnim.t = 0;
-      entryAnim.fromPos.copy(camera.position);
-      const currentLook = new Vector3();
-      camera.getWorldDirection(currentLook);
-      entryAnim.fromLook.copy(camera.position).add(currentLook.multiplyScalar(3));
-      const exitPos = carModel ? carModel.position.clone().add(new Vector3(-2.5, 0, 0.5)) : new Vector3(-2.5, 0, 1.5);
-      character.position.copy(exitPos);
+      if (mode !== "driving" || !frame) return;
+      if (pointerLocked) document.exitPointerLock();
+      mode = "exiting";
+      entry.active = true;
+      entry.t = 0;
+      entry.from.copy(camera.position);
+      const dir = new Vector3();
+      camera.getWorldDirection(dir);
+      entry.fromLook.copy(camera.position).add(dir);
+      character.position.copy(frame.driverStand);
       character.visible = true;
-      entryAnim.toPos.copy(exitPos).add(new Vector3(-2, 2.5, 3));
-      entryAnim.toLook.copy(exitPos);
-      $("info-bar").textContent = "🚶 Exiting car...";
+      entry.to.copy(frame.driverStand).add(new Vector3(0, 1.6, 0)).addScaledVector(frame.right, 1.6);
+      entry.toLook.copy(frame.center);
+      entry.toLook.y = 0.8;
+      say("Stepping out…");
     }
-    const gasIndicator = $("gas-indicator");
-    document.addEventListener("keydown", (e) => {
-      if (e.code === "Space") {
-        e.preventDefault();
-        if (playerState === "driving") {
-          flameActive = !flameActive;
-          gasIndicator.style.color = flameActive ? "rgba(255,102,0,1)" : "rgba(255,102,0,0)";
-        } else if (playerState === "walking") {
-          const zone = getZonePrompt();
-          if (zone && zone.action === "rev") {
-            flameActive = !flameActive;
-            gasIndicator.style.color = flameActive ? "rgba(255,102,0,1)" : "rgba(255,102,0,0)";
-          }
-        }
-      }
-      if (e.code === "KeyE") {
-        if (playerState === "walking") {
-          const zone = getZonePrompt();
-          if (zone) {
-            if (zone.action === "enter_driver") enterCar();
-            else if (zone.action === "laptop") openFullscreenLaptop();
-          }
-        } else if (playerState === "driving") {
-          exitCar();
-        }
-      }
-    });
-    document.addEventListener("keyup", (e) => {
-      if (e.code === "Space") e.preventDefault();
-    });
-    document.addEventListener("pointerlockchange", () => {
-      isPointerLocked = document.pointerLockElement === renderer.domElement;
-    });
-    document.addEventListener("mousemove", (e) => {
-      if (!isPointerLocked || playerState !== "driving") return;
-      fpYaw -= e.movementX * 3e-3;
-      fpPitch -= e.movementY * 3e-3;
-      fpPitch = Math.max(-Math.PI / 2.5, Math.min(Math.PI / 2.5, fpPitch));
-    });
-    const raycaster = new Raycaster();
-    const pointer = new Vector2();
-    let tapStart = { x: 0, y: 0, time: 0 };
-    renderer.domElement.addEventListener("pointerdown", (e) => {
-      tapStart = { x: e.clientX, y: e.clientY, time: Date.now() };
-    });
-    renderer.domElement.addEventListener("pointerup", (e) => {
-      const dx = e.clientX - tapStart.x, dy = e.clientY - tapStart.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      const elapsed = Date.now() - tapStart.time;
-      if (dist > 8 || elapsed > 500) return;
-      if (playerState === "driving" && !isPointerLocked) {
-        renderer.domElement.requestPointerLock();
+    function finishExit() {
+      mode = "walk";
+      const back = frame.driverStand.clone().sub(frame.center);
+      back.y = 0;
+      camYaw = Math.atan2(back.x, back.z);
+      noseLight.intensity = 7;
+      say("WASD  ·  rings on the floor are the doors");
+    }
+    function openLaptop() {
+      fsOverlay.style.display = "flex";
+      renderFsPage();
+    }
+    function closeLaptop() {
+      fsOverlay.style.display = "none";
+    }
+    function interact() {
+      if (mode === "showcase") {
+        openLaptop();
         return;
       }
-      pointer.x = e.clientX / innerWidth * 2 - 1;
-      pointer.y = -(e.clientY / innerHeight) * 2 + 1;
-      raycaster.setFromCamera(pointer, camera);
-      const hits = raycaster.intersectObjects(interactive.map((i) => i.mesh), true);
-      if (hits.length) {
-        const hit = hits[0].object;
-        const item = interactive.find((i) => {
-          if (i.mesh === hit) return true;
-          let p = hit.parent;
-          while (p) {
-            if (i.mesh === p) return true;
-            p = p.parent;
-          }
-          return false;
-        });
-        if (item) {
-          if (item.data.type === "car") {
-            if (playerState === "walking") {
-              const zone = getZonePrompt();
-              if (zone && zone.action === "enter_driver") enterCar();
-              else if (zone && zone.action === "rev") {
-                flameActive = !flameActive;
-                gasIndicator.style.color = flameActive ? "rgba(255,102,0,1)" : "rgba(255,102,0,0)";
-              }
-            } else if (playerState === "driving") {
-              flameActive = !flameActive;
-              gasIndicator.style.color = flameActive ? "rgba(255,102,0,1)" : "rgba(255,102,0,0)";
-            }
-          }
-          if (item.data.type === "laptop") {
-            openFullscreenLaptop();
-          }
-        }
+      if (mode === "driving") {
+        exitCar();
+        return;
       }
-    });
-    let fsCanvas = null, fsCtx = null;
-    let fsSidebarOpen = true, fsActivePage = "dashboard";
+      const zone = nearestZone();
+      if (!zone) {
+        say("Walk to a ring  —  driver door, laptop bench, or the rear");
+        return;
+      }
+      if (zone.action === "enter") enterCar();
+      else if (zone.action === "laptop") openLaptop();
+      else if (zone.action === "rev") toggleFlame();
+    }
+    function pushOutOfCar() {
+      if (!frame) return;
+      const rel = character.position.clone().sub(frame.center);
+      const along = rel.dot(frame.forward);
+      const side2 = rel.dot(frame.right);
+      const halfL = frame.length * 0.5 + 0.28;
+      const halfW = frame.width * 0.5 + 0.28;
+      if (Math.abs(along) < halfL && Math.abs(side2) < halfW) {
+        const outL = halfL - Math.abs(along);
+        const outW = halfW - Math.abs(side2);
+        if (outW < outL) character.position.addScaledVector(frame.right, Math.sign(side2 || 1) * (outW + 0.02));
+        else character.position.addScaledVector(frame.forward, Math.sign(along || 1) * (outL + 0.02));
+      }
+      character.position.x = Math.max(-3.7, Math.min(3.7, character.position.x));
+      character.position.z = Math.max(-3.3, Math.min(6.4, character.position.z));
+      character.position.y = 0;
+    }
     const fsOverlay = document.createElement("div");
     fsOverlay.id = "fs-laptop-overlay";
-    fsOverlay.style.cssText = "display:none;position:fixed;inset:0;z-index:300;background:rgba(0,0,0,0.92);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);justify-content:center;align-items:center;overflow:hidden;";
+    fsOverlay.style.cssText = "display:none;position:fixed;inset:0;z-index:300;background:rgba(4,6,12,0.9);backdrop-filter:blur(16px);justify-content:center;align-items:center;padding:24px;";
     document.body.appendChild(fsOverlay);
-    const fsLaptopFrame = document.createElement("div");
-    fsLaptopFrame.style.cssText = "width:85vw;height:82vh;max-width:1200px;background:#0e1117;border-radius:12px;border:1px solid rgba(255,255,255,0.08);display:flex;flex-direction:column;overflow:hidden;";
-    fsOverlay.appendChild(fsLaptopFrame);
+    const fsFrame = document.createElement("div");
+    fsFrame.style.cssText = "width:min(920px,94vw);height:min(640px,86vh);background:#0e1117;border:1px solid rgba(255,255,255,0.08);border-radius:14px;display:flex;flex-direction:column;overflow:hidden;position:relative;";
+    fsOverlay.appendChild(fsFrame);
     const titleBar = document.createElement("div");
-    titleBar.style.cssText = "height:36px;background:#1a1d27;display:flex;align-items:center;padding:0 12px;gap:8px;border-bottom:1px solid rgba(255,255,255,0.06);flex-shrink:0;";
-    titleBar.innerHTML = '<span style="width:12px;height:12px;border-radius:50%;background:#ff5f57"></span><span style="width:12px;height:12px;border-radius:50%;background:#febc2e"></span><span style="width:12px;height:12px;border-radius:50%;background:#28c840"></span><span style="color:rgba(255,255,255,0.4);font-family:JetBrains Mono,monospace;font-size:11px;margin-left:12px">agent@workshop:~/desktop</span>';
-    fsLaptopFrame.appendChild(titleBar);
+    titleBar.style.cssText = "height:40px;background:#161922;display:flex;align-items:center;gap:8px;padding:0 14px;border-bottom:1px solid rgba(255,255,255,0.06);flex-shrink:0;";
+    titleBar.innerHTML = '<span style="width:11px;height:11px;border-radius:50%;background:#ff5f57"></span><span style="width:11px;height:11px;border-radius:50%;background:#febc2e"></span><span style="width:11px;height:11px;border-radius:50%;background:#28c840"></span><span style="margin-left:10px;color:rgba(255,255,255,0.45);font-family:JetBrains Mono,monospace;font-size:12px">agent@workshop — akhil pillay</span>';
+    fsFrame.appendChild(titleBar);
     const fsClose = document.createElement("button");
     fsClose.textContent = "✕";
-    fsClose.style.cssText = "position:absolute;top:8px;right:12px;background:rgba(255,255,255,0.06);border:none;border-radius:6px;width:28px;height:28px;color:rgba(255,255,255,0.5);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:5;";
-    fsClose.onclick = () => {
-      fsOverlay.style.display = "none";
-      document.removeEventListener("keydown", fsEscHandler);
+    fsClose.setAttribute("aria-label", "Close laptop");
+    fsClose.style.cssText = "position:absolute;top:6px;right:10px;width:28px;height:28px;border:none;border-radius:6px;background:rgba(255,255,255,0.06);color:#aaa;cursor:pointer;";
+    fsClose.onclick = closeLaptop;
+    fsFrame.appendChild(fsClose);
+    const body = document.createElement("div");
+    body.style.cssText = "flex:1;display:flex;min-height:0;";
+    fsFrame.appendChild(body);
+    const side = document.createElement("nav");
+    side.style.cssText = "width:168px;background:#141824;border-right:1px solid rgba(255,255,255,0.06);padding:12px 0;flex-shrink:0;";
+    body.appendChild(side);
+    const pageHost = document.createElement("div");
+    pageHost.style.cssText = "flex:1;overflow:auto;padding:22px 26px 28px;font-family:JetBrains Mono,monospace;color:#d5d8e0;font-size:13px;line-height:1.65;";
+    body.appendChild(pageHost);
+    const link = (href, label) => `<a href="${href}" target="_blank" rel="noopener" style="color:#7af6ff;text-decoration:none;border-bottom:1px solid rgba(122,246,255,0.35)">${label}</a>`;
+    const pages = {
+      now: {
+        label: "Now",
+        html: `
+                <h2 style="margin:0 0 12px;font-size:18px;color:#fff">Akhil Pillay</h2>
+                <p>Lead Web &amp; App Dev at Comfort Shooting. Ballito / Tongaat, KZN.</p>
+                <p>I build the systems, then I try to take myself out of the loop. This bay is the workshop those systems live next to — the black RunX included.</p>
+                <p>${link("https://akhil-devs-portfolio.vercel.app", "Portfolio")}<br>
+                ${link("https://github.com/Mr-Akhil12", "GitHub — Mr-Akhil12")}<br>
+                ${link("https://www.agenticbiz.co.za/", "AgenticBiz")}<br>
+                ${link("https://hush-v1.vercel.app", "Hush")}</p>`
+      },
+      projects: {
+        label: "Projects",
+        html: `
+                <h2 style="margin:0 0 12px;font-size:18px;color:#fff">Shipped</h2>
+                <p><b style="color:#fff">Hush</b> — SA car social. ${link("https://hush-v1.vercel.app", "hush-v1.vercel.app")}</p>
+                <p><b style="color:#fff">AgenticBiz</b> — agentic systems, in public. ${link("https://www.agenticbiz.co.za/", "agenticbiz.co.za")}</p>
+                <p><b style="color:#fff">Comfort Shooting</b> — day job. Systems, portals, the unglamorous things that have to stay up.</p>
+                <p><b style="color:#fff">This bay</b> — the 3D workshop. Walk it. Sit in the car. The model is not mine; credit is on the floor of the page.</p>`
+      },
+      garage: {
+        label: "Garage",
+        html: `
+                <h2 style="margin:0 0 12px;font-size:18px;color:#fff">140rt RunX</h2>
+                <p>Toyota RunX. Gloss black. Manual. Flames when it is asked.</p>
+                <p>Right-hand drive — driver door is the right-hand ring. Rear ring revs it. Passenger side is the bench, not a seat you have to clip through.</p>
+                <p>Model: 2001 Toyota Corolla RunX by ${link("https://sketchfab.com/outpiston", "OUTPISTON")}, ${link("https://creativecommons.org/licenses/by-nc-sa/4.0/", "CC BY-NC-SA 4.0")}.</p>`
+      },
+      contact: {
+        label: "Contact",
+        html: `
+                <h2 style="margin:0 0 12px;font-size:18px;color:#fff">Contact</h2>
+                <p>${link("mailto:akhilpillay2.0@gmail.com", "akhilpillay2.0@gmail.com")}<br>
+                ${link("https://wa.me/27678659396", "WhatsApp +27 67 865 9396")}<br>
+                ${link("https://youtube.com/@that-it-dude", "YouTube @that-it-dude")}<br>
+                ${link("https://www.tiktok.com/@that_it_dude", "TikTok @that_it_dude")}<br>
+                ${link("https://github.com/Mr-Akhil12", "github.com/Mr-Akhil12")}</p>
+                <p style="color:#8b93a7">Ballito, KwaZulu-Natal.</p>`
+      }
     };
-    fsOverlay.appendChild(fsClose);
-    const screenArea = document.createElement("div");
-    screenArea.style.cssText = "flex:1;display:flex;overflow:hidden;";
-    fsLaptopFrame.appendChild(screenArea);
-    const fsSidebar = document.createElement("div");
-    fsSidebar.style.cssText = "width:180px;background:#1a1d27;border-right:1px solid rgba(255,255,255,0.06);display:flex;flex-direction:column;flex-shrink:0;transition:width 0.25s;";
-    screenArea.appendChild(fsSidebar);
-    const fsMainArea = document.createElement("div");
-    fsMainArea.style.cssText = "flex:1;position:relative;overflow:hidden;display:flex;flex-direction:column;";
-    screenArea.appendChild(fsMainArea);
-    fsCanvas = document.createElement("canvas");
-    fsCanvas.width = 900;
-    fsCanvas.height = 600;
-    fsCanvas.style.cssText = "flex:1;width:100%;";
-    fsMainArea.appendChild(fsCanvas);
-    fsCtx = fsCanvas.getContext("2d");
-    const fsVideoContainer = document.createElement("div");
-    fsVideoContainer.style.cssText = "display:none;flex:1;background:#000;";
-    fsMainArea.appendChild(fsVideoContainer);
-    const navItems = [
-      { id: "dashboard", icon: "📊", label: "Dashboard" },
-      { id: "projects", icon: "🚀", label: "Projects" },
-      { id: "garage", icon: "🏎️", label: "Garage" },
-      { id: "agents", icon: "⚡", label: "Agents" },
-      { id: "contact", icon: "📬", label: "Contact" },
-      { id: "videos", icon: "🎬", label: "Videos" }
-    ];
-    const sbHeader = document.createElement("div");
-    sbHeader.style.cssText = "padding:16px 14px 10px;border-bottom:1px solid rgba(255,255,255,0.06);";
-    sbHeader.innerHTML = '<div style="color:#00ccff;font-family:JetBrains Mono,monospace;font-size:14px;font-weight:700">⚡ HERMES</div><div style="color:#666;font-family:JetBrains Mono,monospace;font-size:10px;margin-top:4px">v2.4.0 — free</div>';
-    fsSidebar.appendChild(sbHeader);
-    const sbNavItems = [];
-    navItems.forEach((item) => {
-      const el = document.createElement("div");
-      el.style.cssText = "padding:10px 14px;color:#888;font-family:JetBrains Mono,monospace;font-size:12px;cursor:pointer;transition:all 0.15s;display:flex;align-items:center;gap:8px;border-left:3px solid transparent;";
-      el.innerHTML = `<span>${item.icon}</span><span>${item.label}</span>`;
-      el.onclick = () => {
-        fsActivePage = item.id;
+    let activePage = "now";
+    const navBtns = {};
+    Object.entries(pages).forEach(([id, page]) => {
+      const btn = document.createElement("button");
+      btn.textContent = page.label;
+      btn.style.cssText = "display:block;width:100%;text-align:left;background:transparent;border:none;border-left:3px solid transparent;color:#8b93a7;font-family:JetBrains Mono,monospace;font-size:12px;padding:10px 14px;cursor:pointer;";
+      btn.onclick = () => {
+        activePage = id;
         renderFsPage();
       };
-      el.onmouseenter = () => {
-        if (fsActivePage !== item.id) el.style.background = "rgba(255,255,255,0.04)";
-      };
-      el.onmouseleave = () => {
-        if (fsActivePage !== item.id) el.style.background = "transparent";
-      };
-      fsSidebar.appendChild(el);
-      sbNavItems.push({ el, item });
+      side.appendChild(btn);
+      navBtns[id] = btn;
     });
-    const collapseBtn = document.createElement("div");
-    collapseBtn.style.cssText = "margin-top:auto;padding:12px 14px;color:#555;font-family:JetBrains Mono,monospace;font-size:10px;cursor:pointer;border-top:1px solid rgba(255,255,255,0.06);";
-    collapseBtn.textContent = "◀ collapse";
-    collapseBtn.onclick = () => {
-      fsSidebarOpen = !fsSidebarOpen;
-      fsSidebar.style.width = fsSidebarOpen ? "180px" : "36px";
-      collapseBtn.textContent = fsSidebarOpen ? "◀ collapse" : "▶";
-      sbHeader.style.display = fsSidebarOpen ? "block" : "none";
-      sbNavItems.forEach((ni) => {
-        ni.el.innerHTML = fsSidebarOpen ? `<span>${ni.item.icon}</span><span>${ni.item.label}</span>` : `<span style="text-align:center;width:100%">${ni.item.icon}</span>`;
-      });
-      renderFsPage();
-    };
-    fsSidebar.appendChild(collapseBtn);
-    const videoList = [
-      { title: "Durban Drag Racing NDT 2023", yt: "ZObnrlICK2Q" },
-      { title: "Durban Drag Racing Pt 1", yt: "2Qd5A2KyjCU" },
-      { title: "Durban Drag Racing Pt 2", yt: "1eSYoleQfyQ" },
-      { title: "Gas Live KZN 2025 Drags", yt: "ypkudvESOGA" },
-      { title: "KZN FWD Drag Shootout", yt: "pDWVT2Ojxk4" }
-    ];
-    let currentVideoIdx = 0;
-    function buildVideoPlayer() {
-      fsVideoContainer.innerHTML = "";
-      fsVideoContainer.style.display = "flex";
-      fsVideoContainer.style.flexDirection = "column";
-      const vidTitle = document.createElement("div");
-      vidTitle.style.cssText = "padding:10px 16px;color:#fff;font-family:JetBrains Mono,monospace;font-size:13px;background:rgba(0,0,0,0.5);flex-shrink:0;";
-      vidTitle.textContent = "🎬 " + videoList[currentVideoIdx].title;
-      fsVideoContainer.appendChild(vidTitle);
-      const iframeWrap = document.createElement("div");
-      iframeWrap.style.cssText = "flex:1;position:relative;";
-      const iframe = document.createElement("iframe");
-      iframe.style.cssText = "position:absolute;inset:0;width:100%;height:100%;border:none;";
-      iframe.src = `https://www.youtube.com/embed/${videoList[currentVideoIdx].yt}?rel=0&modestbranding=1&autoplay=0`;
-      iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture";
-      iframe.allowFullscreen = true;
-      iframeWrap.appendChild(iframe);
-      fsVideoContainer.appendChild(iframeWrap);
-      const selector = document.createElement("div");
-      selector.style.cssText = "display:flex;gap:6px;padding:8px 12px;background:rgba(0,0,0,0.7);overflow-x:auto;flex-shrink:0;";
-      videoList.forEach((v, i) => {
-        const btn = document.createElement("button");
-        btn.style.cssText = `padding:6px 12px;border-radius:6px;border:none;font-family:JetBrains Mono,monospace;font-size:10px;cursor:pointer;white-space:nowrap;${i === currentVideoIdx ? "background:#00ccff;color:#000;" : "background:rgba(255,255,255,0.1);color:#888;"}`;
-        btn.textContent = v.title.substring(0, 22) + "...";
-        btn.onclick = () => {
-          currentVideoIdx = i;
-          buildVideoPlayer();
-        };
-        selector.appendChild(btn);
-      });
-      fsVideoContainer.appendChild(selector);
-    }
     function renderFsPage() {
-      if (!fsCtx) return;
-      sbNavItems.forEach((ni) => {
-        if (ni.item.id === fsActivePage) {
-          ni.el.style.background = "rgba(0,204,255,0.1)";
-          ni.el.style.color = "#00ccff";
-          ni.el.style.borderLeftColor = "#00ccff";
-        } else {
-          ni.el.style.background = "transparent";
-          ni.el.style.color = "#888";
-          ni.el.style.borderLeftColor = "transparent";
-        }
+      Object.entries(navBtns).forEach(([id, btn]) => {
+        const on = id === activePage;
+        btn.style.color = on ? "#7af6ff" : "#8b93a7";
+        btn.style.borderLeftColor = on ? "#7af6ff" : "transparent";
+        btn.style.background = on ? "rgba(122,246,255,0.06)" : "transparent";
       });
-      if (fsActivePage === "videos") {
-        fsCanvas.style.display = "none";
-        buildVideoPlayer();
-        return;
-      } else {
-        fsCanvas.style.display = "block";
-        fsVideoContainer.style.display = "none";
-      }
-      const cw = fsCanvas.width, ch = fsCanvas.height;
-      fsCtx.fillStyle = "#0e1117";
-      fsCtx.fillRect(0, 0, cw, ch);
-      fsCtx.fillStyle = "#fff";
-      fsCtx.font = 'bold 18px "JetBrains Mono", monospace';
-      fsCtx.fillText(getPageTitle(fsActivePage), 20, 36);
-      fsCtx.strokeStyle = "#333";
-      fsCtx.lineWidth = 1;
-      fsCtx.beginPath();
-      fsCtx.moveTo(20, 48);
-      fsCtx.lineTo(cw - 20, 48);
-      fsCtx.stroke();
-      fsCtx.fillStyle = "#ccc";
-      fsCtx.font = '12px "JetBrains Mono", monospace';
-      getPageContent(fsActivePage).forEach((line, i) => {
-        fsCtx.fillText(line, 20, 72 + i * 18);
-      });
-      fsCtx.fillStyle = "#0a0c12";
-      fsCtx.fillRect(0, ch - 24, cw, 24);
-      fsCtx.fillStyle = "#00ff88";
-      fsCtx.font = '10px "JetBrains Mono", monospace';
-      fsCtx.fillText("● ONLINE", 10, ch - 8);
-      fsCtx.fillStyle = "#666";
-      fsCtx.fillText("OpenRouter // free tier", 100, ch - 8);
-    }
-    function openFullscreenLaptop() {
-      fsOverlay.style.display = "flex";
-      fsActivePage = streamlitState.activePage;
-      renderFsPage();
-      document.addEventListener("keydown", fsEscHandler);
-    }
-    function fsEscHandler(e) {
-      if (e.code === "Escape") {
-        fsOverlay.style.display = "none";
-        document.removeEventListener("keydown", fsEscHandler);
-      }
+      pageHost.innerHTML = pages[activePage].html;
     }
     fsOverlay.addEventListener("click", (e) => {
-      if (e.target === fsOverlay) {
-        fsOverlay.style.display = "none";
-        document.removeEventListener("keydown", fsEscHandler);
-      }
+      if (e.target === fsOverlay) closeLaptop();
     });
-    let joystickActive = false, joystickStart = { x: 0, y: 0 };
-    renderer.domElement.addEventListener("touchstart", (e) => {
-      if (e.touches.length !== 1) return;
-      if (e.touches[0].clientX / innerWidth < 0.4) {
-        joystickActive = true;
-        joystickStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    addEventListener("keydown", (e) => {
+      var _a;
+      if (e.code === "KeyW" || e.code === "ArrowUp") moveState.forward = true;
+      if (e.code === "KeyS" || e.code === "ArrowDown") moveState.backward = true;
+      if (e.code === "KeyA" || e.code === "ArrowLeft") moveState.left = true;
+      if (e.code === "KeyD" || e.code === "ArrowRight") moveState.right = true;
+      const walkingKey = ["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.code);
+      if (walkingKey && mode === "showcase" && carReady) {
+        mode = "walk";
+        character.visible = true;
+        if (frame) {
+          const back = character.position.clone().sub(frame.center);
+          back.y = 0;
+          camYaw = Math.atan2(back.x, back.z);
+        }
+        say("WASD  ·  rings on the floor are the doors");
       }
-    }, { passive: true });
-    renderer.domElement.addEventListener("touchmove", (e) => {
-      if (!joystickActive || e.touches.length !== 1) return;
-      const t = e.touches[0];
-      const dx = (t.clientX - joystickStart.x) / 50, dy = (t.clientY - joystickStart.y) / 50;
-      moveState.forward = dy < -0.3;
-      moveState.backward = dy > 0.3;
-      moveState.left = dx < -0.3;
-      moveState.right = dx > 0.3;
-    }, { passive: true });
-    renderer.domElement.addEventListener("touchend", () => {
-      joystickActive = false;
-      moveState.forward = moveState.backward = moveState.left = moveState.right = false;
-    });
-    const btnGas = document.getElementById("btn-gas");
-    const btnLaptop = document.getElementById("btn-laptop");
-    if (btnGas) {
-      btnGas.addEventListener("touchstart", function(e) {
+      if (e.code === "KeyE") {
+        if (fsOverlay.style.display === "flex") closeLaptop();
+        else interact();
+      }
+      if (e.code === "Space") {
         e.preventDefault();
-        flameActive = !flameActive;
-        gasIndicator.style.color = flameActive ? "rgba(255,102,0,1)" : "rgba(255,102,0,0)";
-      });
-      btnGas.addEventListener("click", function() {
-        flameActive = !flameActive;
-        gasIndicator.style.color = flameActive ? "rgba(255,102,0,1)" : "rgba(255,102,0,0)";
-      });
+        if (mode === "driving" || mode === "showcase" || mode === "walk" && ((_a = nearestZone()) == null ? void 0 : _a.action) === "rev") toggleFlame();
+      }
+      if (e.code === "Escape") closeLaptop();
+    });
+    addEventListener("keyup", (e) => {
+      if (e.code === "KeyW" || e.code === "ArrowUp") moveState.forward = false;
+      if (e.code === "KeyS" || e.code === "ArrowDown") moveState.backward = false;
+      if (e.code === "KeyA" || e.code === "ArrowLeft") moveState.left = false;
+      if (e.code === "KeyD" || e.code === "ArrowRight") moveState.right = false;
+    });
+    renderer.domElement.addEventListener("pointerdown", (e) => {
+      dragging = true;
+      dragMoved = false;
+      lastX = e.clientX;
+      lastY = e.clientY;
+    });
+    addEventListener("pointermove", (e) => {
+      if (!dragging || mode === "driving") return;
+      const dx = e.clientX - lastX;
+      const dy = e.clientY - lastY;
+      if (Math.hypot(dx, dy) > 3) dragMoved = true;
+      lastX = e.clientX;
+      lastY = e.clientY;
+      if (mode === "showcase") {
+        showcase.theta -= dx * 5e-3;
+        showcase.phi = Math.max(0.08, Math.min(1.05, showcase.phi + dy * 4e-3));
+      } else if (mode === "walk") {
+        camYaw -= dx * 5e-3;
+      }
+    });
+    addEventListener("pointerup", () => {
+      dragging = false;
+    });
+    renderer.domElement.addEventListener("pointerup", (e) => {
+      var _a, _b;
+      if (dragMoved) return;
+      if (mode === "driving" && !pointerLocked) {
+        (_b = (_a = renderer.domElement).requestPointerLock) == null ? void 0 : _b.call(_a);
+        return;
+      }
+      if (mode === "walk") interact();
+    });
+    renderer.domElement.addEventListener("wheel", (e) => {
+      if (mode !== "showcase") return;
+      showcase.dist = Math.max(3.2, Math.min(9, showcase.dist + Math.sign(e.deltaY) * 0.35));
+    }, { passive: true });
+    document.addEventListener("pointerlockchange", () => {
+      pointerLocked = document.pointerLockElement === renderer.domElement;
+    });
+    document.addEventListener("mousemove", (e) => {
+      if (!pointerLocked || mode !== "driving") return;
+      fpYaw -= e.movementX * 25e-4;
+      fpPitch -= e.movementY * 22e-4;
+      fpPitch = Math.max(-0.6, Math.min(0.45, fpPitch));
+    });
+    const btnGas = $("btn-gas");
+    const btnLaptop = $("btn-laptop");
+    if (btnGas) {
+      const fire = (e) => {
+        e.preventDefault();
+        toggleFlame();
+      };
+      btnGas.addEventListener("click", fire);
+      btnGas.addEventListener("touchstart", fire, { passive: false });
     }
     if (btnLaptop) {
-      btnLaptop.addEventListener("touchstart", function(e) {
+      const open = (e) => {
         e.preventDefault();
-        openFullscreenLaptop();
-      });
-      btnLaptop.addEventListener("click", function() {
-        openFullscreenLaptop();
-      });
+        openLaptop();
+      };
+      btnLaptop.addEventListener("click", open);
+      btnLaptop.addEventListener("touchstart", open, { passive: false });
     }
-    const joystickZone = document.getElementById("joystick-zone");
-    const joystickKnob = document.getElementById("joystick-knob");
-    if (joystickZone) {
-      joystickZone.addEventListener("touchstart", function(e) {
+    const joystickZone = $("joystick-zone");
+    const joystickKnob = $("joystick-knob");
+    if (joystickZone && joystickKnob) {
+      let joy = false;
+      let joyStart = { x: 0, y: 0 };
+      joystickZone.addEventListener("touchstart", (e) => {
         e.preventDefault();
-        joystickActive = true;
-        var t = e.touches[0];
-        joystickStart = { x: t.clientX, y: t.clientY };
-      });
-      joystickZone.addEventListener("touchmove", function(e) {
-        e.preventDefault();
-        if (!joystickActive) return;
-        var t = e.touches[0];
-        var dx = t.clientX - joystickStart.x, dy = t.clientY - joystickStart.y;
-        var maxDist = 30, dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist > maxDist) {
-          dx = dx / dist * maxDist;
-          dy = dy / dist * maxDist;
+        joy = true;
+        const t = e.touches[0];
+        joyStart = { x: t.clientX, y: t.clientY };
+        if (mode === "showcase" && carReady) {
+          mode = "walk";
+          character.visible = true;
         }
-        joystickKnob.style.transform = "translate(calc(-50% + " + dx + "px), calc(-50% + " + dy + "px))";
+      }, { passive: false });
+      joystickZone.addEventListener("touchmove", (e) => {
+        e.preventDefault();
+        if (!joy) return;
+        const t = e.touches[0];
+        let dx = t.clientX - joyStart.x;
+        let dy = t.clientY - joyStart.y;
+        const dist = Math.hypot(dx, dy);
+        const max = 30;
+        if (dist > max) {
+          dx = dx / dist * max;
+          dy = dy / dist * max;
+        }
+        joystickKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
         moveState.forward = dy < -10;
         moveState.backward = dy > 10;
         moveState.left = dx < -10;
         moveState.right = dx > 10;
-      });
-      joystickZone.addEventListener("touchend", function() {
-        joystickActive = false;
+      }, { passive: false });
+      joystickZone.addEventListener("touchend", () => {
+        joy = false;
         moveState.forward = moveState.backward = moveState.left = moveState.right = false;
-        joystickKnob.style.transform = "translate(-50%,-50%)";
+        joystickKnob.style.transform = "translate(-50%, -50%)";
       });
     }
-    let prevTime = performance.now();
+    addEventListener("resize", () => {
+      camera.aspect = innerWidth / innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth, innerHeight);
+      composer.setSize(innerWidth, innerHeight);
+    });
+    if (hintEl) hintEl.textContent = "Drag to orbit  ·  WASD to walk in  ·  E interact  ·  SPACE rev";
+    let prev = performance.now();
     function animate() {
       requestAnimationFrame(animate);
-      const now2 = performance.now(), dt = Math.min((now2 - prevTime) * 1e-3, 0.05);
-      prevTime = now2;
+      const now2 = performance.now();
+      const dt = Math.min((now2 - prev) * 1e-3, 0.05);
+      prev = now2;
       const t = now2 * 1e-3;
-      if (entryAnim.active) {
-        entryAnim.t += dt / entryAnim.duration;
-        const alpha = Math.min(1, entryAnim.t);
-        const eased = 1 - Math.pow(1 - alpha, 3);
-        camera.position.lerpVectors(entryAnim.fromPos, entryAnim.toPos, eased);
-        const lookTarget = new Vector3().lerpVectors(entryAnim.fromLook, entryAnim.toLook, eased);
-        camera.lookAt(lookTarget);
-        if (alpha >= 1) {
-          entryAnim.active = false;
-          if (playerState === "entering") {
-            playerState = "driving";
-            controls.enabled = false;
-            $("info-bar").textContent = "🚗 DRIVING — mouse to look, SPACE flames, E exit";
-            setTimeout(() => {
-              renderer.domElement.requestPointerLock();
-            }, 200);
-          } else if (playerState === "exiting") {
-            playerState = "walking";
-            controls.enabled = true;
-            controls.target.copy(character.position).add(new Vector3(0, 1, 0));
-            camera.position.copy(entryAnim.toPos);
-            $("info-bar").textContent = "The Agent's Workshop — explore the garage";
-          }
+      if (entry.active) {
+        entry.t += dt / entry.dur;
+        const a = Math.min(1, entry.t);
+        const e = 1 - Math.pow(1 - a, 3);
+        camera.position.lerpVectors(entry.from, entry.to, e);
+        camera.lookAt(new Vector3().lerpVectors(entry.fromLook, entry.toLook, e));
+        if (a >= 1) {
+          entry.active = false;
+          if (mode === "entering") finishEnter();
+          else if (mode === "exiting") finishExit();
         }
-      }
-      if (playerState === "walking") {
-        const moveDir = new Vector3();
-        if (moveState.forward) moveDir.z -= 1;
-        if (moveState.backward) moveDir.z += 1;
-        if (moveState.left) moveDir.x -= 1;
-        if (moveState.right) moveDir.x += 1;
-        if (moveDir.length() > 0) {
-          moveDir.normalize();
-          const camDir = new Vector3();
-          camera.getWorldDirection(camDir);
-          camDir.y = 0;
-          camDir.normalize();
-          const camRight = new Vector3();
-          camRight.crossVectors(camDir, new Vector3(0, 1, 0)).normalize();
-          const fm = new Vector3();
-          fm.addScaledVector(camDir, -moveDir.z);
-          fm.addScaledVector(camRight, moveDir.x);
-          character.position.x += fm.x * characterSpeed * dt;
-          character.position.z += fm.z * characterSpeed * dt;
-          character.position.y = 0;
-          character.rotation.y = Math.atan2(fm.x, fm.z);
+      } else if (mode === "showcase") {
+        applyShowcase();
+      } else if (mode === "walk") {
+        const wish = new Vector3();
+        const look = new Vector3(-Math.sin(camYaw), 0, -Math.cos(camYaw));
+        const strafe = new Vector3(look.z, 0, -look.x);
+        if (moveState.forward) wish.add(look);
+        if (moveState.backward) wish.sub(look);
+        if (moveState.right) wish.add(strafe);
+        if (moveState.left) wish.sub(strafe);
+        if (wish.lengthSq() > 0) {
+          wish.normalize();
+          character.position.addScaledVector(wish, speed * dt);
+          pushOutOfCar();
+          character.rotation.y = Math.atan2(wish.x, wish.z);
         }
-        const zone = getZonePrompt();
-        if (zone) {
-          $("info-bar").textContent = zone.text;
-        } else {
-          $("info-bar").textContent = "The Agent's Workshop — explore the garage";
+        const head = character.position.clone();
+        head.y = 1.25;
+        const ideal = head.clone();
+        ideal.x += Math.sin(camYaw) * camDist;
+        ideal.z += Math.cos(camYaw) * camDist;
+        ideal.y = 1.7;
+        camera.position.lerp(ideal, 1 - Math.exp(-7 * dt));
+        camera.lookAt(head);
+        const zone = nearestZone();
+        say(zone ? zone.prompt : "WASD  ·  cyan driver  ·  pink laptop  ·  orange rev");
+      } else if (mode === "driving" && frame) {
+        const bob = Math.sin(t * 11) * 4e-3;
+        camera.position.copy(frame.driverEye);
+        camera.position.y += bob;
+        if (flameActive) {
+          camera.position.x += (Math.random() - 0.5) * 0.01;
+          camera.position.y += (Math.random() - 0.5) * 6e-3;
         }
-        const distToChar = camera.position.distanceTo(character.position);
-        if (distToChar > 10) {
-          controls.target.lerp(character.position.clone().add(new Vector3(0, 1, 0)), 0.02);
-        }
-        controls.update();
-      }
-      if (playerState === "driving" && !entryAnim.active) {
-        if (carModel) {
-          const carBox = new Box3().setFromObject(carModel);
-          const S = carModel.scale.x;
-          driverEyePos.set(
-            carModel.position.x - (carBox.max.x - carBox.min.x) * S * 0.25,
-            carModel.position.y + (carBox.max.y - carBox.min.y) * S * 0.6,
-            carModel.position.z + (carBox.max.z - carBox.min.z) * S * 0.1
-          );
-        }
-        const bobX = Math.sin(t * 8) * 3e-3;
-        const bobY = Math.abs(Math.sin(t * 12)) * 2e-3;
-        camera.position.set(driverEyePos.x + bobX, driverEyePos.y + bobY, driverEyePos.z);
-        const lookDir = new Vector3(
+        const look = new Vector3(
           Math.sin(fpYaw) * Math.cos(fpPitch),
           Math.sin(fpPitch),
           Math.cos(fpYaw) * Math.cos(fpPitch)
         );
-        camera.lookAt(camera.position.clone().add(lookDir.multiplyScalar(5)));
-        if (flameActive) {
-          camera.position.x += (Math.random() - 0.5) * 8e-3;
-          camera.position.y += (Math.random() - 0.5) * 5e-3;
-        }
+        camera.lookAt(camera.position.clone().add(look));
       }
-      if (laptop) {
-        const breathe = Math.sin(t * 1.5) * 0.012;
-        laptop.scale.setScalar(0.2 + breathe);
-      }
-      plCyan.intensity = 6 + Math.sin(t * 1.8) * 1.5;
-      plPink.intensity = 4 + Math.cos(t * 1.5) * 1;
-      plOrange.intensity = 3 + Math.sin(t * 2.2) * 0.8;
-      plPurple.intensity = 3 + Math.cos(t * 1.2) * 0.8;
+      markers.forEach((z) => {
+        const pulse = 0.9 + Math.sin(t * 3 + z.pos.x) * 0.08;
+        z.ring.scale.setScalar(pulse);
+        const hot = mode === "walk" && nearestZone() === z;
+        z.ring.material.opacity = hot ? 1 : 0.45;
+        z.tag.position.y = 1.12 + Math.sin(t * 2 + z.pos.z) * 0.04;
+      });
+      plCyan.intensity = 7 + Math.sin(t * 1.6) * 1.2;
+      plPink.intensity = 4.5 + Math.cos(t * 1.3) * 0.8;
       if (flameActive) emitFlame();
       updateFlame(dt);
-      if (Math.floor(t * 2) !== Math.floor((t - dt) * 2)) renderStreamlitDashboard();
       composer.render();
     }
     animate();
-    setProgress(55, "Ready to roll...");
-    setTimeout(() => {
-      setProgress(100, "Loaded");
-      hideLoad();
-    }, 4e3);
+    setProgress(40, "Waiting on the RunX");
   }
   exports.start = start;
   Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });

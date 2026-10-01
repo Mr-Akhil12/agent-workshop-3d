@@ -1,263 +1,521 @@
 /**
- * The Agent's Workshop — Interactive 3D Portfolio v4
- * The GLB car IS the environment. No fake interior.
- * Zone-based prompts. Camera on character head.
+ * The Agent's Workshop — finished bay.
+ * Poster shot of the black RunX, then walk in: driver door, laptop, rear rev.
+ * Car frame is measured from the loaded GLB (RHD — SA RunX), not guessed offsets.
  */
 import { THREE } from './three-setup.js';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
-import { createEnvMap, makeFlakeBlackPaint, makeNeonMaterial } from './materials.js';
+import { createEnvMap, makeFlakeBlackPaint } from './materials.js';
 
 export function start() {
     'use strict';
 
-    const $ = s => document.getElementById(s);
-    const barEl = $('load-bar'), statusEl = $('load-status');
-    let progress = 0;
+    const $ = (id) => document.getElementById(id);
+    const barEl = $('load-bar');
+    const statusEl = $('load-status');
+    const infoBar = $('info-bar');
+    const gasIndicator = $('gas-indicator');
+    const hintEl = $('hint');
+
+    let carReady = false;
     function setProgress(p, msg) {
-        progress = Math.min(100, p);
-        barEl.style.width = progress + '%';
-        if (msg) statusEl.textContent = msg;
+        if (barEl) barEl.style.width = Math.min(100, p) + '%';
+        if (msg && statusEl) statusEl.textContent = msg;
     }
     function hideLoad() {
-        $('loading').classList.add('hidden');
-        setTimeout(() => { $('hint').style.opacity = '0'; }, 8000);
+        const el = $('loading');
+        if (el) el.classList.add('hidden');
+    }
+    function say(text) {
+        if (infoBar) infoBar.textContent = text;
     }
 
-    // ── Renderer ──
-    const W = innerWidth, H = innerHeight;
     const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-    renderer.setSize(W, H);
-    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 0.9;
+    renderer.toneMappingExposure = 1.25;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     document.body.appendChild(renderer.domElement);
 
-    // ── Scene + Camera ──
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x020206);
+    scene.background = new THREE.Color(0x07080e);
+    scene.fog = new THREE.Fog(0x07080e, 18, 42);
 
-    const camera = new THREE.PerspectiveCamera(65, W / H, 0.05, 200);
-    camera.position.set(5, 3.5, 6);
+    const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.05, 80);
+    camera.position.set(4.2, 1.7, 6.2);
 
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.target.set(0, 0.5, 1);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.06;
-    controls.minDistance = 2;
-    controls.maxDistance = 16;
-    controls.maxPolarAngle = Math.PI * 0.48;
-    controls.minPolarAngle = Math.PI * 0.08;
-    controls.enablePan = false;
-    controls.update();
-
-    // ════════════════════════════════════════════
-    //  PLAYER STATE
-    // ════════════════════════════════════════════
-    // 'walking' | 'entering' | 'driving' | 'exiting'
-    let playerState = 'walking';
-    let fpYaw = 0, fpPitch = 0;
-    let isPointerLocked = false;
-
-    // Entry animation
-    let entryAnim = { active: false, t: 0, duration: 0.8, fromPos: new THREE.Vector3(), toPos: new THREE.Vector3(), fromLook: new THREE.Vector3(), toLook: new THREE.Vector3() };
-
-    // Car model reference
-    let carModel = null;
-    let carInterior = null; // now a child of carModel for interior props only
-    let laptop = null;
-    let laptopScreenCanvas = null;
-    let laptopScreenTexture = null;
-    const streamlitState = { sidebarOpen: true, activePage: 'dashboard' };
-
-    // Car cabin position (set after GLB loads) — in world space
-    let cabinCenter = new THREE.Vector3(0, 0.6, 1.0);
-    let driverEyePos = new THREE.Vector3(-0.4, 1.0, 1.2);
-    let exhaustWorldPos = new THREE.Vector3(0, 0.15, -0.5);
-
-    // ── Environment ──
-    const envMap = createEnvMap(renderer);
     const composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
-    const bloom = new UnrealBloomPass(new THREE.Vector2(W, H), 0.7, 0.4, 0.3);
+    const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.32, 0.4, 0.85);
     composer.addPass(bloom);
     composer.addPass(new OutputPass());
-    setProgress(10, 'Scene initialized');
 
-    // ── Lighting ──
-    scene.add(new THREE.AmbientLight(0x111118, 0.5));
-    const keyLight = new THREE.DirectionalLight(0xffeedd, 0.6);
-    keyLight.position.set(3, 8, 4);
+    const envMap = createEnvMap(renderer);
+    scene.environment = envMap;
+    setProgress(8, 'Lighting the bay');
+
+    scene.add(new THREE.HemisphereLight(0x8aa4c8, 0x1a120c, 0.55));
+    scene.add(new THREE.AmbientLight(0x1a1c28, 0.35));
+
+    const keyLight = new THREE.DirectionalLight(0xfff1e0, 1.35);
+    keyLight.position.set(6, 8, 7);
     keyLight.castShadow = true;
-    keyLight.shadow.mapSize.set(1024, 1024);
-    keyLight.shadow.camera.near = 0.5; keyLight.shadow.camera.far = 20;
-    keyLight.shadow.camera.left = -8; keyLight.shadow.camera.right = 8;
-    keyLight.shadow.camera.top = 8; keyLight.shadow.camera.bottom = -8;
-    keyLight.shadow.bias = -0.001;
+    keyLight.shadow.mapSize.set(2048, 2048);
+    keyLight.shadow.camera.near = 0.5;
+    keyLight.shadow.camera.far = 28;
+    keyLight.shadow.camera.left = -8;
+    keyLight.shadow.camera.right = 8;
+    keyLight.shadow.camera.top = 8;
+    keyLight.shadow.camera.bottom = -8;
+    keyLight.shadow.bias = -0.0004;
     scene.add(keyLight);
-    const fillLight = new THREE.DirectionalLight(0x4466ff, 0.15);
-    fillLight.position.set(-4, 3, -2);
-    scene.add(fillLight);
 
-    // ── Ground ──
-    const ground = new THREE.Mesh(
-        new THREE.PlaneGeometry(40, 40),
-        new THREE.MeshStandardMaterial({ color: 0x08080c, metalness: 0.85, roughness: 0.25 })
+    const rim = new THREE.DirectionalLight(0x66ccff, 0.55);
+    rim.position.set(-6, 4, -2);
+    scene.add(rim);
+
+    const plCyan = new THREE.PointLight(0x00ccff, 8, 14, 2);
+    plCyan.position.set(0, 2.6, -3.2);
+    scene.add(plCyan);
+    const plPink = new THREE.PointLight(0xff0088, 5, 12, 2);
+    plPink.position.set(0, 1.8, -3.2);
+    scene.add(plPink);
+    const bayLightL = new THREE.PointLight(0xfff4dd, 6, 10, 2);
+    bayLightL.position.set(-1.6, 3.1, 0.4);
+    scene.add(bayLightL);
+    const bayLightR = new THREE.PointLight(0xfff4dd, 6, 10, 2);
+    bayLightR.position.set(1.6, 3.1, 0.4);
+    scene.add(bayLightR);
+    const underglow = new THREE.PointLight(0x00aaff, 3.5, 5.5, 2);
+    underglow.position.set(0, 0.18, 1);
+    scene.add(underglow);
+
+    const noseLight = new THREE.SpotLight(0xfff6ee, 7, 14, 0.7, 0.55, 1);
+    noseLight.position.set(2.4, 3.4, 4.2);
+    noseLight.target.position.set(0, 0.7, 1);
+    noseLight.castShadow = false;
+    scene.add(noseLight);
+    scene.add(noseLight.target);
+
+    // ── Bay ──
+    const floorMat = new THREE.MeshStandardMaterial({
+        color: 0x1a1c26,
+        metalness: 0.55,
+        roughness: 0.38,
+        envMap,
+        envMapIntensity: 0.55,
+    });
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), floorMat);
+    ground.rotation.x = -Math.PI / 2;
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    const grid = new THREE.GridHelper(40, 40, 0x3a4258, 0x242838);
+    grid.position.y = 0.004;
+    scene.add(grid);
+
+    function bayLine(x, z, w, d, color) {
+        const m = new THREE.Mesh(
+            new THREE.PlaneGeometry(w, d),
+            new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.55 })
+        );
+        m.rotation.x = -Math.PI / 2;
+        m.position.set(x, 0.008, z);
+        scene.add(m);
+    }
+    bayLine(-1.15, 1.1, 0.04, 4.2, 0x00ccff);
+    bayLine(1.15, 1.1, 0.04, 4.2, 0x00ccff);
+    bayLine(0, -0.95, 2.2, 0.04, 0xffaa00);
+
+    const wallMat = new THREE.MeshStandardMaterial({ color: 0x222433, metalness: 0.25, roughness: 0.72 });
+    const backWall = new THREE.Mesh(new THREE.BoxGeometry(8.2, 3.6, 0.16), wallMat);
+    backWall.position.set(0, 1.8, -4);
+    backWall.receiveShadow = true;
+    backWall.castShadow = true;
+    scene.add(backWall);
+    const leftWall = new THREE.Mesh(new THREE.BoxGeometry(0.16, 3.6, 6.2), wallMat);
+    leftWall.position.set(-4.05, 1.8, -0.9);
+    leftWall.receiveShadow = true;
+    scene.add(leftWall);
+    const rightWall = leftWall.clone();
+    rightWall.position.x = 4.05;
+    scene.add(rightWall);
+
+    const roof = new THREE.Mesh(
+        new THREE.BoxGeometry(8.4, 0.08, 6.4),
+        new THREE.MeshStandardMaterial({ color: 0x12131c, metalness: 0.4, roughness: 0.6 })
     );
-    ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
-    const gridHelper = new THREE.GridHelper(40, 80, 0x111120, 0x0a0a14);
-    gridHelper.position.y = 0.003; scene.add(gridHelper);
-    setProgress(20, 'Ground ready');
+    roof.position.set(0, 3.6, -0.9);
+    scene.add(roof);
 
-    // ── Workshop walls ──
-    const wallMat = new THREE.MeshStandardMaterial({ color: 0x0c0c14, metalness: 0.15, roughness: 0.85 });
-    const backWall = new THREE.Mesh(new THREE.BoxGeometry(8, 3.5, 0.2), wallMat);
-    backWall.position.set(0, 1.75, -4); backWall.castShadow = true; backWall.receiveShadow = true; scene.add(backWall);
-    const leftWall = new THREE.Mesh(new THREE.BoxGeometry(0.2, 3.5, 5), wallMat);
-    leftWall.position.set(-4, 1.75, -1.5); leftWall.castShadow = true; leftWall.receiveShadow = true; scene.add(leftWall);
-    const rightWall = new THREE.Mesh(new THREE.BoxGeometry(0.2, 3.5, 5), wallMat);
-    rightWall.position.set(4, 1.75, -1.5); rightWall.castShadow = true; rightWall.receiveShadow = true; scene.add(rightWall);
-    const roof = new THREE.Mesh(new THREE.BoxGeometry(8.4, 0.15, 5.4), new THREE.MeshStandardMaterial({ color: 0x0a0a10, metalness: 0.3, roughness: 0.7 }));
-    roof.position.set(0, 3.55, -1.5); roof.castShadow = true; scene.add(roof);
-    const beamMat = new THREE.MeshStandardMaterial({ color: 0x1a1a22, metalness: 0.5, roughness: 0.4 });
-    for (let bx = -3; bx <= 3; bx += 2) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 5), beamMat); b.position.set(bx, 3.45, -1.5); scene.add(b); }
-
-    // ── Neon Signs ──
-    function createNeonText(text, color, fontSize, width, height) {
-        const canvas = document.createElement('canvas'); canvas.width = 512; canvas.height = 128;
-        const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, 512, 128);
-        ctx.fillStyle = color; ctx.font = `bold ${fontSize}px "JetBrains Mono", monospace`;
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, 256, 64);
-        const tex = new THREE.CanvasTexture(canvas); tex.minFilter = THREE.LinearFilter;
-        return new THREE.Mesh(new THREE.PlaneGeometry(width, height), new THREE.MeshBasicMaterial({ map: tex, transparent: true }));
+    function tube(x, z, len, color, intensity) {
+        const mesh = new THREE.Mesh(
+            new THREE.BoxGeometry(len, 0.045, 0.045),
+            new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: intensity })
+        );
+        mesh.position.set(x, 3.42, z);
+        scene.add(mesh);
     }
-    const neonSign1 = createNeonText('AGENTIC BIZ', '#00ccff', 52, 3, 0.75);
-    neonSign1.position.set(0, 2.8, -3.85); scene.add(neonSign1);
-    const neonBorder = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.PlaneGeometry(3.2, 0.95)), new THREE.LineBasicMaterial({ color: 0x00ccff }));
-    neonBorder.position.copy(neonSign1.position); neonBorder.position.z += 0.01; scene.add(neonBorder);
-    const neonSign2 = createNeonText('⚡ HERMES AGENT', '#ff0088', 40, 2.8, 0.6);
-    neonSign2.position.set(0, 2.0, -3.85); scene.add(neonSign2);
+    tube(0, -1.2, 6.4, 0xfff2dd, 2.2);
+    tube(0, 0.8, 6.4, 0x88ddff, 1.4);
 
-    const plCyan = new THREE.PointLight(0x00ccff, 6, 12, 2); plCyan.position.set(0, 2.8, -3.2); scene.add(plCyan);
-    const plPink = new THREE.PointLight(0xff0088, 4, 10, 2); plPink.position.set(0, 2.0, -3.2); scene.add(plPink);
-    const plOrange = new THREE.PointLight(0xff6600, 3, 8, 2); plOrange.position.set(3.8, 2, 0); scene.add(plOrange);
-    const plPurple = new THREE.PointLight(0x9900ff, 3, 8, 2); plPurple.position.set(-3.5, 4.5, 1.5); scene.add(plPurple);
-    setProgress(35, 'Workshop built');
+    function neonSign(text, color, w, h, y) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 1024;
+        canvas.height = 256;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, 1024, 256);
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 28;
+        ctx.fillStyle = color;
+        ctx.font = 'bold 120px "JetBrains Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, 512, 128);
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.colorSpace = THREE.SRGBColorSpace;
+        const mesh = new THREE.Mesh(
+            new THREE.PlaneGeometry(w, h),
+            new THREE.MeshBasicMaterial({ map: tex, transparent: true })
+        );
+        mesh.position.set(0, y, -3.9);
+        scene.add(mesh);
+        const frame = new THREE.LineSegments(
+            new THREE.EdgesGeometry(new THREE.PlaneGeometry(w + 0.18, h + 0.12)),
+            new THREE.LineBasicMaterial({ color })
+        );
+        frame.position.copy(mesh.position);
+        frame.position.z += 0.01;
+        scene.add(frame);
+    }
+    neonSign('AGENTIC BIZ', '#7af6ff', 3.4, 0.72, 2.85);
+    neonSign('HERMES', '#ff4d9a', 2.2, 0.42, 2.15);
 
-    // ── Cityscape ──
-    const bldgMat = new THREE.MeshStandardMaterial({ color: 0x060610, metalness: 0.2, roughness: 0.8 });
-    [{x:-10,z:-14,w:2.5,h:8,d:2},{x:-6,z:-16,w:1.8,h:12,d:1.5},{x:-3,z:-18,w:3,h:6,d:2},
-     {x:1,z:-15,w:2,h:10,d:1.8},{x:5,z:-17,w:2.5,h:7,d:2},{x:8,z:-14,w:1.5,h:14,d:1.5},
-     {x:12,z:-16,w:3,h:9,d:2.5},{x:-12,z:-18,w:2,h:11,d:2},{x:14,z:-19,w:2.8,h:6.5,d:2}
-    ].forEach(b => {
-        const mesh = new THREE.Mesh(new THREE.BoxGeometry(b.w, b.h, b.d), bldgMat);
-        mesh.position.set(b.x, b.h / 2, b.z); scene.add(mesh);
+    // Tool wall — reads as a workshop, not an empty box
+    const toolMat = new THREE.MeshStandardMaterial({ color: 0x3a3e4e, metalness: 0.7, roughness: 0.35 });
+    [[-2.6, 1.5, 0.55, 0.08, 0.9], [-2.2, 1.7, 0.08, 0.5, 0.08], [-3.1, 1.2, 0.35, 0.08, 0.35]].forEach((t) => {
+        const tool = new THREE.Mesh(new THREE.BoxGeometry(t[2], t[3], t[4]), toolMat);
+        tool.position.set(t[0], t[1], -3.88);
+        scene.add(tool);
     });
-    for (let gx = -2; gx <= 2; gx += 2) {
-        for (let gz = -1; gz <= 1; gz += 2) {
-            const pl = new THREE.PointLight(0xfff5e6, 3, 6, 2);
-            pl.position.set(gx, 3.3, gz); scene.add(pl);
+
+    // City behind the bay, with window lights so the skyline isn't a black wall
+    const bldgMat = new THREE.MeshStandardMaterial({ color: 0x12141e, metalness: 0.15, roughness: 0.8 });
+    const buildings = [
+        [-10, -16, 2.4, 9, 2], [-6, -18, 1.8, 13, 1.6], [-2, -15, 2.6, 7, 2],
+        [2, -17, 2, 11, 1.8], [6, -16, 2.4, 8, 2], [10, -19, 1.6, 15, 1.6],
+        [13, -15, 2.8, 6.5, 2.2], [-13, -18, 2, 10, 2],
+    ];
+    const winGeo = new THREE.BoxGeometry(0.12, 0.16, 0.04);
+    const winMats = [
+        new THREE.MeshBasicMaterial({ color: 0xffe1a8 }),
+        new THREE.MeshBasicMaterial({ color: 0x9fd7ff }),
+        new THREE.MeshBasicMaterial({ color: 0xff8fb8 }),
+    ];
+    buildings.forEach((b, i) => {
+        const mesh = new THREE.Mesh(new THREE.BoxGeometry(b[2], b[3], b[4]), bldgMat);
+        mesh.position.set(b[0], b[3] / 2, b[1]);
+        scene.add(mesh);
+        const cols = 3;
+        const rows = Math.max(3, Math.floor(b[3] / 1.4));
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+                if ((r * 3 + c + i) % 3 === 0) continue;
+                const w = new THREE.Mesh(winGeo, winMats[(r + c + i) % 3]);
+                w.position.set(
+                    b[0] - b[2] * 0.28 + c * b[2] * 0.28,
+                    0.8 + r * 1.15,
+                    b[1] + b[4] * 0.5 + 0.02
+                );
+                scene.add(w);
+            }
         }
-    }
-
-    // ── Props ──
-    const barrelGeo = new THREE.CylinderGeometry(0.35, 0.35, 0.9, 12);
-    const barrelMat = new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.5, roughness: 0.5 });
-    [[3.2,0.45,-2.5],[3.7,0.45,-2.2],[3.4,0.45,-1.8]].forEach(p => {
-        const b = new THREE.Mesh(barrelGeo, barrelMat); b.position.set(p[0], p[1], p[2]); b.castShadow = true; b.receiveShadow = true; scene.add(b);
     });
-    setProgress(45, 'Environment done');
+    setProgress(28, 'Bay built');
 
-    // ════════════════════════════════════════════
-    //  CHARACTER
-    // ════════════════════════════════════════════
+    // ── Character: hooded figure, not a light bomb ──
     const character = new THREE.Group();
-    const bodyMesh = new THREE.Mesh(new THREE.CapsuleGeometry(0.25, 0.6, 4, 8), new THREE.MeshStandardMaterial({ color: 0x222233, metalness: 0.1, roughness: 0.8 }));
-    bodyMesh.position.y = 0.55; character.add(bodyMesh);
-    const headMesh = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 8), new THREE.MeshStandardMaterial({ color: 0xddbb99, metalness: 0.1, roughness: 0.7 }));
-    headMesh.position.y = 1.1; character.add(headMesh);
-    const charLight = new THREE.PointLight(0x4488ff, 2, 4, 2);
-    charLight.position.y = 1.5; character.add(charLight);
-    character.position.set(2.5, 0, 2.5);
-    character.visible = true;
+    const cloth = new THREE.MeshStandardMaterial({ color: 0x1c1e28, roughness: 0.75, metalness: 0.08 });
+    const visorMat = new THREE.MeshStandardMaterial({
+        color: 0x071018, emissive: 0x00ccff, emissiveIntensity: 1.6, roughness: 0.2, metalness: 0.4,
+    });
+    const legs = new THREE.Mesh(new THREE.CapsuleGeometry(0.11, 0.42, 4, 8), cloth);
+    legs.position.y = 0.38;
+    character.add(legs);
+    const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.2, 0.38, 4, 8), cloth);
+    torso.position.y = 0.95;
+    character.add(torso);
+    const hood = new THREE.Mesh(new THREE.SphereGeometry(0.16, 16, 12), cloth);
+    hood.position.y = 1.38;
+    character.add(hood);
+    const visor = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.045, 0.04), visorMat);
+    visor.position.set(0, 1.36, 0.13);
+    character.add(visor);
+    character.position.set(1.7, 0, 2.4);
+    character.visible = false;
     scene.add(character);
 
     const moveState = { forward: false, backward: false, left: false, right: false };
-    const characterSpeed = 3;
+    const speed = 2.7;
 
-    document.addEventListener('keydown', (e) => {
-        if (e.code === 'KeyW' || e.code === 'ArrowUp') moveState.forward = true;
-        if (e.code === 'KeyS' || e.code === 'ArrowDown') moveState.backward = true;
-        if (e.code === 'KeyA' || e.code === 'ArrowLeft') moveState.left = true;
-        if (e.code === 'KeyD' || e.code === 'ArrowRight') moveState.right = true;
-    });
-    document.addEventListener('keyup', (e) => {
-        if (e.code === 'KeyW' || e.code === 'ArrowUp') moveState.forward = false;
-        if (e.code === 'KeyS' || e.code === 'ArrowDown') moveState.backward = false;
-        if (e.code === 'KeyA' || e.code === 'ArrowLeft') moveState.left = false;
-        if (e.code === 'KeyD' || e.code === 'ArrowRight') moveState.right = false;
-    });
+    // ── Interaction markers (placed once the car frame is known) ──
+    const markers = [];
+    function makeRing(color) {
+        const ring = new THREE.Mesh(
+            new THREE.RingGeometry(0.38, 0.48, 32),
+            new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.85, side: THREE.DoubleSide })
+        );
+        ring.rotation.x = -Math.PI / 2;
+        ring.position.y = 0.02;
+        scene.add(ring);
+        return ring;
+    }
+    function makeTag(text, color) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 128;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = color;
+        ctx.font = 'bold 64px "JetBrains Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, 256, 64);
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.colorSpace = THREE.SRGBColorSpace;
+        const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+        sprite.scale.set(1.35, 0.34, 1);
+        scene.add(sprite);
+        return sprite;
+    }
 
-    // ════════════════════════════════════════════
-    //  LAPTOP (built early, placed after car loads)
-    // ════════════════════════════════════════════
-    function buildLaptopMesh() {
+    // ── Laptop mesh, placed on the bench after the car loads ──
+    let laptop = null;
+    let laptopScreenTexture = null;
+    function buildLaptop() {
         const group = new THREE.Group();
-        const baseMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, metalness: 0.8, roughness: 0.2 });
-        group.add(new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.035, 0.45), baseMat));
-        const screenM = new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.9, roughness: 0.1 });
-        const screenMesh = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.42, 0.015), screenM);
-        screenMesh.position.set(0, 0.23, -0.22); screenMesh.rotation.x = -0.3; group.add(screenMesh);
-        laptopScreenCanvas = document.createElement('canvas');
-        laptopScreenCanvas.width = 512; laptopScreenCanvas.height = 320;
-        laptopScreenTexture = new THREE.CanvasTexture(laptopScreenCanvas);
-        laptopScreenTexture.minFilter = THREE.LinearFilter;
-        const displayMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.65, 0.37), new THREE.MeshBasicMaterial({ map: laptopScreenTexture }));
-        displayMesh.position.set(0, 0.24, -0.21); displayMesh.rotation.x = -0.3; group.add(displayMesh);
-        const kb = new THREE.Mesh(new THREE.PlaneGeometry(0.55, 0.28), new THREE.MeshStandardMaterial({ color: 0x0a0a0a, metalness: 0.3, roughness: 0.8 }));
-        kb.position.set(0, 0.02, 0.04); kb.rotation.x = -Math.PI / 2; group.add(kb);
+        const base = new THREE.Mesh(
+            new THREE.BoxGeometry(0.62, 0.028, 0.4),
+            new THREE.MeshStandardMaterial({ color: 0x1a1a1a, metalness: 0.85, roughness: 0.25 })
+        );
+        group.add(base);
+        const lid = new THREE.Mesh(
+            new THREE.BoxGeometry(0.62, 0.4, 0.018),
+            new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.9, roughness: 0.18 })
+        );
+        lid.position.set(0, 0.22, -0.19);
+        lid.rotation.x = -0.22;
+        group.add(lid);
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 320;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#0e1117';
+        ctx.fillRect(0, 0, 512, 320);
+        ctx.fillStyle = '#00ccff';
+        ctx.font = 'bold 28px monospace';
+        ctx.fillText('HERMES', 24, 48);
+        ctx.fillStyle = '#e8e8e8';
+        ctx.font = '16px monospace';
+        ctx.fillText('akhil pillay', 24, 90);
+        ctx.fillStyle = '#8b93a7';
+        ctx.fillText('press E  —  open', 24, 124);
+        laptopScreenTexture = new THREE.CanvasTexture(canvas);
+        laptopScreenTexture.colorSpace = THREE.SRGBColorSpace;
+        const screen = new THREE.Mesh(
+            new THREE.PlaneGeometry(0.56, 0.32),
+            new THREE.MeshBasicMaterial({ map: laptopScreenTexture })
+        );
+        screen.position.set(0, 0.23, -0.175);
+        screen.rotation.x = -0.22;
+        group.add(screen);
         return group;
     }
 
-    // ════════════════════════════════════════════
-    //  CAR MODEL LOADING — the GLB IS the environment
-    // ════════════════════════════════════════════
-    const interactive = [];
+    const bench = new THREE.Group();
+    const benchTop = new THREE.Mesh(
+        new THREE.BoxGeometry(1.1, 0.06, 0.55),
+        new THREE.MeshStandardMaterial({ color: 0x2a241c, roughness: 0.65, metalness: 0.15 })
+    );
+    benchTop.position.y = 0.78;
+    benchTop.castShadow = true;
+    benchTop.receiveShadow = true;
+    bench.add(benchTop);
+    const legMat = new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.6, roughness: 0.4 });
+    [[-0.45, -0.2], [0.45, -0.2], [-0.45, 0.2], [0.45, 0.2]].forEach((p) => {
+        const leg = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.78, 0.05), legMat);
+        leg.position.set(p[0], 0.39, p[1]);
+        bench.add(leg);
+    });
+    bench.visible = false;
+    scene.add(bench);
+
+    // ── Car ──
+    let carModel = null;
+    let frame = null;
     const loader = new GLTFLoader();
+
+    function measureFrame(root) {
+        root.updateMatrixWorld(true);
+        const box = new THREE.Box3().setFromObject(root);
+        const center = box.getCenter(new THREE.Vector3());
+        const size = box.getSize(new THREE.Vector3());
+        const frontPts = [];
+        root.traverse((obj) => {
+            const name = (obj.name || '').toLowerCase();
+            if (!name.includes('front-gla')) return;
+            const b = new THREE.Box3().setFromObject(obj);
+            if (b.isEmpty()) return;
+            frontPts.push(b.getCenter(new THREE.Vector3()));
+        });
+        const forward = new THREE.Vector3(0, 0, 1);
+        if (frontPts.length) {
+            const front = frontPts.reduce((a, p) => a.add(p), new THREE.Vector3()).multiplyScalar(1 / frontPts.length);
+            forward.copy(front).sub(center);
+        }
+        forward.y = 0;
+        if (forward.lengthSq() < 1e-6) forward.set(0, 0, 1);
+        forward.normalize();
+        const right = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), forward).normalize();
+        const halfW = size.x * 0.5;
+        const halfL = Math.max(size.x, size.z) * 0.5;
+        // Length is the axis along forward. size.z is world Z, which matches this model, but
+        // project the box so a rotated import still gets door/exhaust spacing right.
+        const length = Math.abs(size.dot(new THREE.Vector3(Math.abs(forward.x), 0, Math.abs(forward.z)))) || size.z;
+        const width = Math.abs(size.dot(new THREE.Vector3(Math.abs(right.x), 0, Math.abs(right.z)))) || size.x;
+
+        const driverStand = center.clone().addScaledVector(right, width * 0.5 + 0.85);
+        driverStand.y = 0;
+        const passengerStand = center.clone().addScaledVector(right, -(width * 0.5 + 1.15));
+        passengerStand.y = 0;
+        const rearStand = center.clone().addScaledVector(forward, -(length * 0.5 + 0.9));
+        rearStand.y = 0;
+
+        const driverEye = center.clone()
+            .addScaledVector(right, width * 0.18)
+            .addScaledVector(forward, length * 0.02);
+        driverEye.y = box.min.y + size.y * 0.62;
+
+        const exhaust = center.clone()
+            .addScaledVector(forward, -(length * 0.48))
+            .addScaledVector(right, width * 0.22);
+        exhaust.y = box.min.y + size.y * 0.1;
+
+        return {
+            box, center, size, forward, right, length, width, halfW, halfL,
+            driverStand, passengerStand, rearStand, driverEye, exhaust,
+        };
+    }
+
+    function placeWorld() {
+        frame = measureFrame(carModel);
+
+        const shadow = new THREE.Mesh(
+            new THREE.CircleGeometry(1, 40),
+            new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.5, depthWrite: false })
+        );
+        shadow.rotation.x = -Math.PI / 2;
+        shadow.position.copy(frame.center);
+        shadow.position.y = 0.01;
+        shadow.scale.set(frame.width * 0.55, frame.length * 0.42, 1);
+        scene.add(shadow);
+
+        underglow.position.set(frame.center.x, 0.16, frame.center.z);
+        noseLight.position.copy(frame.center).addScaledVector(frame.forward, frame.length * 0.55).addScaledVector(frame.right, frame.width * 1.15);
+        noseLight.position.y = 3.4;
+        noseLight.target.position.copy(frame.center);
+        noseLight.target.position.y = 0.65;
+
+        // Lit mouth of the bay, ahead of the nose, so the driver seat has a view.
+        const mouth = frame.center.clone().addScaledVector(frame.forward, frame.length * 0.5 + 3.4);
+        mouth.y = 0;
+        const mouthMat = new THREE.MeshStandardMaterial({
+            color: 0x7af6ff, emissive: 0x00ccff, emissiveIntensity: 2.2, roughness: 0.4,
+        });
+        const span = 4.4;
+        const postH = 2.7;
+        [-1, 1].forEach((side) => {
+            const post = new THREE.Mesh(new THREE.BoxGeometry(0.07, postH, 0.07), mouthMat);
+            post.position.copy(mouth).addScaledVector(frame.right, side * span * 0.5);
+            post.position.y = postH / 2;
+            scene.add(post);
+        });
+        const header = new THREE.Mesh(new THREE.BoxGeometry(span, 0.07, 0.07), mouthMat);
+        header.position.copy(mouth);
+        header.position.y = postH;
+        header.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), frame.right.clone().normalize());
+        scene.add(header);
+        const apron = new THREE.PointLight(0x9fd7ff, 5, 12, 2);
+        apron.position.copy(mouth).addScaledVector(frame.forward, -1.6);
+        apron.position.y = 1.1;
+        scene.add(apron);
+
+        const zones = [
+            { id: 'driver', label: 'DRIVER', color: 0x00ccff, pos: frame.driverStand, action: 'enter', prompt: 'E  —  sit in the RunX' },
+            { id: 'laptop', label: 'LAPTOP', color: 0xff4d9a, pos: frame.passengerStand, action: 'laptop', prompt: 'E  —  open the laptop' },
+            { id: 'rev', label: 'REV', color: 0xff6600, pos: frame.rearStand, action: 'rev', prompt: 'SPACE  —  rev it' },
+        ];
+        zones.forEach((z) => {
+            const ring = makeRing(z.color);
+            ring.position.x = z.pos.x;
+            ring.position.z = z.pos.z;
+            const tag = makeTag(z.label, '#' + z.color.toString(16).padStart(6, '0'));
+            tag.position.set(z.pos.x, 1.15, z.pos.z);
+            markers.push({ ...z, ring, tag });
+        });
+
+        bench.position.copy(frame.passengerStand);
+        bench.position.y = 0;
+        bench.lookAt(frame.center.x, 0, frame.center.z);
+        bench.visible = true;
+
+        laptop = buildLaptop();
+        laptop.position.set(0, 0.84, 0);
+        laptop.rotation.y = Math.PI;
+        bench.add(laptop);
+
+        character.position.copy(frame.driverStand);
+        character.position.x += frame.right.x * 0.15;
+        character.position.z += frame.right.z * 0.15;
+        character.lookAt(frame.center.x, 0, frame.center.z);
+
+        const hero = frame.center.clone()
+            .addScaledVector(frame.forward, frame.length * 0.95)
+            .addScaledVector(frame.right, frame.width * 0.7);
+        hero.y = 1.55;
+        camera.position.copy(hero);
+        showcase.focus.copy(frame.center);
+        showcase.focus.y = 0.72;
+        showcase.theta = Math.atan2(hero.x - showcase.focus.x, hero.z - showcase.focus.z);
+        showcase.dist = hero.distanceTo(showcase.focus);
+        showcase.phi = 0.22;
+        applyShowcase();
+    }
 
     loader.load('assets/models/runx.glb', (gltf) => {
         try {
             carModel = gltf.scene;
             const box = new THREE.Box3().setFromObject(carModel);
-            const size = new THREE.Vector3(); box.getSize(size);
+            const size = new THREE.Vector3();
+            box.getSize(size);
             const maxDim = Math.max(size.x, size.y, size.z) || 1;
             const S = 3.5 / maxDim;
             carModel.scale.setScalar(S);
-            const center = new THREE.Vector3(); box.getCenter(center);
+            const center = new THREE.Vector3();
+            box.getCenter(center);
             carModel.position.set(-center.x * S, -box.min.y * S, 1.0 - center.z * S);
 
-            // ── Log all mesh names for debugging ──
-            const meshNames = [];
-            carModel.traverse(child => {
-                if (child.isMesh) {
-                    meshNames.push(child.name + ' | mat:' + (child.material ? child.material.name : 'none'));
-                }
-            });
-            console.log('CAR MESHES:', meshNames.join(' ;; '));
-
-            // ── Paint the car ──
             let paintCount = 0;
-            carModel.traverse(child => {
-                if (!child.isMesh) return;
-                child.castShadow = true; child.receiveShadow = true;
-                if (!child.material) return;
+            carModel.traverse((child) => {
+                if (!child.isMesh || !child.material) return;
+                child.castShadow = true;
+                child.receiveShadow = true;
                 const mn = (child.material.name || '').toLowerCase();
                 if (mn === 'paint1' || mn.includes('paint')) {
                     const cb = new THREE.Box3().setFromObject(child);
@@ -266,741 +524,559 @@ export function start() {
                         child.material = makeFlakeBlackPaint(envMap);
                         paintCount++;
                     }
-                }
-                if (mn.includes('chrome') || mn === 'silver_metallic_199') {
-                    if (child.material.color) child.material.color.setHex(0xcccccc);
-                    child.material.metalness = 1.0; child.material.roughness = 0.05;
-                    child.material.envMap = envMap; child.material.envMapIntensity = 2.0; child.material.needsUpdate = true;
-                }
-                if (mn.includes('glass') || mn.includes('translucent')) {
-                    child.material.envMap = envMap; child.material.envMapIntensity = 1.5; child.material.needsUpdate = true;
-                }
-            });
-
-            // ── Calculate cabin position from bounding box ──
-            const carBox = new THREE.Box3().setFromObject(carModel);
-            const carMin = carBox.min;
-            const carMax = carBox.max;
-            const carWorldPos = carModel.position;
-
-            // Cabin is roughly in the middle of the car, above the floor
-            // For a sedan: cabin center is at ~40% from front, ~60% height from floor
-            const cabinLocal = new THREE.Vector3(
-                0,                                          // centered left-right
-                (carMax.y - carMin.y) * S * 0.55,           // mid-height of car body
-                (carMax.z - carMin.z) * S * 0.1             // slightly forward of center (cabin)
-            );
-            cabinCenter = cabinLocal.clone().add(carWorldPos);
-
-            // Driver eye position: left of cabin center, higher
-            driverEyePos = new THREE.Vector3(
-                carWorldPos.x - (carMax.x - carMin.x) * S * 0.25,  // left side (driver)
-                carWorldPos.y + (carMax.y - carMin.y) * S * 0.6,    // eye height
-                carWorldPos.z + (carMax.z - carMin.z) * S * 0.1     // cabin area
-            );
-
-            // ── Find exhaust — search broadly ──
-            let exhaustFound = false;
-            carModel.traverse(child => {
-                if (!child.isMesh) return;
-                const mn = (child.name || '').toLowerCase();
-                if (mn.includes('exhaust') || mn.includes('pipe') || mn.includes('muffler') ||
-                    mn.includes('tailpipe') || mn.includes('tip') || mn.includes('rear_bumper') ||
-                    mn.includes('back') || mn.includes('diffuser')) {
-                    child.getWorldPosition(exhaustWorldPos);
-                    exhaustFound = true;
-                    console.log('EXHAUST FOUND:', child.name, exhaustWorldPos);
+                } else if (mn.includes('chrome') || mn.includes('silver') || mn.includes('rim')) {
+                    child.material.metalness = 1;
+                    child.material.roughness = 0.08;
+                    child.material.envMap = envMap;
+                    child.material.envMapIntensity = 1.6;
+                    if (child.material.color) child.material.color.setHex(0xdddddd);
+                    child.material.needsUpdate = true;
+                } else if (mn.includes('glass') || mn.includes('translucent')) {
+                    child.material.envMap = envMap;
+                    child.material.envMapIntensity = 1.2;
+                    child.material.needsUpdate = true;
+                } else if (mn.includes('light')) {
+                    child.material.emissive = new THREE.Color(0xff7722);
+                    child.material.emissiveIntensity = 1.4;
+                    child.material.needsUpdate = true;
                 }
             });
-            if (!exhaustFound) {
-                // Fallback: rear-right of car, low — exhaust pipe sticks out the back right
-                exhaustWorldPos.set(
-                    carWorldPos.x + (carMax.x - carMin.x) * S * 0.35,   // right side (exhaust is usually right)
-                    carWorldPos.y + (carMax.y - carMin.y) * S * 0.12,   // low, near bumper
-                    carWorldPos.z - (carMax.z - carMin.z) * S * 0.48    // well behind car rear
-                );
-                console.log('EXHAUST FALLBACK:', exhaustWorldPos);
-            }
-
-            // ── Place laptop inside car at passenger seat ──
-            laptop = buildLaptopMesh();
-            laptop.position.set(
-                carWorldPos.x + (carMax.x - carMin.x) * S * 0.22,    // right side (passenger)
-                carWorldPos.y + (carMax.y - carMin.y) * S * 0.42,    // above seat cushion
-                carWorldPos.z - (carMax.z - carMin.z) * S * 0.05     // slightly behind center (cabin seat area)
-            );
-            laptop.rotation.y = -0.4; // face toward driver
-            laptop.rotation.x = -0.08;
-            laptop.scale.setScalar(0.18);
-            scene.add(laptop);
 
             scene.add(carModel);
-            interactive.push({ mesh: carModel, data: { label: 'GARAGE', type: 'car' } });
-            interactive.push({ mesh: laptop, data: { label: 'LAPTOP', type: 'laptop' } });
-
-            renderStreamlitDashboard();
-            setProgress(100, `Car loaded • ${paintCount} panels resprayed 🖤`);
-            setTimeout(hideLoad, 600);
-        } catch (e) {
-            console.error('Car load error:', e);
-            setProgress(100, 'Car load error');
-            setTimeout(hideLoad, 600);
+            placeWorld();
+            carReady = true;
+            setProgress(100, 'RunX in the bay');
+            say('Drag to orbit  ·  WASD to walk in  ·  E opens the laptop');
+            setTimeout(hideLoad, 400);
+            console.log('CAR FRAME', {
+                center: frame.center.toArray().map((n) => +n.toFixed(2)),
+                forward: frame.forward.toArray().map((n) => +n.toFixed(2)),
+                paintCount,
+            });
+        } catch (err) {
+            console.error(err);
+            setProgress(100, 'Car failed to place');
+            hideLoad();
         }
     }, (xhr) => {
-        if (xhr.total > 0) setProgress(50 + Math.round(xhr.loaded / xhr.total * 40), `Loading car: ${Math.round(xhr.loaded / xhr.total * 100)}%`);
+        if (xhr.total) setProgress(30 + Math.round((xhr.loaded / xhr.total) * 60), 'Loading the RunX');
     }, (err) => {
-        console.error('GLB error:', err);
-        // No GLB — set up fallback positions
-        cabinCenter.set(0, 0.6, 1.0);
-        driverEyePos.set(-0.4, 1.0, 1.2);
-        exhaustWorldPos.set(0.3, 0.15, -0.5);
-        laptop = buildLaptopMesh();
-        laptop.position.set(0.4, 0.4, 1.0);
-        laptop.rotation.y = -0.3;
-        laptop.scale.setScalar(0.2);
-        scene.add(laptop);
-        interactive.push({ mesh: laptop, data: { label: 'LAPTOP', type: 'laptop' } });
-        renderStreamlitDashboard();
-        setProgress(100, 'Loaded (no car model)');
-        setTimeout(hideLoad, 600);
+        console.error(err);
+        setProgress(100, 'Car model missing');
+        hideLoad();
     });
 
-    // ════════════════════════════════════════════
-    //  FLAME SYSTEM
-    // ════════════════════════════════════════════
-    let flameActive = false;
-    let flameParticles = null;
-    let flameLight = null;
-    let flameEmitIndex = 0;
+    setTimeout(() => {
+        if (!carReady) {
+            setProgress(100, 'Still waiting on the car');
+            hideLoad();
+        }
+    }, 12000);
 
-    function createFlameSystem() {
-        const count = 60;
-        const geo = new THREE.BufferGeometry();
-        const positions = new Float32Array(count * 3);
-        const velocities = new Float32Array(count * 3);
-        const lifetimes = new Float32Array(count);
-        for (let i = 0; i < count; i++) { positions[i * 3 + 1] = -1000; lifetimes[i] = 0; }
-        geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-        geo.setAttribute('velocity', new THREE.BufferAttribute(velocities, 3));
-        geo.setAttribute('lifetime', new THREE.BufferAttribute(lifetimes, 1));
-        const mat = new THREE.PointsMaterial({ color: 0xff6600, size: 0.12, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true });
-        flameParticles = new THREE.Points(geo, mat);
-        flameParticles.userData = { velocities, lifetimes };
-        scene.add(flameParticles);
-        flameLight = new THREE.PointLight(0xff4400, 0, 5, 2);
-        scene.add(flameLight);
-    }
-    createFlameSystem();
+    // ── Flames ──
+    let flameActive = false;
+    const flameCount = 80;
+    const flameGeo = new THREE.BufferGeometry();
+    const flamePos = new Float32Array(flameCount * 3);
+    const flameVel = new Float32Array(flameCount * 3);
+    const flameLife = new Float32Array(flameCount);
+    for (let i = 0; i < flameCount; i++) flamePos[i * 3 + 1] = -100;
+    flameGeo.setAttribute('position', new THREE.BufferAttribute(flamePos, 3));
+    const flames = new THREE.Points(
+        flameGeo,
+        new THREE.PointsMaterial({
+            color: 0xff6a00, size: 0.22, transparent: true, opacity: 0.9,
+            blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true,
+        })
+    );
+    scene.add(flames);
+    const flameLight = new THREE.PointLight(0xff4400, 0, 6, 2);
+    scene.add(flameLight);
+    let flameCursor = 0;
 
     function emitFlame() {
-        if (!flameParticles) return;
-        const geo = flameParticles.geometry;
-        const pos = geo.attributes.position.array;
-        const vel = flameParticles.userData.velocities;
-        const life = flameParticles.userData.lifetimes;
-        const count = pos.length / 3;
-        for (let n = 0; n < 3; n++) {
-            const i = flameEmitIndex % count;
-            pos[i * 3]     = exhaustWorldPos.x + (Math.random() - 0.5) * 0.12;
-            pos[i * 3 + 1] = exhaustWorldPos.y + Math.random() * 0.04;
-            pos[i * 3 + 2] = exhaustWorldPos.z + (Math.random() - 0.5) * 0.08 - 0.2;
-            vel[i * 3]     = (Math.random() - 0.5) * 0.015;
-            vel[i * 3 + 1] = Math.random() * 0.05 + 0.02;
-            vel[i * 3 + 2] = -Math.random() * 0.06 - 0.03;
-            life[i] = 1.0;
-            flameEmitIndex++;
+        if (!frame) return;
+        for (let n = 0; n < 4; n++) {
+            const i = flameCursor % flameCount;
+            flameCursor++;
+            flamePos[i * 3] = frame.exhaust.x + (Math.random() - 0.5) * 0.08;
+            flamePos[i * 3 + 1] = frame.exhaust.y + Math.random() * 0.04;
+            flamePos[i * 3 + 2] = frame.exhaust.z + (Math.random() - 0.5) * 0.08;
+            const back = frame.forward.clone().multiplyScalar(-(0.9 + Math.random() * 1.4));
+            flameVel[i * 3] = back.x + (Math.random() - 0.5) * 0.3;
+            flameVel[i * 3 + 1] = 0.4 + Math.random() * 0.8;
+            flameVel[i * 3 + 2] = back.z + (Math.random() - 0.5) * 0.3;
+            flameLife[i] = 1;
         }
-        geo.attributes.position.needsUpdate = true;
-        geo.attributes.lifetime.needsUpdate = true;
+        flameGeo.attributes.position.needsUpdate = true;
     }
-
     function updateFlame(dt) {
-        if (!flameParticles) return;
-        const geo = flameParticles.geometry;
-        const pos = geo.attributes.position.array;
-        const vel = flameParticles.userData.velocities;
-        const life = flameParticles.userData.lifetimes;
-        const count = pos.length / 3;
-        for (let i = 0; i < count; i++) {
-            if (life[i] <= 0) continue;
-            life[i] -= dt * 2.5;
-            pos[i * 3] += vel[i * 3] * dt;
-            pos[i * 3 + 1] += vel[i * 3 + 1] * dt;
-            pos[i * 3 + 2] += vel[i * 3 + 2] * dt;
-            vel[i * 3 + 1] *= 0.98;
-            if (life[i] <= 0) pos[i * 3 + 1] = -1000;
+        for (let i = 0; i < flameCount; i++) {
+            if (flameLife[i] <= 0) continue;
+            flameLife[i] -= dt * 1.8;
+            flamePos[i * 3] += flameVel[i * 3] * dt;
+            flamePos[i * 3 + 1] += flameVel[i * 3 + 1] * dt;
+            flamePos[i * 3 + 2] += flameVel[i * 3 + 2] * dt;
+            if (flameLife[i] <= 0) flamePos[i * 3 + 1] = -100;
         }
-        geo.attributes.position.needsUpdate = true;
-        geo.attributes.lifetime.needsUpdate = true;
-        if (flameLight) {
-            flameLight.intensity = flameActive ? (3 + Math.sin(performance.now() * 0.02) * 1.5) : 0;
-            if (flameActive) flameLight.position.copy(exhaustWorldPos);
-        }
+        flameGeo.attributes.position.needsUpdate = true;
+        flameLight.intensity = flameActive ? 6 + Math.sin(performance.now() * 0.03) * 2 : 0;
+        if (frame && flameActive) flameLight.position.copy(frame.exhaust);
+        if (gasIndicator) gasIndicator.style.color = flameActive ? 'rgba(255,120,40,0.95)' : 'rgba(255,102,0,0)';
+    }
+    function toggleFlame() {
+        flameActive = !flameActive;
     }
 
-    setProgress(50, 'Flame system ready');
+    // ── Modes ──
+    // showcase: poster orbit. walk: follow cam. driving: cabin.
+    let mode = 'showcase';
+    const showcase = {
+        focus: new THREE.Vector3(0, 0.7, 1),
+        theta: 0.6,
+        phi: 0.28,
+        dist: 6.2,
+    };
+    let camYaw = 0.4;
+    let camDist = 4.2;
+    let dragging = false;
+    let dragMoved = false;
+    let lastX = 0;
+    let lastY = 0;
+    const entry = {
+        active: false, t: 0, dur: 0.85,
+        from: new THREE.Vector3(), to: new THREE.Vector3(),
+        fromLook: new THREE.Vector3(), toLook: new THREE.Vector3(),
+    };
+    let fpYaw = 0;
+    let fpPitch = -0.04;
+    let pointerLocked = false;
 
-    // ════════════════════════════════════════════
-    //  LAPTOP SCREEN RENDERING
-    // ════════════════════════════════════════════
-    function getPageTitle(page) {
-        const t = { dashboard: '> AGENT_DASHBOARD', projects: '> PROJECTS.md', garage: '> GARAGE.glb', agents: '> HERMES.exe', contact: '> CONTACT.json', videos: '> VIDEOS.mp4' };
-        return t[page] || page;
-    }
-    function getPageContent(page) {
-        const c = {
-            dashboard: ['','$ whoami','→ akhil.pillay — sa | kzn | tongaat','','$ hermes --status','● gateway    — running (v2.4.0)','● provider   — openrouter/free','● memory     — 96% (4809/5000)','● cron jobs  — 4 active','','$ ls projects/','→ agenticbiz    [live] 🟢','→ hush-v1       [live] 🟢','→ dirt-hands    [dev]  🟡','→ comfort-shoot [auto] 🟢','','$ runx --specs','→ 140rt | toyota | full black | manual','→ flames: yes (when hot 🔥)'],
-            projects: ['','## Active Projects','','[1] AgenticBiz','    AI agent deployment','    → agenticbiz.vercel.app','','[2] Hush v1','    Car social platform (SA)','    → hush-v1.vercel.app','','[3] Dirt Hands Crew','    JDM mobile game','    Godot 4.4+ | Supabase','','[4] Ventrix Petroleum','    Industrial fuel co.','    React + Vite | Parallax'],
-            garage: ['','## The Garage','','VEHICLE: Toyota 140rt Runx','COLOR:   Gloss black + metallic','TRANS:   Manual','FUEL:    95 + NOS 😏','','SPECS:','→ Weekly drags: Link Road','→ Strip: King Shaka Airport Rd','→ Flames: YES (on demand 🔥)','','MOD LIST:','→ Full black paint w/ metallic','→ Tinted windows | Lowered','→ Custom exhaust (flame-capable)','','$ status: BORN TO DRAG'],
-            agents: ['','## Hermes Agent System','','CAPABILITIES:','• Wix form → WhatsApp pipeline','• XAUUSD trading analysis','• Video production (HyperFrames)','• Client mgmt automation','• Cron-based monitoring','','INFRA:','→ Local: Lenovo IdeaPad 3','  (32GB RAM | RTX 3050)','→ Cloud: Daytona + Orgo','','\"Stop thinking in endless manual','implementation. Start thinking in','outcomes, systems, and intelligent','execution.\"'],
-            contact: ['','## Get In Touch','','{','  \"name\":    \"Akhil Pillay\",','  \"location\": \"Tongaat, KZN, SA\",','  \"email\":   \"akhilpillay2.0@gmail.com\",','  \"phone\":   \"067 865 9396\",','  \"whatsapp\": \"wa.me/27678659396\",','  \"youtube\":  \"youtube.com/@that-it-dude\",','  \"tiktok\":   \"tiktok.com/@that_it_.guy\",','  \"web\":      \"agenticbiz.vercel.app\"','}','','$ ping akhil — response: fast ⚡'],
-            videos: ['','## 🎬 Durban Drag Videos','','▶ Link Road Drags','  Every weekend — Durban North','','▶ King Shaka Airport Strip','  Full throttle runs','','▶ 140rt Runx Build Series','  Full black | Flame exhaust | Manual','','▶ Car Meet Highlights','  SA car culture — Durban','','[ Click PLAY to watch ]']
-        };
-        return c[page] || ['coming soon...'];
-    }
-    function renderStreamlitDashboard() {
-        if (!laptopScreenCanvas) return;
-        const ctx = laptopScreenCanvas.getContext('2d');
-        const cw = laptopScreenCanvas.width, ch = laptopScreenCanvas.height;
-        ctx.fillStyle = '#0e1117'; ctx.fillRect(0, 0, cw, ch);
-        const sbW = streamlitState.sidebarOpen ? 120 : 0;
-        if (streamlitState.sidebarOpen) {
-            ctx.fillStyle = '#1a1d27'; ctx.fillRect(0, 0, sbW, ch);
-            ctx.fillStyle = '#00ccff'; ctx.font = 'bold 11px "JetBrains Mono", monospace'; ctx.fillText('⚡ HERMES', 8, 24);
-            ctx.fillStyle = '#666'; ctx.font = '9px "JetBrains Mono", monospace'; ctx.fillText('v2.4.0 — free', 8, 38);
-            ['dashboard','projects','garage','agents','contact','videos'].forEach((p, i) => {
-                const y = 58 + i * 26;
-                if (streamlitState.activePage === p) { ctx.fillStyle = 'rgba(0,204,255,0.1)'; ctx.fillRect(0, y - 12, sbW, 24); ctx.fillStyle = '#00ccff'; }
-                else ctx.fillStyle = '#888';
-                ctx.font = '10px "JetBrains Mono", monospace';
-                ctx.fillText(['📊','🚀','🏎️','⚡','📬','🎬'][i] + ' ' + p, 8, y);
-            });
-        } else {
-            ctx.fillStyle = '#1a1d27'; ctx.fillRect(0, 0, 24, ch);
-            ctx.fillStyle = '#00ccff'; ctx.font = '14px monospace'; ctx.fillText('▶', 6, 24);
-        }
-        const mx = sbW + 12;
-        ctx.fillStyle = '#fff'; ctx.font = 'bold 14px "JetBrains Mono", monospace'; ctx.fillText(getPageTitle(streamlitState.activePage), mx, 30);
-        ctx.strokeStyle = '#333'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(mx, 40); ctx.lineTo(cw - 12, 40); ctx.stroke();
-        ctx.fillStyle = '#ccc'; ctx.font = '10px "JetBrains Mono", monospace';
-        getPageContent(streamlitState.activePage).forEach((line, i) => { ctx.fillText(line, mx, 58 + i * 16); });
-        ctx.fillStyle = '#0a0c12'; ctx.fillRect(0, ch - 20, cw, 20);
-        ctx.fillStyle = '#00ff88'; ctx.font = '9px "JetBrains Mono", monospace'; ctx.fillText('● ONLINE', 8, ch - 7);
-        ctx.fillStyle = '#666'; ctx.fillText('OpenRouter // free tier', sbW + 8, ch - 7);
-        if (laptopScreenTexture) laptopScreenTexture.needsUpdate = true;
+    function applyShowcase() {
+        const h = Math.cos(showcase.phi) * showcase.dist;
+        camera.position.set(
+            showcase.focus.x + Math.sin(showcase.theta) * h,
+            showcase.focus.y + Math.sin(showcase.phi) * showcase.dist,
+            showcase.focus.z + Math.cos(showcase.theta) * h
+        );
+        camera.lookAt(showcase.focus);
     }
 
-    // ════════════════════════════════════════════
-    //  ZONE-BASED PROMPT SYSTEM
-    // ════════════════════════════════════════════
-    // Zones are defined relative to the car's world position
-    function getZonePrompt() {
-        if (!carModel && !laptop) return null;
-        const carPos = carModel ? carModel.position : new THREE.Vector3(0, 0, 1);
-        const charPos = character.position;
-        const dx = charPos.x - carPos.x;
-        const dz = charPos.z - carPos.z;
-        const dist = Math.sqrt(dx * dx + dz * dz);
-
-        // Too far from car
-        if (dist > 5) return null;
-
-        // Behind the car (rear) — within 2 units behind, within 2 units left-right
-        if (dz < -1.5 && Math.abs(dx) < 2.5) {
-            return { text: '🔥 Press SPACE to rev the engine', action: 'rev' };
-        }
-
-        // Driver side (left side of car) — within 2.5 units left, near cabin
-        if (dx < -1.0 && dx > -3.5 && dz > -1.5 && dz < 2.0) {
-            return { text: '🚗 Press E to get in the driver seat', action: 'enter_driver' };
-        }
-
-        // Passenger side (right side of car) — within 2.5 units right, near cabin
-        if (dx > 0.5 && dx < 3.5 && dz > -1.5 && dz < 2.0) {
-            return { text: '💻 Press E to access the laptop', action: 'laptop' };
-        }
-
-        // Near the car but not in a specific zone
-        if (dist < 3.5) {
-            return { text: '🚶 Walk to driver door, passenger door, or rear', action: null };
-        }
-
-        return null;
+    function nearestZone() {
+        if (!frame || mode !== 'walk') return null;
+        let best = null;
+        let bestD = 1.35;
+        markers.forEach((z) => {
+            const dx = character.position.x - z.pos.x;
+            const dz = character.position.z - z.pos.z;
+            const d = Math.hypot(dx, dz);
+            if (d < bestD) { bestD = d; best = z; }
+        });
+        return best;
     }
 
-    // ════════════════════════════════════════════
-    //  CAR ENTRY / EXIT
-    // ════════════════════════════════════════════
     function enterCar() {
-        if (playerState !== 'walking') return;
-        playerState = 'entering';
-        if (isPointerLocked) document.exitPointerLock();
-        entryAnim.active = true;
-        entryAnim.t = 0;
-        entryAnim.fromPos.copy(camera.position);
-        entryAnim.fromLook.copy(controls.target);
-        entryAnim.toPos.copy(driverEyePos);
-        // Look forward through windshield
-        entryAnim.toLook.set(driverEyePos.x, driverEyePos.y, driverEyePos.z + 4);
+        if (!frame || mode !== 'walk') return;
+        mode = 'entering';
+        entry.active = true;
+        entry.t = 0;
+        entry.from.copy(camera.position);
+        entry.fromLook.copy(character.position);
+        entry.fromLook.y = 1.2;
+        entry.to.copy(frame.driverEye);
+        entry.toLook.copy(frame.driverEye).addScaledVector(frame.forward, 4);
         character.visible = false;
-        controls.enabled = false;
-        $('info-bar').textContent = '🚗 Entering driver seat...';
+        say('Getting in…');
     }
-
+    function finishEnter() {
+        mode = 'driving';
+        fpYaw = Math.atan2(frame.forward.x, frame.forward.z);
+        fpPitch = -0.06;
+        noseLight.intensity = 0;
+        say('In the seat  ·  click to look  ·  SPACE rev  ·  E to get out');
+        renderer.domElement.requestPointerLock?.();
+    }
     function exitCar() {
-        if (playerState !== 'driving') return;
-        playerState = 'exiting';
-        if (isPointerLocked) document.exitPointerLock();
-        entryAnim.active = true;
-        entryAnim.t = 0;
-        entryAnim.fromPos.copy(camera.position);
-        const currentLook = new THREE.Vector3();
-        camera.getWorldDirection(currentLook);
-        entryAnim.fromLook.copy(camera.position).add(currentLook.multiplyScalar(3));
-        const exitPos = carModel ? carModel.position.clone().add(new THREE.Vector3(-2.5, 0, 0.5)) : new THREE.Vector3(-2.5, 0, 1.5);
-        character.position.copy(exitPos);
+        if (mode !== 'driving' || !frame) return;
+        if (pointerLocked) document.exitPointerLock();
+        mode = 'exiting';
+        entry.active = true;
+        entry.t = 0;
+        entry.from.copy(camera.position);
+        const dir = new THREE.Vector3();
+        camera.getWorldDirection(dir);
+        entry.fromLook.copy(camera.position).add(dir);
+        character.position.copy(frame.driverStand);
         character.visible = true;
-        entryAnim.toPos.copy(exitPos).add(new THREE.Vector3(-2, 2.5, 3));
-        entryAnim.toLook.copy(exitPos);
-        $('info-bar').textContent = '🚶 Exiting car...';
+        entry.to.copy(frame.driverStand).add(new THREE.Vector3(0, 1.6, 0)).addScaledVector(frame.right, 1.6);
+        entry.toLook.copy(frame.center);
+        entry.toLook.y = 0.8;
+        say('Stepping out…');
+    }
+    function finishExit() {
+        mode = 'walk';
+        const back = frame.driverStand.clone().sub(frame.center);
+        back.y = 0;
+        camYaw = Math.atan2(back.x, back.z);
+        noseLight.intensity = 7;
+        say('WASD  ·  rings on the floor are the doors');
     }
 
-    // ════════════════════════════════════════════
-    //  CONTROLS
-    // ════════════════════════════════════════════
-    const gasIndicator = $('gas-indicator');
+    function openLaptop() {
+        fsOverlay.style.display = 'flex';
+        renderFsPage();
+    }
+    function closeLaptop() {
+        fsOverlay.style.display = 'none';
+    }
 
-    document.addEventListener('keydown', e => {
-        if (e.code === 'Space') {
-            e.preventDefault();
-            if (playerState === 'driving') {
-                flameActive = !flameActive;
-                gasIndicator.style.color = flameActive ? 'rgba(255,102,0,1)' : 'rgba(255,102,0,0)';
-            } else if (playerState === 'walking') {
-                // Check if in rev zone
-                const zone = getZonePrompt();
-                if (zone && zone.action === 'rev') {
-                    flameActive = !flameActive;
-                    gasIndicator.style.color = flameActive ? 'rgba(255,102,0,1)' : 'rgba(255,102,0,0)';
-                }
-            }
-        }
-        if (e.code === 'KeyE') {
-            if (playerState === 'walking') {
-                const zone = getZonePrompt();
-                if (zone) {
-                    if (zone.action === 'enter_driver') enterCar();
-                    else if (zone.action === 'laptop') openFullscreenLaptop();
-                }
-            } else if (playerState === 'driving') {
-                exitCar();
-            }
-        }
-    });
-    document.addEventListener('keyup', e => { if (e.code === 'Space') e.preventDefault(); });
-
-    // Pointer lock
-    document.addEventListener('pointerlockchange', () => {
-        isPointerLocked = document.pointerLockElement === renderer.domElement;
-    });
-    document.addEventListener('mousemove', (e) => {
-        if (!isPointerLocked || playerState !== 'driving') return;
-        fpYaw -= e.movementX * 0.003;
-        fpPitch -= e.movementY * 0.003;
-        fpPitch = Math.max(-Math.PI / 2.5, Math.min(Math.PI / 2.5, fpPitch));
-    });
-
-    // ════════════════════════════════════════════
-    //  MOUSE INTERACTION
-    // ════════════════════════════════════════════
-    const raycaster = new THREE.Raycaster();
-    const pointer = new THREE.Vector2();
-    let tapStart = { x: 0, y: 0, time: 0 };
-
-    renderer.domElement.addEventListener('pointerdown', e => {
-        tapStart = { x: e.clientX, y: e.clientY, time: Date.now() };
-    });
-    renderer.domElement.addEventListener('pointerup', e => {
-        const dx = e.clientX - tapStart.x, dy = e.clientY - tapStart.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        const elapsed = Date.now() - tapStart.time;
-        if (dist > 8 || elapsed > 500) return;
-
-        if (playerState === 'driving' && !isPointerLocked) {
-            renderer.domElement.requestPointerLock();
+    function interact() {
+        if (mode === 'showcase') {
+            openLaptop();
             return;
         }
-
-        pointer.x = (e.clientX / innerWidth) * 2 - 1; pointer.y = -(e.clientY / innerHeight) * 2 + 1;
-        raycaster.setFromCamera(pointer, camera);
-        const hits = raycaster.intersectObjects(interactive.map(i => i.mesh), true);
-        if (hits.length) {
-            const hit = hits[0].object;
-            const item = interactive.find(i => {
-                if (i.mesh === hit) return true;
-                let p = hit.parent; while (p) { if (i.mesh === p) return true; p = p.parent; } return false;
-            });
-            if (item) {
-                if (item.data.type === 'car') {
-                    if (playerState === 'walking') {
-                        const zone = getZonePrompt();
-                        if (zone && zone.action === 'enter_driver') enterCar();
-                        else if (zone && zone.action === 'rev') {
-                            flameActive = !flameActive;
-                            gasIndicator.style.color = flameActive ? 'rgba(255,102,0,1)' : 'rgba(255,102,0,0)';
-                        }
-                    } else if (playerState === 'driving') {
-                        flameActive = !flameActive;
-                        gasIndicator.style.color = flameActive ? 'rgba(255,102,0,1)' : 'rgba(255,102,0,0)';
-                    }
-                }
-                if (item.data.type === 'laptop') {
-                    openFullscreenLaptop();
-                }
-            }
+        if (mode === 'driving') {
+            exitCar();
+            return;
         }
-    });
+        const zone = nearestZone();
+        if (!zone) {
+            say('Walk to a ring  —  driver door, laptop bench, or the rear');
+            return;
+        }
+        if (zone.action === 'enter') enterCar();
+        else if (zone.action === 'laptop') openLaptop();
+        else if (zone.action === 'rev') toggleFlame();
+    }
 
-    // ════════════════════════════════════════════
-    //  FULLSCREEN LAPTOP OVERLAY
-    // ════════════════════════════════════════════
-    let fsCanvas = null, fsCtx = null;
-    let fsSidebarOpen = true, fsActivePage = 'dashboard';
+    function pushOutOfCar() {
+        if (!frame) return;
+        const rel = character.position.clone().sub(frame.center);
+        const along = rel.dot(frame.forward);
+        const side = rel.dot(frame.right);
+        const halfL = frame.length * 0.5 + 0.28;
+        const halfW = frame.width * 0.5 + 0.28;
+        if (Math.abs(along) < halfL && Math.abs(side) < halfW) {
+            const outL = halfL - Math.abs(along);
+            const outW = halfW - Math.abs(side);
+            if (outW < outL) character.position.addScaledVector(frame.right, Math.sign(side || 1) * (outW + 0.02));
+            else character.position.addScaledVector(frame.forward, Math.sign(along || 1) * (outL + 0.02));
+        }
+        character.position.x = Math.max(-3.7, Math.min(3.7, character.position.x));
+        character.position.z = Math.max(-3.3, Math.min(6.4, character.position.z));
+        character.position.y = 0;
+    }
 
+    // ── Laptop overlay (real links, not painted text) ──
     const fsOverlay = document.createElement('div');
     fsOverlay.id = 'fs-laptop-overlay';
-    fsOverlay.style.cssText = 'display:none;position:fixed;inset:0;z-index:300;background:rgba(0,0,0,0.92);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);justify-content:center;align-items:center;overflow:hidden;';
+    fsOverlay.style.cssText = 'display:none;position:fixed;inset:0;z-index:300;background:rgba(4,6,12,0.9);backdrop-filter:blur(16px);justify-content:center;align-items:center;padding:24px;';
     document.body.appendChild(fsOverlay);
 
-    const fsLaptopFrame = document.createElement('div');
-    fsLaptopFrame.style.cssText = 'width:85vw;height:82vh;max-width:1200px;background:#0e1117;border-radius:12px;border:1px solid rgba(255,255,255,0.08);display:flex;flex-direction:column;overflow:hidden;';
-    fsOverlay.appendChild(fsLaptopFrame);
+    const fsFrame = document.createElement('div');
+    fsFrame.style.cssText = 'width:min(920px,94vw);height:min(640px,86vh);background:#0e1117;border:1px solid rgba(255,255,255,0.08);border-radius:14px;display:flex;flex-direction:column;overflow:hidden;position:relative;';
+    fsOverlay.appendChild(fsFrame);
 
     const titleBar = document.createElement('div');
-    titleBar.style.cssText = 'height:36px;background:#1a1d27;display:flex;align-items:center;padding:0 12px;gap:8px;border-bottom:1px solid rgba(255,255,255,0.06);flex-shrink:0;';
-    titleBar.innerHTML = '<span style="width:12px;height:12px;border-radius:50%;background:#ff5f57"></span><span style="width:12px;height:12px;border-radius:50%;background:#febc2e"></span><span style="width:12px;height:12px;border-radius:50%;background:#28c840"></span><span style="color:rgba(255,255,255,0.4);font-family:JetBrains Mono,monospace;font-size:11px;margin-left:12px">agent@workshop:~/desktop</span>';
-    fsLaptopFrame.appendChild(titleBar);
+    titleBar.style.cssText = 'height:40px;background:#161922;display:flex;align-items:center;gap:8px;padding:0 14px;border-bottom:1px solid rgba(255,255,255,0.06);flex-shrink:0;';
+    titleBar.innerHTML = '<span style="width:11px;height:11px;border-radius:50%;background:#ff5f57"></span><span style="width:11px;height:11px;border-radius:50%;background:#febc2e"></span><span style="width:11px;height:11px;border-radius:50%;background:#28c840"></span><span style="margin-left:10px;color:rgba(255,255,255,0.45);font-family:JetBrains Mono,monospace;font-size:12px">agent@workshop — akhil pillay</span>';
+    fsFrame.appendChild(titleBar);
 
     const fsClose = document.createElement('button');
     fsClose.textContent = '✕';
-    fsClose.style.cssText = 'position:absolute;top:8px;right:12px;background:rgba(255,255,255,0.06);border:none;border-radius:6px;width:28px;height:28px;color:rgba(255,255,255,0.5);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:5;';
-    fsClose.onclick = () => { fsOverlay.style.display = 'none'; document.removeEventListener('keydown', fsEscHandler); };
-    fsOverlay.appendChild(fsClose);
+    fsClose.setAttribute('aria-label', 'Close laptop');
+    fsClose.style.cssText = 'position:absolute;top:6px;right:10px;width:28px;height:28px;border:none;border-radius:6px;background:rgba(255,255,255,0.06);color:#aaa;cursor:pointer;';
+    fsClose.onclick = closeLaptop;
+    fsFrame.appendChild(fsClose);
 
-    const screenArea = document.createElement('div');
-    screenArea.style.cssText = 'flex:1;display:flex;overflow:hidden;';
-    fsLaptopFrame.appendChild(screenArea);
+    const body = document.createElement('div');
+    body.style.cssText = 'flex:1;display:flex;min-height:0;';
+    fsFrame.appendChild(body);
 
-    const fsSidebar = document.createElement('div');
-    fsSidebar.style.cssText = 'width:180px;background:#1a1d27;border-right:1px solid rgba(255,255,255,0.06);display:flex;flex-direction:column;flex-shrink:0;transition:width 0.25s;';
-    screenArea.appendChild(fsSidebar);
+    const side = document.createElement('nav');
+    side.style.cssText = 'width:168px;background:#141824;border-right:1px solid rgba(255,255,255,0.06);padding:12px 0;flex-shrink:0;';
+    body.appendChild(side);
 
-    const fsMainArea = document.createElement('div');
-    fsMainArea.style.cssText = 'flex:1;position:relative;overflow:hidden;display:flex;flex-direction:column;';
-    screenArea.appendChild(fsMainArea);
+    const pageHost = document.createElement('div');
+    pageHost.style.cssText = 'flex:1;overflow:auto;padding:22px 26px 28px;font-family:JetBrains Mono,monospace;color:#d5d8e0;font-size:13px;line-height:1.65;';
+    body.appendChild(pageHost);
 
-    fsCanvas = document.createElement('canvas');
-    fsCanvas.width = 900; fsCanvas.height = 600;
-    fsCanvas.style.cssText = 'flex:1;width:100%;';
-    fsMainArea.appendChild(fsCanvas);
-    fsCtx = fsCanvas.getContext('2d');
-
-    const fsVideoContainer = document.createElement('div');
-    fsVideoContainer.style.cssText = 'display:none;flex:1;background:#000;';
-    fsMainArea.appendChild(fsVideoContainer);
-
-    const navItems = [
-        { id: 'dashboard', icon: '📊', label: 'Dashboard' },
-        { id: 'projects', icon: '🚀', label: 'Projects' },
-        { id: 'garage',   icon: '🏎️', label: 'Garage' },
-        { id: 'agents',   icon: '⚡', label: 'Agents' },
-        { id: 'contact',  icon: '📬', label: 'Contact' },
-        { id: 'videos',   icon: '🎬', label: 'Videos' },
-    ];
-
-    const sbHeader = document.createElement('div');
-    sbHeader.style.cssText = 'padding:16px 14px 10px;border-bottom:1px solid rgba(255,255,255,0.06);';
-    sbHeader.innerHTML = '<div style="color:#00ccff;font-family:JetBrains Mono,monospace;font-size:14px;font-weight:700">⚡ HERMES</div><div style="color:#666;font-family:JetBrains Mono,monospace;font-size:10px;margin-top:4px">v2.4.0 — free</div>';
-    fsSidebar.appendChild(sbHeader);
-
-    const sbNavItems = [];
-    navItems.forEach(item => {
-        const el = document.createElement('div');
-        el.style.cssText = 'padding:10px 14px;color:#888;font-family:JetBrains Mono,monospace;font-size:12px;cursor:pointer;transition:all 0.15s;display:flex;align-items:center;gap:8px;border-left:3px solid transparent;';
-        el.innerHTML = `<span>${item.icon}</span><span>${item.label}</span>`;
-        el.onclick = () => { fsActivePage = item.id; renderFsPage(); };
-        el.onmouseenter = () => { if (fsActivePage !== item.id) el.style.background = 'rgba(255,255,255,0.04)'; };
-        el.onmouseleave = () => { if (fsActivePage !== item.id) el.style.background = 'transparent'; };
-        fsSidebar.appendChild(el);
-        sbNavItems.push({ el, item });
-    });
-
-    const collapseBtn = document.createElement('div');
-    collapseBtn.style.cssText = 'margin-top:auto;padding:12px 14px;color:#555;font-family:JetBrains Mono,monospace;font-size:10px;cursor:pointer;border-top:1px solid rgba(255,255,255,0.06);';
-    collapseBtn.textContent = '◀ collapse';
-    collapseBtn.onclick = () => {
-        fsSidebarOpen = !fsSidebarOpen;
-        fsSidebar.style.width = fsSidebarOpen ? '180px' : '36px';
-        collapseBtn.textContent = fsSidebarOpen ? '◀ collapse' : '▶';
-        sbHeader.style.display = fsSidebarOpen ? 'block' : 'none';
-        sbNavItems.forEach(ni => { ni.el.innerHTML = fsSidebarOpen ? `<span>${ni.item.icon}</span><span>${ni.item.label}</span>` : `<span style="text-align:center;width:100%">${ni.item.icon}</span>`; });
-        renderFsPage();
+    const link = (href, label) => `<a href="${href}" target="_blank" rel="noopener" style="color:#7af6ff;text-decoration:none;border-bottom:1px solid rgba(122,246,255,0.35)">${label}</a>`;
+    const pages = {
+        now: {
+            label: 'Now',
+            html: `
+                <h2 style="margin:0 0 12px;font-size:18px;color:#fff">Akhil Pillay</h2>
+                <p>Lead Web &amp; App Dev at Comfort Shooting. Ballito / Tongaat, KZN.</p>
+                <p>I build the systems, then I try to take myself out of the loop. This bay is the workshop those systems live next to — the black RunX included.</p>
+                <p>${link('https://akhil-devs-portfolio.vercel.app', 'Portfolio')}<br>
+                ${link('https://github.com/Mr-Akhil12', 'GitHub — Mr-Akhil12')}<br>
+                ${link('https://www.agenticbiz.co.za/', 'AgenticBiz')}<br>
+                ${link('https://hush-v1.vercel.app', 'Hush')}</p>`,
+        },
+        projects: {
+            label: 'Projects',
+            html: `
+                <h2 style="margin:0 0 12px;font-size:18px;color:#fff">Shipped</h2>
+                <p><b style="color:#fff">Hush</b> — SA car social. ${link('https://hush-v1.vercel.app', 'hush-v1.vercel.app')}</p>
+                <p><b style="color:#fff">AgenticBiz</b> — agentic systems, in public. ${link('https://www.agenticbiz.co.za/', 'agenticbiz.co.za')}</p>
+                <p><b style="color:#fff">Comfort Shooting</b> — day job. Systems, portals, the unglamorous things that have to stay up.</p>
+                <p><b style="color:#fff">This bay</b> — the 3D workshop. Walk it. Sit in the car. The model is not mine; credit is on the floor of the page.</p>`,
+        },
+        garage: {
+            label: 'Garage',
+            html: `
+                <h2 style="margin:0 0 12px;font-size:18px;color:#fff">140rt RunX</h2>
+                <p>Toyota RunX. Gloss black. Manual. Flames when it is asked.</p>
+                <p>Right-hand drive — driver door is the right-hand ring. Rear ring revs it. Passenger side is the bench, not a seat you have to clip through.</p>
+                <p>Model: 2001 Toyota Corolla RunX by ${link('https://sketchfab.com/outpiston', 'OUTPISTON')}, ${link('https://creativecommons.org/licenses/by-nc-sa/4.0/', 'CC BY-NC-SA 4.0')}.</p>`,
+        },
+        contact: {
+            label: 'Contact',
+            html: `
+                <h2 style="margin:0 0 12px;font-size:18px;color:#fff">Contact</h2>
+                <p>${link('mailto:akhilpillay2.0@gmail.com', 'akhilpillay2.0@gmail.com')}<br>
+                ${link('https://wa.me/27678659396', 'WhatsApp +27 67 865 9396')}<br>
+                ${link('https://youtube.com/@that-it-dude', 'YouTube @that-it-dude')}<br>
+                ${link('https://www.tiktok.com/@that_it_dude', 'TikTok @that_it_dude')}<br>
+                ${link('https://github.com/Mr-Akhil12', 'github.com/Mr-Akhil12')}</p>
+                <p style="color:#8b93a7">Ballito, KwaZulu-Natal.</p>`,
+        },
     };
-    fsSidebar.appendChild(collapseBtn);
-
-    // ── Real Durban drag YouTube videos ──
-    const videoList = [
-        { title: 'Durban Drag Racing NDT 2023', yt: 'ZObnrlICK2Q' },
-        { title: 'Durban Drag Racing Pt 1', yt: '2Qd5A2KyjCU' },
-        { title: 'Durban Drag Racing Pt 2', yt: '1eSYoleQfyQ' },
-        { title: 'Gas Live KZN 2025 Drags', yt: 'ypkudvESOGA' },
-        { title: 'KZN FWD Drag Shootout', yt: 'pDWVT2Ojxk4' },
-    ];
-    let currentVideoIdx = 0;
-
-    function buildVideoPlayer() {
-        fsVideoContainer.innerHTML = '';
-        fsVideoContainer.style.display = 'flex';
-        fsVideoContainer.style.flexDirection = 'column';
-
-        const vidTitle = document.createElement('div');
-        vidTitle.style.cssText = 'padding:10px 16px;color:#fff;font-family:JetBrains Mono,monospace;font-size:13px;background:rgba(0,0,0,0.5);flex-shrink:0;';
-        vidTitle.textContent = '🎬 ' + videoList[currentVideoIdx].title;
-        fsVideoContainer.appendChild(vidTitle);
-
-        const iframeWrap = document.createElement('div');
-        iframeWrap.style.cssText = 'flex:1;position:relative;';
-        const iframe = document.createElement('iframe');
-        iframe.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:none;';
-        iframe.src = `https://www.youtube.com/embed/${videoList[currentVideoIdx].yt}?rel=0&modestbranding=1&autoplay=0`;
-        iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
-        iframe.allowFullscreen = true;
-        iframeWrap.appendChild(iframe);
-        fsVideoContainer.appendChild(iframeWrap);
-
-        const selector = document.createElement('div');
-        selector.style.cssText = 'display:flex;gap:6px;padding:8px 12px;background:rgba(0,0,0,0.7);overflow-x:auto;flex-shrink:0;';
-        videoList.forEach((v, i) => {
-            const btn = document.createElement('button');
-            btn.style.cssText = `padding:6px 12px;border-radius:6px;border:none;font-family:JetBrains Mono,monospace;font-size:10px;cursor:pointer;white-space:nowrap;${i === currentVideoIdx ? 'background:#00ccff;color:#000;' : 'background:rgba(255,255,255,0.1);color:#888;'}`;
-            btn.textContent = v.title.substring(0, 22) + '...';
-            btn.onclick = () => { currentVideoIdx = i; buildVideoPlayer(); };
-            selector.appendChild(btn);
-        });
-        fsVideoContainer.appendChild(selector);
-    }
-
+    let activePage = 'now';
+    const navBtns = {};
+    Object.entries(pages).forEach(([id, page]) => {
+        const btn = document.createElement('button');
+        btn.textContent = page.label;
+        btn.style.cssText = 'display:block;width:100%;text-align:left;background:transparent;border:none;border-left:3px solid transparent;color:#8b93a7;font-family:JetBrains Mono,monospace;font-size:12px;padding:10px 14px;cursor:pointer;';
+        btn.onclick = () => { activePage = id; renderFsPage(); };
+        side.appendChild(btn);
+        navBtns[id] = btn;
+    });
     function renderFsPage() {
-        if (!fsCtx) return;
-        sbNavItems.forEach(ni => {
-            if (ni.item.id === fsActivePage) {
-                ni.el.style.background = 'rgba(0,204,255,0.1)';
-                ni.el.style.color = '#00ccff';
-                ni.el.style.borderLeftColor = '#00ccff';
-            } else {
-                ni.el.style.background = 'transparent';
-                ni.el.style.color = '#888';
-                ni.el.style.borderLeftColor = 'transparent';
-            }
+        Object.entries(navBtns).forEach(([id, btn]) => {
+            const on = id === activePage;
+            btn.style.color = on ? '#7af6ff' : '#8b93a7';
+            btn.style.borderLeftColor = on ? '#7af6ff' : 'transparent';
+            btn.style.background = on ? 'rgba(122,246,255,0.06)' : 'transparent';
         });
-        if (fsActivePage === 'videos') {
-            fsCanvas.style.display = 'none';
-            buildVideoPlayer();
-            return;
-        } else {
-            fsCanvas.style.display = 'block';
-            fsVideoContainer.style.display = 'none';
+        pageHost.innerHTML = pages[activePage].html;
+    }
+    fsOverlay.addEventListener('click', (e) => { if (e.target === fsOverlay) closeLaptop(); });
+
+    // ── Input ──
+    addEventListener('keydown', (e) => {
+        if (e.code === 'KeyW' || e.code === 'ArrowUp') moveState.forward = true;
+        if (e.code === 'KeyS' || e.code === 'ArrowDown') moveState.backward = true;
+        if (e.code === 'KeyA' || e.code === 'ArrowLeft') moveState.left = true;
+        if (e.code === 'KeyD' || e.code === 'ArrowRight') moveState.right = true;
+        const walkingKey = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code);
+        if (walkingKey && mode === 'showcase' && carReady) {
+            mode = 'walk';
+            character.visible = true;
+            if (frame) {
+                const back = character.position.clone().sub(frame.center);
+                back.y = 0;
+                camYaw = Math.atan2(back.x, back.z);
+            }
+            say('WASD  ·  rings on the floor are the doors');
         }
-        const cw = fsCanvas.width, ch = fsCanvas.height;
-        fsCtx.fillStyle = '#0e1117'; fsCtx.fillRect(0, 0, cw, ch);
-        fsCtx.fillStyle = '#fff'; fsCtx.font = 'bold 18px "JetBrains Mono", monospace';
-        fsCtx.fillText(getPageTitle(fsActivePage), 20, 36);
-        fsCtx.strokeStyle = '#333'; fsCtx.lineWidth = 1;
-        fsCtx.beginPath(); fsCtx.moveTo(20, 48); fsCtx.lineTo(cw - 20, 48); fsCtx.stroke();
-        fsCtx.fillStyle = '#ccc'; fsCtx.font = '12px "JetBrains Mono", monospace';
-        getPageContent(fsActivePage).forEach((line, i) => { fsCtx.fillText(line, 20, 72 + i * 18); });
-        fsCtx.fillStyle = '#0a0c12'; fsCtx.fillRect(0, ch - 24, cw, 24);
-        fsCtx.fillStyle = '#00ff88'; fsCtx.font = '10px "JetBrains Mono", monospace';
-        fsCtx.fillText('● ONLINE', 10, ch - 8);
-        fsCtx.fillStyle = '#666'; fsCtx.fillText('OpenRouter // free tier', 100, ch - 8);
-    }
-
-    function openFullscreenLaptop() {
-        fsOverlay.style.display = 'flex';
-        fsActivePage = streamlitState.activePage;
-        renderFsPage();
-        document.addEventListener('keydown', fsEscHandler);
-    }
-    function fsEscHandler(e) { if (e.code === 'Escape') { fsOverlay.style.display = 'none'; document.removeEventListener('keydown', fsEscHandler); } }
-    fsOverlay.addEventListener('click', (e) => { if (e.target === fsOverlay) { fsOverlay.style.display = 'none'; document.removeEventListener('keydown', fsEscHandler); } });
-
-    // ════════════════════════════════════════════
-    //  MOBILE CONTROLS
-    // ════════════════════════════════════════════
-    let joystickActive = false, joystickStart = { x: 0, y: 0 };
-    renderer.domElement.addEventListener('touchstart', e => {
-        if (e.touches.length !== 1) return;
-        if (e.touches[0].clientX / innerWidth < 0.4) { joystickActive = true; joystickStart = { x: e.touches[0].clientX, y: e.touches[0].clientY }; }
-    }, { passive: true });
-    renderer.domElement.addEventListener('touchmove', (e) => {
-        if (!joystickActive || e.touches.length !== 1) return;
-        const t = e.touches[0];
-        const dx = (t.clientX - joystickStart.x) / 50, dy = (t.clientY - joystickStart.y) / 50;
-        moveState.forward = dy < -0.3; moveState.backward = dy > 0.3;
-        moveState.left = dx < -0.3; moveState.right = dx > 0.3;
-    }, { passive: true });
-    renderer.domElement.addEventListener('touchend', () => {
-        joystickActive = false; moveState.forward = moveState.backward = moveState.left = moveState.right = false;
+        if (e.code === 'KeyE') {
+            if (fsOverlay.style.display === 'flex') closeLaptop();
+            else interact();
+        }
+        if (e.code === 'Space') {
+            e.preventDefault();
+            if (mode === 'driving' || mode === 'showcase' || (mode === 'walk' && nearestZone()?.action === 'rev')) toggleFlame();
+        }
+        if (e.code === 'Escape') closeLaptop();
+    });
+    addEventListener('keyup', (e) => {
+        if (e.code === 'KeyW' || e.code === 'ArrowUp') moveState.forward = false;
+        if (e.code === 'KeyS' || e.code === 'ArrowDown') moveState.backward = false;
+        if (e.code === 'KeyA' || e.code === 'ArrowLeft') moveState.left = false;
+        if (e.code === 'KeyD' || e.code === 'ArrowRight') moveState.right = false;
     });
 
-    const btnGas = document.getElementById('btn-gas');
-    const btnLaptop = document.getElementById('btn-laptop');
+    renderer.domElement.addEventListener('pointerdown', (e) => {
+        dragging = true;
+        dragMoved = false;
+        lastX = e.clientX;
+        lastY = e.clientY;
+    });
+    addEventListener('pointermove', (e) => {
+        if (!dragging || mode === 'driving') return;
+        const dx = e.clientX - lastX;
+        const dy = e.clientY - lastY;
+        if (Math.hypot(dx, dy) > 3) dragMoved = true;
+        lastX = e.clientX;
+        lastY = e.clientY;
+        if (mode === 'showcase') {
+            showcase.theta -= dx * 0.005;
+            showcase.phi = Math.max(0.08, Math.min(1.05, showcase.phi + dy * 0.004));
+        } else if (mode === 'walk') {
+            camYaw -= dx * 0.005;
+        }
+    });
+    addEventListener('pointerup', () => { dragging = false; });
+    renderer.domElement.addEventListener('pointerup', (e) => {
+        if (dragMoved) return;
+        if (mode === 'driving' && !pointerLocked) {
+            renderer.domElement.requestPointerLock?.();
+            return;
+        }
+        if (mode === 'walk') interact();
+    });
+    renderer.domElement.addEventListener('wheel', (e) => {
+        if (mode !== 'showcase') return;
+        showcase.dist = Math.max(3.2, Math.min(9, showcase.dist + Math.sign(e.deltaY) * 0.35));
+    }, { passive: true });
+
+    document.addEventListener('pointerlockchange', () => {
+        pointerLocked = document.pointerLockElement === renderer.domElement;
+    });
+    document.addEventListener('mousemove', (e) => {
+        if (!pointerLocked || mode !== 'driving') return;
+        fpYaw -= e.movementX * 0.0025;
+        fpPitch -= e.movementY * 0.0022;
+        fpPitch = Math.max(-0.6, Math.min(0.45, fpPitch));
+    });
+
+    const btnGas = $('btn-gas');
+    const btnLaptop = $('btn-laptop');
     if (btnGas) {
-        btnGas.addEventListener('touchstart', function(e) { e.preventDefault(); flameActive = !flameActive; gasIndicator.style.color = flameActive ? 'rgba(255,102,0,1)' : 'rgba(255,102,0,0)'; });
-        btnGas.addEventListener('click', function() { flameActive = !flameActive; gasIndicator.style.color = flameActive ? 'rgba(255,102,0,1)' : 'rgba(255,102,0,0)'; });
+        const fire = (e) => { e.preventDefault(); toggleFlame(); };
+        btnGas.addEventListener('click', fire);
+        btnGas.addEventListener('touchstart', fire, { passive: false });
     }
     if (btnLaptop) {
-        btnLaptop.addEventListener('touchstart', function(e) { e.preventDefault(); openFullscreenLaptop(); });
-        btnLaptop.addEventListener('click', function() { openFullscreenLaptop(); });
+        const open = (e) => { e.preventDefault(); openLaptop(); };
+        btnLaptop.addEventListener('click', open);
+        btnLaptop.addEventListener('touchstart', open, { passive: false });
     }
 
-    const joystickZone = document.getElementById('joystick-zone');
-    const joystickKnob = document.getElementById('joystick-knob');
-    if (joystickZone) {
-        joystickZone.addEventListener('touchstart', function(e) { e.preventDefault(); joystickActive = true; var t = e.touches[0]; joystickStart = { x: t.clientX, y: t.clientY }; });
-        joystickZone.addEventListener('touchmove', function(e) {
-            e.preventDefault(); if (!joystickActive) return;
-            var t = e.touches[0]; var dx = t.clientX - joystickStart.x, dy = t.clientY - joystickStart.y;
-            var maxDist = 30, dist = Math.sqrt(dx * dx + dy * dy);
-            if (dist > maxDist) { dx = dx / dist * maxDist; dy = dy / dist * maxDist; }
-            joystickKnob.style.transform = 'translate(calc(-50% + ' + dx + 'px), calc(-50% + ' + dy + 'px))';
-            moveState.forward = dy < -10; moveState.backward = dy > 10; moveState.left = dx < -10; moveState.right = dx > 10;
+    const joystickZone = $('joystick-zone');
+    const joystickKnob = $('joystick-knob');
+    if (joystickZone && joystickKnob) {
+        let joy = false;
+        let joyStart = { x: 0, y: 0 };
+        joystickZone.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            joy = true;
+            const t = e.touches[0];
+            joyStart = { x: t.clientX, y: t.clientY };
+            if (mode === 'showcase' && carReady) {
+                mode = 'walk';
+                character.visible = true;
+            }
+        }, { passive: false });
+        joystickZone.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            if (!joy) return;
+            const t = e.touches[0];
+            let dx = t.clientX - joyStart.x;
+            let dy = t.clientY - joyStart.y;
+            const dist = Math.hypot(dx, dy);
+            const max = 30;
+            if (dist > max) { dx = dx / dist * max; dy = dy / dist * max; }
+            joystickKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+            moveState.forward = dy < -10;
+            moveState.backward = dy > 10;
+            moveState.left = dx < -10;
+            moveState.right = dx > 10;
+        }, { passive: false });
+        joystickZone.addEventListener('touchend', () => {
+            joy = false;
+            moveState.forward = moveState.backward = moveState.left = moveState.right = false;
+            joystickKnob.style.transform = 'translate(-50%, -50%)';
         });
-        joystickZone.addEventListener('touchend', function() { joystickActive = false; moveState.forward = moveState.backward = moveState.left = moveState.right = false; joystickKnob.style.transform = 'translate(-50%,-50%)'; });
     }
 
-    // ════════════════════════════════════════════
-    //  ANIMATION LOOP
-    // ════════════════════════════════════════════
-    let prevTime = performance.now();
+    addEventListener('resize', () => {
+        camera.aspect = innerWidth / innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(innerWidth, innerHeight);
+        composer.setSize(innerWidth, innerHeight);
+    });
+
+    if (hintEl) hintEl.textContent = 'Drag to orbit  ·  WASD to walk in  ·  E interact  ·  SPACE rev';
+
+    // ── Loop ──
+    let prev = performance.now();
     function animate() {
         requestAnimationFrame(animate);
-        const now = performance.now(), dt = Math.min((now - prevTime) * 0.001, 0.05); prevTime = now;
+        const now = performance.now();
+        const dt = Math.min((now - prev) * 0.001, 0.05);
+        prev = now;
         const t = now * 0.001;
 
-        // ── Entry/exit animation ──
-        if (entryAnim.active) {
-            entryAnim.t += dt / entryAnim.duration;
-            const alpha = Math.min(1, entryAnim.t);
-            const eased = 1 - Math.pow(1 - alpha, 3);
-            camera.position.lerpVectors(entryAnim.fromPos, entryAnim.toPos, eased);
-            const lookTarget = new THREE.Vector3().lerpVectors(entryAnim.fromLook, entryAnim.toLook, eased);
-            camera.lookAt(lookTarget);
-            if (alpha >= 1) {
-                entryAnim.active = false;
-                if (playerState === 'entering') {
-                    playerState = 'driving';
-                    controls.enabled = false;
-                    $('info-bar').textContent = '🚗 DRIVING — mouse to look, SPACE flames, E exit';
-                    setTimeout(() => { renderer.domElement.requestPointerLock(); }, 200);
-                } else if (playerState === 'exiting') {
-                    playerState = 'walking';
-                    controls.enabled = true;
-                    controls.target.copy(character.position).add(new THREE.Vector3(0, 1, 0));
-                    camera.position.copy(entryAnim.toPos);
-                    $('info-bar').textContent = "The Agent's Workshop — explore the garage";
-                }
+        if (entry.active) {
+            entry.t += dt / entry.dur;
+            const a = Math.min(1, entry.t);
+            const e = 1 - Math.pow(1 - a, 3);
+            camera.position.lerpVectors(entry.from, entry.to, e);
+            camera.lookAt(new THREE.Vector3().lerpVectors(entry.fromLook, entry.toLook, e));
+            if (a >= 1) {
+                entry.active = false;
+                if (mode === 'entering') finishEnter();
+                else if (mode === 'exiting') finishExit();
             }
-        }
-
-        // ── Walking ──
-        if (playerState === 'walking') {
-            const moveDir = new THREE.Vector3();
-            if (moveState.forward) moveDir.z -= 1;
-            if (moveState.backward) moveDir.z += 1;
-            if (moveState.left) moveDir.x -= 1;
-            if (moveState.right) moveDir.x += 1;
-            if (moveDir.length() > 0) {
-                moveDir.normalize();
-                const camDir = new THREE.Vector3(); camera.getWorldDirection(camDir); camDir.y = 0; camDir.normalize();
-                const camRight = new THREE.Vector3(); camRight.crossVectors(camDir, new THREE.Vector3(0, 1, 0)).normalize();
-                const fm = new THREE.Vector3();
-                fm.addScaledVector(camDir, -moveDir.z); fm.addScaledVector(camRight, moveDir.x);
-                character.position.x += fm.x * characterSpeed * dt;
-                character.position.z += fm.z * characterSpeed * dt;
-                character.position.y = 0;
-                character.rotation.y = Math.atan2(fm.x, fm.z);
+        } else if (mode === 'showcase') {
+            applyShowcase();
+        } else if (mode === 'walk') {
+            const wish = new THREE.Vector3();
+            const look = new THREE.Vector3(-Math.sin(camYaw), 0, -Math.cos(camYaw));
+            const strafe = new THREE.Vector3(look.z, 0, -look.x);
+            if (moveState.forward) wish.add(look);
+            if (moveState.backward) wish.sub(look);
+            if (moveState.right) wish.add(strafe);
+            if (moveState.left) wish.sub(strafe);
+            if (wish.lengthSq() > 0) {
+                wish.normalize();
+                character.position.addScaledVector(wish, speed * dt);
+                pushOutOfCar();
+                character.rotation.y = Math.atan2(wish.x, wish.z);
             }
-
-            // Zone-based prompts
-            const zone = getZonePrompt();
-            if (zone) {
-                $('info-bar').textContent = zone.text;
-            } else {
-                $('info-bar').textContent = "The Agent's Workshop — explore the garage";
+            const head = character.position.clone();
+            head.y = 1.25;
+            const ideal = head.clone();
+            ideal.x += Math.sin(camYaw) * camDist;
+            ideal.z += Math.cos(camYaw) * camDist;
+            ideal.y = 1.7;
+            camera.position.lerp(ideal, 1 - Math.exp(-7 * dt));
+            camera.lookAt(head);
+            const zone = nearestZone();
+            say(zone ? zone.prompt : 'WASD  ·  cyan driver  ·  pink laptop  ·  orange rev');
+        } else if (mode === 'driving' && frame) {
+            const bob = Math.sin(t * 11) * 0.004;
+            camera.position.copy(frame.driverEye);
+            camera.position.y += bob;
+            if (flameActive) {
+                camera.position.x += (Math.random() - 0.5) * 0.01;
+                camera.position.y += (Math.random() - 0.5) * 0.006;
             }
-
-            // Keep orbit camera following character
-            const distToChar = camera.position.distanceTo(character.position);
-            if (distToChar > 10) {
-                controls.target.lerp(character.position.clone().add(new THREE.Vector3(0, 1, 0)), 0.02);
-            }
-            controls.update();
-        }
-
-        // ── Driving (first person from inside car) ──
-        if (playerState === 'driving' && !entryAnim.active) {
-            // Update driver eye position in case car moves
-            if (carModel) {
-                const carBox = new THREE.Box3().setFromObject(carModel);
-                const S = carModel.scale.x;
-                driverEyePos.set(
-                    carModel.position.x - (carBox.max.x - carBox.min.x) * S * 0.25,
-                    carModel.position.y + (carBox.max.y - carBox.min.y) * S * 0.6,
-                    carModel.position.z + (carBox.max.z - carBox.min.z) * S * 0.1
-                );
-            }
-
-            // Idle vibration
-            const bobX = Math.sin(t * 8) * 0.003;
-            const bobY = Math.abs(Math.sin(t * 12)) * 0.002;
-            camera.position.set(driverEyePos.x + bobX, driverEyePos.y + bobY, driverEyePos.z);
-
-            // Look direction
-            const lookDir = new THREE.Vector3(
+            const look = new THREE.Vector3(
                 Math.sin(fpYaw) * Math.cos(fpPitch),
                 Math.sin(fpPitch),
                 Math.cos(fpYaw) * Math.cos(fpPitch)
             );
-            camera.lookAt(camera.position.clone().add(lookDir.multiplyScalar(5)));
-
-            // Flame shake
-            if (flameActive) {
-                camera.position.x += (Math.random() - 0.5) * 0.008;
-                camera.position.y += (Math.random() - 0.5) * 0.005;
-            }
+            camera.lookAt(camera.position.clone().add(look));
         }
 
-        // Laptop breathing
-        if (laptop) {
-            const breathe = Math.sin(t * 1.5) * 0.012;
-            laptop.scale.setScalar(0.2 + breathe);
-        }
+        markers.forEach((z) => {
+            const pulse = 0.9 + Math.sin(t * 3 + z.pos.x) * 0.08;
+            z.ring.scale.setScalar(pulse);
+            const hot = mode === 'walk' && nearestZone() === z;
+            z.ring.material.opacity = hot ? 1 : 0.45;
+            z.tag.position.y = 1.12 + Math.sin(t * 2 + z.pos.z) * 0.04;
+        });
 
-        // Neon pulse
-        plCyan.intensity = 6 + Math.sin(t * 1.8) * 1.5;
-        plPink.intensity = 4 + Math.cos(t * 1.5) * 1;
-        plOrange.intensity = 3 + Math.sin(t * 2.2) * 0.8;
-        plPurple.intensity = 3 + Math.cos(t * 1.2) * 0.8;
-
+        plCyan.intensity = 7 + Math.sin(t * 1.6) * 1.2;
+        plPink.intensity = 4.5 + Math.cos(t * 1.3) * 0.8;
         if (flameActive) emitFlame();
         updateFlame(dt);
-        if (Math.floor(t * 2) !== Math.floor((t - dt) * 2)) renderStreamlitDashboard();
         composer.render();
     }
     animate();
-    setProgress(55, 'Ready to roll...');
-
-    // Safety timeout
-    setTimeout(() => { setProgress(100, 'Loaded'); hideLoad(); }, 4000);
+    setProgress(40, 'Waiting on the RunX');
 }

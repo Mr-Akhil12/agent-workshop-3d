@@ -23,8 +23,15 @@
         #loading .bar-wrap{width:260px;height:3px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden;margin-bottom:12px}
         #loading .bar{height:100%;width:0%;background:linear-gradient(90deg,#00ff88,#00ccff);border-radius:2px;transition:width 0.3s ease}
         #loading .status{font-family:'JetBrains Mono',monospace;color:rgba(255,255,255,0.35);font-size:12px}
-        #hint{position:fixed;top:24px;left:50%;transform:translateX(-50%);font-family:'JetBrains Mono',monospace;font-size:11px;color:rgba(255,255,255,0.2);z-index:10;pointer-events:none;transition:opacity 1s;text-align:center}
-        #info-bar{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,0.7);font-family:'JetBrains Mono',monospace;font-size:13px;background:rgba(8,8,16,0.7);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);padding:10px 24px;border-radius:10px;border:1px solid rgba(255,255,255,0.06);max-width:520px;text-align:center;z-index:10;transition:opacity 0.3s;pointer-events:none;white-space:nowrap}
+        #hint{position:fixed;top:18px;left:50%;transform:translateX(-50%);font-family:'JetBrains Mono',monospace;font-size:12px;color:rgba(255,255,255,0.72);z-index:10;pointer-events:none;text-align:center;letter-spacing:0.02em}
+        #identity{position:fixed;top:18px;left:18px;z-index:20;color:#fff;font-family:'Space Grotesk',sans-serif;background:rgba(8,10,16,0.72);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:12px 14px;backdrop-filter:blur(12px);max-width:240px}
+        #identity strong{display:block;font-size:15px;letter-spacing:-0.02em}
+        #identity span{display:block;margin-top:2px;color:rgba(255,255,255,0.55);font-size:11px;font-family:'JetBrains Mono',monospace}
+        #identity nav{display:flex;gap:10px;margin-top:8px}
+        #identity a{color:#7af6ff;font-size:11px;font-family:'JetBrains Mono',monospace;text-decoration:none}
+        #credit{position:fixed;left:18px;bottom:18px;z-index:20;font-family:'JetBrains Mono',monospace;font-size:10px;color:rgba(255,255,255,0.38);max-width:280px;line-height:1.45}
+        #credit a{color:rgba(122,246,255,0.7);text-decoration:none}
+        #info-bar{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,0.86);font-family:'JetBrains Mono',monospace;font-size:13px;background:rgba(8,8,16,0.78);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);padding:10px 20px;border-radius:10px;border:1px solid rgba(255,255,255,0.08);max-width:min(560px,92vw);text-align:center;z-index:10;pointer-events:none}
         #detail-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);z-index:100;justify-content:center;align-items:center;padding:20px}
         #detail-overlay.show{display:flex}
         .detail-card{background:rgba(12,12,20,0.95);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:36px 40px;max-width:480px;width:100%;position:relative;animation:cardIn 0.35s cubic-bezier(0.16,1,0.3,1)}
@@ -41,8 +48,9 @@
         @media(max-width:600px){.detail-card{padding:24px 20px;margin:10px}#info-bar{font-size:11px;padding:8px 16px;max-width:90vw;white-space:normal}}
 
         /* Mobile Controls */
-        #mobile-controls{display:none;position:fixed;bottom:0;left:0;right:0;height:140px;z-index:50;pointer-events:none;}
-        @media(max-width:768px){#mobile-controls{display:flex;}}
+        #mobile-controls{display:block;position:fixed;inset:0;z-index:50;pointer-events:none;}
+        #joystick-zone{display:none;}
+        @media(max-width:768px){#joystick-zone{display:block;}#credit{bottom:148px}#identity{max-width:46vw;padding:8px 10px}}
         #joystick-zone{position:absolute;bottom:20px;left:20px;width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,0.08);border:2px solid rgba(255,255,255,0.15);pointer-events:auto;}
         #joystick-knob{position:absolute;width:40px;height:40px;border-radius:50%;background:rgba(0,204,255,0.5);border:2px solid rgba(0,204,255,0.8);top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;}
         #action-buttons{position:absolute;bottom:20px;right:20px;display:flex;flex-direction:column;gap:10px;pointer-events:auto;}
@@ -56,8 +64,18 @@
         <div class="bar-wrap"><div class="bar" id="load-bar"></div></div>
         <p class="status" id="load-status">Initializing...</p>
     </div>
-    <div id="hint">WASD to move · walk to car zones for prompts · E to interact</div>
-    <div id="info-bar">The Agent's Workshop — explore the garage</div>
+    <div id="identity">
+        <strong>Akhil Pillay</strong>
+        <span>Lead dev · Comfort Shooting</span>
+        <nav>
+            <a href="https://akhil-devs-portfolio.vercel.app" target="_blank" rel="noopener">Portfolio</a>
+            <a href="https://github.com/Mr-Akhil12" target="_blank" rel="noopener">GitHub</a>
+            <a href="https://hush-v1.vercel.app" target="_blank" rel="noopener">Hush</a>
+        </nav>
+    </div>
+    <div id="hint">Drag to orbit · WASD to walk in · E interact · SPACE rev</div>
+    <div id="info-bar">The Agent's Workshop</div>
+    <div id="credit">RunX model by <a href="https://sketchfab.com/3d-models/2001-toyota-corolla-runx-44614da6a9ab49d2814a31f754f6685c" target="_blank" rel="noopener">OUTPISTON</a> · <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="noopener">CC BY-NC-SA 4.0</a></div>
     <div id="gas-indicator">🔥 GAS IT 🔥</div>
 
     <!-- Mobile Controls -->
