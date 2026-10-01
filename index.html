@@ -17,7 +17,7 @@
         body{margin:0;overflow:hidden;background:#000;font-family:'Space Grotesk',sans-serif;cursor:grab}
         body:active{cursor:grabbing}
         canvas{display:block}
-        #loading{position:fixed;inset:0;background:#000;display:flex;flex-direction:column;justify-content:center;align-items:center;z-index:200;transition:opacity 0.8s ease-out}
+        #loading{position:fixed;inset:0;background:#000;display:flex;flex-direction:column;justify-content:center;align-items:center;z-index:200;transition:opacity 0.35s ease-out}
         #loading.hidden{opacity:0;pointer-events:none}
         #loading h1{font-size:clamp(24px,5vw,42px);background:linear-gradient(135deg,#00ff88,#00ccff,#ff00ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:24px;letter-spacing:-0.02em}
         #loading .bar-wrap{width:260px;height:3px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden;margin-bottom:12px}
@@ -51,6 +51,7 @@
         #mobile-controls{display:block;position:fixed;inset:0;z-index:50;pointer-events:none;}
         #joystick-zone{display:none;}
         @media(max-width:768px){#joystick-zone{display:block;}#credit{bottom:148px}#identity{max-width:46vw;padding:8px 10px}}
+        @media(min-width:769px){#action-buttons{display:none}}
         #joystick-zone{position:absolute;bottom:20px;left:20px;width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,0.08);border:2px solid rgba(255,255,255,0.15);pointer-events:auto;}
         #joystick-knob{position:absolute;width:40px;height:40px;border-radius:50%;background:rgba(0,204,255,0.5);border:2px solid rgba(0,204,255,0.8);top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;}
         #action-buttons{position:absolute;bottom:20px;right:20px;display:flex;flex-direction:column;gap:10px;pointer-events:auto;}
@@ -73,7 +74,7 @@
             <a href="https://hush-v1.vercel.app" target="_blank" rel="noopener">Hush</a>
         </nav>
     </div>
-    <div id="hint">Drag to orbit · WASD to walk in · E interact · SPACE rev</div>
+    <div id="hint">Click to look · WASD · V first / third · E sit or laptop</div>
     <div id="info-bar">The Agent's Workshop</div>
     <div id="credit">RunX model by <a href="https://sketchfab.com/3d-models/2001-toyota-corolla-runx-44614da6a9ab49d2814a31f754f6685c" target="_blank" rel="noopener">OUTPISTON</a> · <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="noopener">CC BY-NC-SA 4.0</a></div>
     <div id="gas-indicator">🔥 GAS IT 🔥</div>

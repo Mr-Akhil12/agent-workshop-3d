@@ -18574,147 +18574,6 @@ void main() {
       }
     }
   }
-  class SpriteMaterial extends Material {
-    static get type() {
-      return "SpriteMaterial";
-    }
-    constructor(parameters) {
-      super();
-      this.isSpriteMaterial = true;
-      this.color = new Color(16777215);
-      this.map = null;
-      this.alphaMap = null;
-      this.rotation = 0;
-      this.sizeAttenuation = true;
-      this.transparent = true;
-      this.fog = true;
-      this.setValues(parameters);
-    }
-    copy(source) {
-      super.copy(source);
-      this.color.copy(source.color);
-      this.map = source.map;
-      this.alphaMap = source.alphaMap;
-      this.rotation = source.rotation;
-      this.sizeAttenuation = source.sizeAttenuation;
-      this.fog = source.fog;
-      return this;
-    }
-  }
-  let _geometry$1;
-  const _intersectPoint = /* @__PURE__ */ new Vector3();
-  const _worldScale = /* @__PURE__ */ new Vector3();
-  const _mvPosition = /* @__PURE__ */ new Vector3();
-  const _alignedPosition = /* @__PURE__ */ new Vector2();
-  const _rotatedPosition = /* @__PURE__ */ new Vector2();
-  const _viewWorldMatrix = /* @__PURE__ */ new Matrix4();
-  const _vA = /* @__PURE__ */ new Vector3();
-  const _vB = /* @__PURE__ */ new Vector3();
-  const _vC = /* @__PURE__ */ new Vector3();
-  const _uvA = /* @__PURE__ */ new Vector2();
-  const _uvB = /* @__PURE__ */ new Vector2();
-  const _uvC = /* @__PURE__ */ new Vector2();
-  class Sprite extends Object3D {
-    constructor(material = new SpriteMaterial()) {
-      super();
-      this.isSprite = true;
-      this.type = "Sprite";
-      if (_geometry$1 === void 0) {
-        _geometry$1 = new BufferGeometry();
-        const float32Array = new Float32Array([
-          -0.5,
-          -0.5,
-          0,
-          0,
-          0,
-          0.5,
-          -0.5,
-          0,
-          1,
-          0,
-          0.5,
-          0.5,
-          0,
-          1,
-          1,
-          -0.5,
-          0.5,
-          0,
-          0,
-          1
-        ]);
-        const interleavedBuffer = new InterleavedBuffer(float32Array, 5);
-        _geometry$1.setIndex([0, 1, 2, 0, 2, 3]);
-        _geometry$1.setAttribute("position", new InterleavedBufferAttribute(interleavedBuffer, 3, 0, false));
-        _geometry$1.setAttribute("uv", new InterleavedBufferAttribute(interleavedBuffer, 2, 3, false));
-      }
-      this.geometry = _geometry$1;
-      this.material = material;
-      this.center = new Vector2(0.5, 0.5);
-    }
-    raycast(raycaster, intersects) {
-      if (raycaster.camera === null) {
-        console.error('THREE.Sprite: "Raycaster.camera" needs to be set in order to raycast against sprites.');
-      }
-      _worldScale.setFromMatrixScale(this.matrixWorld);
-      _viewWorldMatrix.copy(raycaster.camera.matrixWorld);
-      this.modelViewMatrix.multiplyMatrices(raycaster.camera.matrixWorldInverse, this.matrixWorld);
-      _mvPosition.setFromMatrixPosition(this.modelViewMatrix);
-      if (raycaster.camera.isPerspectiveCamera && this.material.sizeAttenuation === false) {
-        _worldScale.multiplyScalar(-_mvPosition.z);
-      }
-      const rotation = this.material.rotation;
-      let sin, cos;
-      if (rotation !== 0) {
-        cos = Math.cos(rotation);
-        sin = Math.sin(rotation);
-      }
-      const center = this.center;
-      transformVertex(_vA.set(-0.5, -0.5, 0), _mvPosition, center, _worldScale, sin, cos);
-      transformVertex(_vB.set(0.5, -0.5, 0), _mvPosition, center, _worldScale, sin, cos);
-      transformVertex(_vC.set(0.5, 0.5, 0), _mvPosition, center, _worldScale, sin, cos);
-      _uvA.set(0, 0);
-      _uvB.set(1, 0);
-      _uvC.set(1, 1);
-      let intersect = raycaster.ray.intersectTriangle(_vA, _vB, _vC, false, _intersectPoint);
-      if (intersect === null) {
-        transformVertex(_vB.set(-0.5, 0.5, 0), _mvPosition, center, _worldScale, sin, cos);
-        _uvB.set(0, 1);
-        intersect = raycaster.ray.intersectTriangle(_vA, _vC, _vB, false, _intersectPoint);
-        if (intersect === null) {
-          return;
-        }
-      }
-      const distance = raycaster.ray.origin.distanceTo(_intersectPoint);
-      if (distance < raycaster.near || distance > raycaster.far) return;
-      intersects.push({
-        distance,
-        point: _intersectPoint.clone(),
-        uv: Triangle.getInterpolation(_intersectPoint, _vA, _vB, _vC, _uvA, _uvB, _uvC, new Vector2()),
-        face: null,
-        object: this
-      });
-    }
-    copy(source, recursive) {
-      super.copy(source, recursive);
-      if (source.center !== void 0) this.center.copy(source.center);
-      this.material = source.material;
-      return this;
-    }
-  }
-  function transformVertex(vertexPosition, mvPosition, center, scale, sin, cos) {
-    _alignedPosition.subVectors(vertexPosition, center).addScalar(0.5).multiply(scale);
-    if (sin !== void 0) {
-      _rotatedPosition.x = cos * _alignedPosition.x - sin * _alignedPosition.y;
-      _rotatedPosition.y = sin * _alignedPosition.x + cos * _alignedPosition.y;
-    } else {
-      _rotatedPosition.copy(_alignedPosition);
-    }
-    vertexPosition.copy(mvPosition);
-    vertexPosition.x += _rotatedPosition.x;
-    vertexPosition.y += _rotatedPosition.y;
-    vertexPosition.applyMatrix4(_viewWorldMatrix);
-  }
   const _basePosition = /* @__PURE__ */ new Vector3();
   const _skinIndex = /* @__PURE__ */ new Vector4();
   const _skinWeight = /* @__PURE__ */ new Vector4();
@@ -20783,153 +20642,6 @@ void main() {
       return new CylinderGeometry(data.radiusTop, data.radiusBottom, data.height, data.radialSegments, data.heightSegments, data.openEnded, data.thetaStart, data.thetaLength);
     }
   }
-  const _v0 = /* @__PURE__ */ new Vector3();
-  const _v1$1 = /* @__PURE__ */ new Vector3();
-  const _normal = /* @__PURE__ */ new Vector3();
-  const _triangle = /* @__PURE__ */ new Triangle();
-  class EdgesGeometry extends BufferGeometry {
-    constructor(geometry = null, thresholdAngle = 1) {
-      super();
-      this.type = "EdgesGeometry";
-      this.parameters = {
-        geometry,
-        thresholdAngle
-      };
-      if (geometry !== null) {
-        const precisionPoints = 4;
-        const precision = Math.pow(10, precisionPoints);
-        const thresholdDot = Math.cos(DEG2RAD * thresholdAngle);
-        const indexAttr = geometry.getIndex();
-        const positionAttr = geometry.getAttribute("position");
-        const indexCount = indexAttr ? indexAttr.count : positionAttr.count;
-        const indexArr = [0, 0, 0];
-        const vertKeys = ["a", "b", "c"];
-        const hashes = new Array(3);
-        const edgeData = {};
-        const vertices = [];
-        for (let i = 0; i < indexCount; i += 3) {
-          if (indexAttr) {
-            indexArr[0] = indexAttr.getX(i);
-            indexArr[1] = indexAttr.getX(i + 1);
-            indexArr[2] = indexAttr.getX(i + 2);
-          } else {
-            indexArr[0] = i;
-            indexArr[1] = i + 1;
-            indexArr[2] = i + 2;
-          }
-          const { a, b, c } = _triangle;
-          a.fromBufferAttribute(positionAttr, indexArr[0]);
-          b.fromBufferAttribute(positionAttr, indexArr[1]);
-          c.fromBufferAttribute(positionAttr, indexArr[2]);
-          _triangle.getNormal(_normal);
-          hashes[0] = `${Math.round(a.x * precision)},${Math.round(a.y * precision)},${Math.round(a.z * precision)}`;
-          hashes[1] = `${Math.round(b.x * precision)},${Math.round(b.y * precision)},${Math.round(b.z * precision)}`;
-          hashes[2] = `${Math.round(c.x * precision)},${Math.round(c.y * precision)},${Math.round(c.z * precision)}`;
-          if (hashes[0] === hashes[1] || hashes[1] === hashes[2] || hashes[2] === hashes[0]) {
-            continue;
-          }
-          for (let j = 0; j < 3; j++) {
-            const jNext = (j + 1) % 3;
-            const vecHash0 = hashes[j];
-            const vecHash1 = hashes[jNext];
-            const v0 = _triangle[vertKeys[j]];
-            const v1 = _triangle[vertKeys[jNext]];
-            const hash = `${vecHash0}_${vecHash1}`;
-            const reverseHash = `${vecHash1}_${vecHash0}`;
-            if (reverseHash in edgeData && edgeData[reverseHash]) {
-              if (_normal.dot(edgeData[reverseHash].normal) <= thresholdDot) {
-                vertices.push(v0.x, v0.y, v0.z);
-                vertices.push(v1.x, v1.y, v1.z);
-              }
-              edgeData[reverseHash] = null;
-            } else if (!(hash in edgeData)) {
-              edgeData[hash] = {
-                index0: indexArr[j],
-                index1: indexArr[jNext],
-                normal: _normal.clone()
-              };
-            }
-          }
-        }
-        for (const key in edgeData) {
-          if (edgeData[key]) {
-            const { index0, index1 } = edgeData[key];
-            _v0.fromBufferAttribute(positionAttr, index0);
-            _v1$1.fromBufferAttribute(positionAttr, index1);
-            vertices.push(_v0.x, _v0.y, _v0.z);
-            vertices.push(_v1$1.x, _v1$1.y, _v1$1.z);
-          }
-        }
-        this.setAttribute("position", new Float32BufferAttribute(vertices, 3));
-      }
-    }
-    copy(source) {
-      super.copy(source);
-      this.parameters = Object.assign({}, source.parameters);
-      return this;
-    }
-  }
-  class RingGeometry extends BufferGeometry {
-    constructor(innerRadius = 0.5, outerRadius = 1, thetaSegments = 32, phiSegments = 1, thetaStart = 0, thetaLength = Math.PI * 2) {
-      super();
-      this.type = "RingGeometry";
-      this.parameters = {
-        innerRadius,
-        outerRadius,
-        thetaSegments,
-        phiSegments,
-        thetaStart,
-        thetaLength
-      };
-      thetaSegments = Math.max(3, thetaSegments);
-      phiSegments = Math.max(1, phiSegments);
-      const indices = [];
-      const vertices = [];
-      const normals = [];
-      const uvs = [];
-      let radius = innerRadius;
-      const radiusStep = (outerRadius - innerRadius) / phiSegments;
-      const vertex2 = new Vector3();
-      const uv = new Vector2();
-      for (let j = 0; j <= phiSegments; j++) {
-        for (let i = 0; i <= thetaSegments; i++) {
-          const segment = thetaStart + i / thetaSegments * thetaLength;
-          vertex2.x = radius * Math.cos(segment);
-          vertex2.y = radius * Math.sin(segment);
-          vertices.push(vertex2.x, vertex2.y, vertex2.z);
-          normals.push(0, 0, 1);
-          uv.x = (vertex2.x / outerRadius + 1) / 2;
-          uv.y = (vertex2.y / outerRadius + 1) / 2;
-          uvs.push(uv.x, uv.y);
-        }
-        radius += radiusStep;
-      }
-      for (let j = 0; j < phiSegments; j++) {
-        const thetaSegmentLevel = j * (thetaSegments + 1);
-        for (let i = 0; i < thetaSegments; i++) {
-          const segment = i + thetaSegmentLevel;
-          const a = segment;
-          const b = segment + thetaSegments + 1;
-          const c = segment + thetaSegments + 2;
-          const d = segment + 1;
-          indices.push(a, b, d);
-          indices.push(b, c, d);
-        }
-      }
-      this.setIndex(indices);
-      this.setAttribute("position", new Float32BufferAttribute(vertices, 3));
-      this.setAttribute("normal", new Float32BufferAttribute(normals, 3));
-      this.setAttribute("uv", new Float32BufferAttribute(uvs, 2));
-    }
-    copy(source) {
-      super.copy(source);
-      this.parameters = Object.assign({}, source.parameters);
-      return this;
-    }
-    static fromJSON(data) {
-      return new RingGeometry(data.innerRadius, data.outerRadius, data.thetaSegments, data.phiSegments, data.thetaStart, data.thetaLength);
-    }
-  }
   class SphereGeometry extends BufferGeometry {
     constructor(radius = 1, widthSegments = 32, heightSegments = 16, phiStart = 0, phiLength = Math.PI * 2, thetaStart = 0, thetaLength = Math.PI) {
       super();
@@ -20998,15 +20710,6 @@ void main() {
     }
     static fromJSON(data) {
       return new SphereGeometry(data.radius, data.widthSegments, data.heightSegments, data.phiStart, data.phiLength, data.thetaStart, data.thetaLength);
-    }
-  }
-  class RawShaderMaterial extends ShaderMaterial {
-    static get type() {
-      return "RawShaderMaterial";
-    }
-    constructor(parameters) {
-      super(parameters);
-      this.isRawShaderMaterial = true;
     }
   }
   class MeshStandardMaterial extends Material {
@@ -22785,47 +22488,6 @@ void main() {
       scope.manager.itemStart(url);
     }
   }
-  class Clock {
-    constructor(autoStart = true) {
-      this.autoStart = autoStart;
-      this.startTime = 0;
-      this.oldTime = 0;
-      this.elapsedTime = 0;
-      this.running = false;
-    }
-    start() {
-      this.startTime = now();
-      this.oldTime = this.startTime;
-      this.elapsedTime = 0;
-      this.running = true;
-    }
-    stop() {
-      this.getElapsedTime();
-      this.running = false;
-      this.autoStart = false;
-    }
-    getElapsedTime() {
-      this.getDelta();
-      return this.elapsedTime;
-    }
-    getDelta() {
-      let diff = 0;
-      if (this.autoStart && !this.running) {
-        this.start();
-        return 0;
-      }
-      if (this.running) {
-        const newTime = now();
-        diff = (newTime - this.oldTime) / 1e3;
-        this.oldTime = newTime;
-        this.elapsedTime += diff;
-      }
-      return diff;
-    }
-  }
-  function now() {
-    return performance.now();
-  }
   const _RESERVED_CHARS_RE = "\\[\\]\\.:\\/";
   const _reservedRe = new RegExp("[" + _RESERVED_CHARS_RE + "]", "g");
   const _wordChar = "[^" + _RESERVED_CHARS_RE + "]";
@@ -23203,39 +22865,6 @@ void main() {
       PropertyBinding.prototype._setValue_fromArray_setMatrixWorldNeedsUpdate
     ]
   ];
-  class GridHelper extends LineSegments {
-    constructor(size = 10, divisions = 10, color1 = 4473924, color2 = 8947848) {
-      color1 = new Color(color1);
-      color2 = new Color(color2);
-      const center = divisions / 2;
-      const step = size / divisions;
-      const halfSize = size / 2;
-      const vertices = [], colors = [];
-      for (let i = 0, j = 0, k = -halfSize; i <= divisions; i++, k += step) {
-        vertices.push(-halfSize, 0, k, halfSize, 0, k);
-        vertices.push(k, 0, -halfSize, k, 0, halfSize);
-        const color = i === center ? color1 : color2;
-        color.toArray(colors, j);
-        j += 3;
-        color.toArray(colors, j);
-        j += 3;
-        color.toArray(colors, j);
-        j += 3;
-        color.toArray(colors, j);
-        j += 3;
-      }
-      const geometry = new BufferGeometry();
-      geometry.setAttribute("position", new Float32BufferAttribute(vertices, 3));
-      geometry.setAttribute("color", new Float32BufferAttribute(colors, 3));
-      const material = new LineBasicMaterial({ vertexColors: true, toneMapped: false });
-      super(geometry, material);
-      this.type = "GridHelper";
-    }
-    dispose() {
-      this.geometry.dispose();
-      this.material.dispose();
-    }
-  }
   if (typeof __THREE_DEVTOOLS__ !== "undefined") {
     __THREE_DEVTOOLS__.dispatchEvent(new CustomEvent("register", { detail: {
       revision: REVISION
@@ -23281,7 +22910,6 @@ void main() {
     CineonToneMapping,
     CircleGeometry,
     ClampToEdgeWrapping,
-    Clock,
     Color,
     ColorKeyframeTrack,
     ColorManagement,
@@ -23316,7 +22944,6 @@ void main() {
     DoubleSide,
     DstAlphaFactor,
     DstColorFactor,
-    EdgesGeometry,
     EllipseCurve,
     EqualCompare,
     EqualDepth,
@@ -23335,7 +22962,6 @@ void main() {
     GreaterDepth,
     GreaterEqualCompare,
     GreaterEqualDepth,
-    GridHelper,
     Group,
     HalfFloatType,
     HemisphereLight,
@@ -23471,7 +23097,6 @@ void main() {
     RGB_S3TC_DXT1_Format,
     RGFormat,
     RGIntegerFormat,
-    RawShaderMaterial,
     Ray,
     RedFormat,
     RedIntegerFormat,
@@ -23479,7 +23104,6 @@ void main() {
     RenderTarget,
     RepeatWrapping,
     ReverseSubtractEquation,
-    RingGeometry,
     SIGNED_RED_GREEN_RGTC2_Format,
     SIGNED_RED_RGTC1_Format,
     SRGBColorSpace,
@@ -23496,8 +23120,6 @@ void main() {
     SphereGeometry,
     SplineCurve,
     SpotLight,
-    Sprite,
-    SpriteMaterial,
     SrcAlphaFactor,
     SrcAlphaSaturateFactor,
     SrcColorFactor,
@@ -26065,1201 +25687,330 @@ void main() {
       return primitiveDef.targets !== void 0 ? addMorphTargets(geometry, primitiveDef.targets, parser) : geometry;
     });
   }
-  const CopyShader = {
-    name: "CopyShader",
-    uniforms: {
-      "tDiffuse": { value: null },
-      "opacity": { value: 1 }
-    },
-    vertexShader: (
-      /* glsl */
-      `
-
-		varying vec2 vUv;
-
-		void main() {
-
-			vUv = uv;
-			gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
-
-		}`
-    ),
-    fragmentShader: (
-      /* glsl */
-      `
-
-		uniform float opacity;
-
-		uniform sampler2D tDiffuse;
-
-		varying vec2 vUv;
-
-		void main() {
-
-			vec4 texel = texture2D( tDiffuse, vUv );
-			gl_FragColor = opacity * texel;
-
-
-		}`
-    )
-  };
-  class Pass {
-    constructor() {
-      this.isPass = true;
-      this.enabled = true;
-      this.needsSwap = true;
-      this.clear = false;
-      this.renderToScreen = false;
-    }
-    setSize() {
-    }
-    render() {
-      console.error("THREE.Pass: .render() must be implemented in derived pass.");
-    }
-    dispose() {
-    }
-  }
-  const _camera = new OrthographicCamera(-1, 1, 1, -1, 0, 1);
-  class FullscreenTriangleGeometry extends BufferGeometry {
-    constructor() {
-      super();
-      this.setAttribute("position", new Float32BufferAttribute([-1, 3, 0, -1, -1, 0, 3, -1, 0], 3));
-      this.setAttribute("uv", new Float32BufferAttribute([0, 2, 0, 0, 2, 0], 2));
-    }
-  }
-  const _geometry = new FullscreenTriangleGeometry();
-  class FullScreenQuad {
-    constructor(material) {
-      this._mesh = new Mesh(_geometry, material);
-    }
-    dispose() {
-      this._mesh.geometry.dispose();
-    }
-    render(renderer) {
-      renderer.render(this._mesh, _camera);
-    }
-    get material() {
-      return this._mesh.material;
-    }
-    set material(value) {
-      this._mesh.material = value;
-    }
-  }
-  class ShaderPass extends Pass {
-    constructor(shader, textureID) {
-      super();
-      this.textureID = textureID !== void 0 ? textureID : "tDiffuse";
-      if (shader instanceof ShaderMaterial) {
-        this.uniforms = shader.uniforms;
-        this.material = shader;
-      } else if (shader) {
-        this.uniforms = UniformsUtils.clone(shader.uniforms);
-        this.material = new ShaderMaterial({
-          name: shader.name !== void 0 ? shader.name : "unspecified",
-          defines: Object.assign({}, shader.defines),
-          uniforms: this.uniforms,
-          vertexShader: shader.vertexShader,
-          fragmentShader: shader.fragmentShader
-        });
-      }
-      this.fsQuad = new FullScreenQuad(this.material);
-    }
-    render(renderer, writeBuffer, readBuffer) {
-      if (this.uniforms[this.textureID]) {
-        this.uniforms[this.textureID].value = readBuffer.texture;
-      }
-      this.fsQuad.material = this.material;
-      if (this.renderToScreen) {
-        renderer.setRenderTarget(null);
-        this.fsQuad.render(renderer);
-      } else {
-        renderer.setRenderTarget(writeBuffer);
-        if (this.clear) renderer.clear(renderer.autoClearColor, renderer.autoClearDepth, renderer.autoClearStencil);
-        this.fsQuad.render(renderer);
-      }
-    }
-    dispose() {
-      this.material.dispose();
-      this.fsQuad.dispose();
-    }
-  }
-  class MaskPass extends Pass {
-    constructor(scene, camera) {
-      super();
-      this.scene = scene;
-      this.camera = camera;
-      this.clear = true;
-      this.needsSwap = false;
-      this.inverse = false;
-    }
-    render(renderer, writeBuffer, readBuffer) {
-      const context = renderer.getContext();
-      const state = renderer.state;
-      state.buffers.color.setMask(false);
-      state.buffers.depth.setMask(false);
-      state.buffers.color.setLocked(true);
-      state.buffers.depth.setLocked(true);
-      let writeValue, clearValue;
-      if (this.inverse) {
-        writeValue = 0;
-        clearValue = 1;
-      } else {
-        writeValue = 1;
-        clearValue = 0;
-      }
-      state.buffers.stencil.setTest(true);
-      state.buffers.stencil.setOp(context.REPLACE, context.REPLACE, context.REPLACE);
-      state.buffers.stencil.setFunc(context.ALWAYS, writeValue, 4294967295);
-      state.buffers.stencil.setClear(clearValue);
-      state.buffers.stencil.setLocked(true);
-      renderer.setRenderTarget(readBuffer);
-      if (this.clear) renderer.clear();
-      renderer.render(this.scene, this.camera);
-      renderer.setRenderTarget(writeBuffer);
-      if (this.clear) renderer.clear();
-      renderer.render(this.scene, this.camera);
-      state.buffers.color.setLocked(false);
-      state.buffers.depth.setLocked(false);
-      state.buffers.color.setMask(true);
-      state.buffers.depth.setMask(true);
-      state.buffers.stencil.setLocked(false);
-      state.buffers.stencil.setFunc(context.EQUAL, 1, 4294967295);
-      state.buffers.stencil.setOp(context.KEEP, context.KEEP, context.KEEP);
-      state.buffers.stencil.setLocked(true);
-    }
-  }
-  class ClearMaskPass extends Pass {
-    constructor() {
-      super();
-      this.needsSwap = false;
-    }
-    render(renderer) {
-      renderer.state.buffers.stencil.setLocked(false);
-      renderer.state.buffers.stencil.setTest(false);
-    }
-  }
-  class EffectComposer {
-    constructor(renderer, renderTarget) {
-      this.renderer = renderer;
-      this._pixelRatio = renderer.getPixelRatio();
-      if (renderTarget === void 0) {
-        const size = renderer.getSize(new Vector2());
-        this._width = size.width;
-        this._height = size.height;
-        renderTarget = new WebGLRenderTarget(this._width * this._pixelRatio, this._height * this._pixelRatio, { type: HalfFloatType });
-        renderTarget.texture.name = "EffectComposer.rt1";
-      } else {
-        this._width = renderTarget.width;
-        this._height = renderTarget.height;
-      }
-      this.renderTarget1 = renderTarget;
-      this.renderTarget2 = renderTarget.clone();
-      this.renderTarget2.texture.name = "EffectComposer.rt2";
-      this.writeBuffer = this.renderTarget1;
-      this.readBuffer = this.renderTarget2;
-      this.renderToScreen = true;
-      this.passes = [];
-      this.copyPass = new ShaderPass(CopyShader);
-      this.copyPass.material.blending = NoBlending;
-      this.clock = new Clock();
-    }
-    swapBuffers() {
-      const tmp2 = this.readBuffer;
-      this.readBuffer = this.writeBuffer;
-      this.writeBuffer = tmp2;
-    }
-    addPass(pass) {
-      this.passes.push(pass);
-      pass.setSize(this._width * this._pixelRatio, this._height * this._pixelRatio);
-    }
-    insertPass(pass, index) {
-      this.passes.splice(index, 0, pass);
-      pass.setSize(this._width * this._pixelRatio, this._height * this._pixelRatio);
-    }
-    removePass(pass) {
-      const index = this.passes.indexOf(pass);
-      if (index !== -1) {
-        this.passes.splice(index, 1);
-      }
-    }
-    isLastEnabledPass(passIndex) {
-      for (let i = passIndex + 1; i < this.passes.length; i++) {
-        if (this.passes[i].enabled) {
-          return false;
-        }
-      }
-      return true;
-    }
-    render(deltaTime) {
-      if (deltaTime === void 0) {
-        deltaTime = this.clock.getDelta();
-      }
-      const currentRenderTarget = this.renderer.getRenderTarget();
-      let maskActive = false;
-      for (let i = 0, il = this.passes.length; i < il; i++) {
-        const pass = this.passes[i];
-        if (pass.enabled === false) continue;
-        pass.renderToScreen = this.renderToScreen && this.isLastEnabledPass(i);
-        pass.render(this.renderer, this.writeBuffer, this.readBuffer, deltaTime, maskActive);
-        if (pass.needsSwap) {
-          if (maskActive) {
-            const context = this.renderer.getContext();
-            const stencil = this.renderer.state.buffers.stencil;
-            stencil.setFunc(context.NOTEQUAL, 1, 4294967295);
-            this.copyPass.render(this.renderer, this.writeBuffer, this.readBuffer, deltaTime);
-            stencil.setFunc(context.EQUAL, 1, 4294967295);
-          }
-          this.swapBuffers();
-        }
-        if (MaskPass !== void 0) {
-          if (pass instanceof MaskPass) {
-            maskActive = true;
-          } else if (pass instanceof ClearMaskPass) {
-            maskActive = false;
-          }
-        }
-      }
-      this.renderer.setRenderTarget(currentRenderTarget);
-    }
-    reset(renderTarget) {
-      if (renderTarget === void 0) {
-        const size = this.renderer.getSize(new Vector2());
-        this._pixelRatio = this.renderer.getPixelRatio();
-        this._width = size.width;
-        this._height = size.height;
-        renderTarget = this.renderTarget1.clone();
-        renderTarget.setSize(this._width * this._pixelRatio, this._height * this._pixelRatio);
-      }
-      this.renderTarget1.dispose();
-      this.renderTarget2.dispose();
-      this.renderTarget1 = renderTarget;
-      this.renderTarget2 = renderTarget.clone();
-      this.writeBuffer = this.renderTarget1;
-      this.readBuffer = this.renderTarget2;
-    }
-    setSize(width, height) {
-      this._width = width;
-      this._height = height;
-      const effectiveWidth = this._width * this._pixelRatio;
-      const effectiveHeight = this._height * this._pixelRatio;
-      this.renderTarget1.setSize(effectiveWidth, effectiveHeight);
-      this.renderTarget2.setSize(effectiveWidth, effectiveHeight);
-      for (let i = 0; i < this.passes.length; i++) {
-        this.passes[i].setSize(effectiveWidth, effectiveHeight);
-      }
-    }
-    setPixelRatio(pixelRatio) {
-      this._pixelRatio = pixelRatio;
-      this.setSize(this._width, this._height);
-    }
-    dispose() {
-      this.renderTarget1.dispose();
-      this.renderTarget2.dispose();
-      this.copyPass.dispose();
-    }
-  }
-  class RenderPass extends Pass {
-    constructor(scene, camera, overrideMaterial = null, clearColor = null, clearAlpha = null) {
-      super();
-      this.scene = scene;
-      this.camera = camera;
-      this.overrideMaterial = overrideMaterial;
-      this.clearColor = clearColor;
-      this.clearAlpha = clearAlpha;
-      this.clear = true;
-      this.clearDepth = false;
-      this.needsSwap = false;
-      this._oldClearColor = new Color();
-    }
-    render(renderer, writeBuffer, readBuffer) {
-      const oldAutoClear = renderer.autoClear;
-      renderer.autoClear = false;
-      let oldClearAlpha, oldOverrideMaterial;
-      if (this.overrideMaterial !== null) {
-        oldOverrideMaterial = this.scene.overrideMaterial;
-        this.scene.overrideMaterial = this.overrideMaterial;
-      }
-      if (this.clearColor !== null) {
-        renderer.getClearColor(this._oldClearColor);
-        renderer.setClearColor(this.clearColor, renderer.getClearAlpha());
-      }
-      if (this.clearAlpha !== null) {
-        oldClearAlpha = renderer.getClearAlpha();
-        renderer.setClearAlpha(this.clearAlpha);
-      }
-      if (this.clearDepth == true) {
-        renderer.clearDepth();
-      }
-      renderer.setRenderTarget(this.renderToScreen ? null : readBuffer);
-      if (this.clear === true) {
-        renderer.clear(renderer.autoClearColor, renderer.autoClearDepth, renderer.autoClearStencil);
-      }
-      renderer.render(this.scene, this.camera);
-      if (this.clearColor !== null) {
-        renderer.setClearColor(this._oldClearColor);
-      }
-      if (this.clearAlpha !== null) {
-        renderer.setClearAlpha(oldClearAlpha);
-      }
-      if (this.overrideMaterial !== null) {
-        this.scene.overrideMaterial = oldOverrideMaterial;
-      }
-      renderer.autoClear = oldAutoClear;
-    }
-  }
-  const LuminosityHighPassShader = {
-    uniforms: {
-      "tDiffuse": { value: null },
-      "luminosityThreshold": { value: 1 },
-      "smoothWidth": { value: 1 },
-      "defaultColor": { value: new Color(0) },
-      "defaultOpacity": { value: 0 }
-    },
-    vertexShader: (
-      /* glsl */
-      `
-
-		varying vec2 vUv;
-
-		void main() {
-
-			vUv = uv;
-
-			gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
-
-		}`
-    ),
-    fragmentShader: (
-      /* glsl */
-      `
-
-		uniform sampler2D tDiffuse;
-		uniform vec3 defaultColor;
-		uniform float defaultOpacity;
-		uniform float luminosityThreshold;
-		uniform float smoothWidth;
-
-		varying vec2 vUv;
-
-		void main() {
-
-			vec4 texel = texture2D( tDiffuse, vUv );
-
-			float v = luminance( texel.xyz );
-
-			vec4 outputColor = vec4( defaultColor.rgb, defaultOpacity );
-
-			float alpha = smoothstep( luminosityThreshold, luminosityThreshold + smoothWidth, v );
-
-			gl_FragColor = mix( outputColor, texel, alpha );
-
-		}`
-    )
-  };
-  class UnrealBloomPass extends Pass {
-    constructor(resolution, strength, radius, threshold) {
-      super();
-      this.strength = strength !== void 0 ? strength : 1;
-      this.radius = radius;
-      this.threshold = threshold;
-      this.resolution = resolution !== void 0 ? new Vector2(resolution.x, resolution.y) : new Vector2(256, 256);
-      this.clearColor = new Color(0, 0, 0);
-      this.renderTargetsHorizontal = [];
-      this.renderTargetsVertical = [];
-      this.nMips = 5;
-      let resx = Math.round(this.resolution.x / 2);
-      let resy = Math.round(this.resolution.y / 2);
-      this.renderTargetBright = new WebGLRenderTarget(resx, resy, { type: HalfFloatType });
-      this.renderTargetBright.texture.name = "UnrealBloomPass.bright";
-      this.renderTargetBright.texture.generateMipmaps = false;
-      for (let i = 0; i < this.nMips; i++) {
-        const renderTargetHorizontal = new WebGLRenderTarget(resx, resy, { type: HalfFloatType });
-        renderTargetHorizontal.texture.name = "UnrealBloomPass.h" + i;
-        renderTargetHorizontal.texture.generateMipmaps = false;
-        this.renderTargetsHorizontal.push(renderTargetHorizontal);
-        const renderTargetVertical = new WebGLRenderTarget(resx, resy, { type: HalfFloatType });
-        renderTargetVertical.texture.name = "UnrealBloomPass.v" + i;
-        renderTargetVertical.texture.generateMipmaps = false;
-        this.renderTargetsVertical.push(renderTargetVertical);
-        resx = Math.round(resx / 2);
-        resy = Math.round(resy / 2);
-      }
-      const highPassShader = LuminosityHighPassShader;
-      this.highPassUniforms = UniformsUtils.clone(highPassShader.uniforms);
-      this.highPassUniforms["luminosityThreshold"].value = threshold;
-      this.highPassUniforms["smoothWidth"].value = 0.01;
-      this.materialHighPassFilter = new ShaderMaterial({
-        uniforms: this.highPassUniforms,
-        vertexShader: highPassShader.vertexShader,
-        fragmentShader: highPassShader.fragmentShader
-      });
-      this.separableBlurMaterials = [];
-      const kernelSizeArray = [3, 5, 7, 9, 11];
-      resx = Math.round(this.resolution.x / 2);
-      resy = Math.round(this.resolution.y / 2);
-      for (let i = 0; i < this.nMips; i++) {
-        this.separableBlurMaterials.push(this.getSeperableBlurMaterial(kernelSizeArray[i]));
-        this.separableBlurMaterials[i].uniforms["invSize"].value = new Vector2(1 / resx, 1 / resy);
-        resx = Math.round(resx / 2);
-        resy = Math.round(resy / 2);
-      }
-      this.compositeMaterial = this.getCompositeMaterial(this.nMips);
-      this.compositeMaterial.uniforms["blurTexture1"].value = this.renderTargetsVertical[0].texture;
-      this.compositeMaterial.uniforms["blurTexture2"].value = this.renderTargetsVertical[1].texture;
-      this.compositeMaterial.uniforms["blurTexture3"].value = this.renderTargetsVertical[2].texture;
-      this.compositeMaterial.uniforms["blurTexture4"].value = this.renderTargetsVertical[3].texture;
-      this.compositeMaterial.uniforms["blurTexture5"].value = this.renderTargetsVertical[4].texture;
-      this.compositeMaterial.uniforms["bloomStrength"].value = strength;
-      this.compositeMaterial.uniforms["bloomRadius"].value = 0.1;
-      const bloomFactors = [1, 0.8, 0.6, 0.4, 0.2];
-      this.compositeMaterial.uniforms["bloomFactors"].value = bloomFactors;
-      this.bloomTintColors = [new Vector3(1, 1, 1), new Vector3(1, 1, 1), new Vector3(1, 1, 1), new Vector3(1, 1, 1), new Vector3(1, 1, 1)];
-      this.compositeMaterial.uniforms["bloomTintColors"].value = this.bloomTintColors;
-      const copyShader = CopyShader;
-      this.copyUniforms = UniformsUtils.clone(copyShader.uniforms);
-      this.blendMaterial = new ShaderMaterial({
-        uniforms: this.copyUniforms,
-        vertexShader: copyShader.vertexShader,
-        fragmentShader: copyShader.fragmentShader,
-        blending: AdditiveBlending,
-        depthTest: false,
-        depthWrite: false,
-        transparent: true
-      });
-      this.enabled = true;
-      this.needsSwap = false;
-      this._oldClearColor = new Color();
-      this.oldClearAlpha = 1;
-      this.basic = new MeshBasicMaterial();
-      this.fsQuad = new FullScreenQuad(null);
-    }
-    dispose() {
-      for (let i = 0; i < this.renderTargetsHorizontal.length; i++) {
-        this.renderTargetsHorizontal[i].dispose();
-      }
-      for (let i = 0; i < this.renderTargetsVertical.length; i++) {
-        this.renderTargetsVertical[i].dispose();
-      }
-      this.renderTargetBright.dispose();
-      for (let i = 0; i < this.separableBlurMaterials.length; i++) {
-        this.separableBlurMaterials[i].dispose();
-      }
-      this.compositeMaterial.dispose();
-      this.blendMaterial.dispose();
-      this.basic.dispose();
-      this.fsQuad.dispose();
-    }
-    setSize(width, height) {
-      let resx = Math.round(width / 2);
-      let resy = Math.round(height / 2);
-      this.renderTargetBright.setSize(resx, resy);
-      for (let i = 0; i < this.nMips; i++) {
-        this.renderTargetsHorizontal[i].setSize(resx, resy);
-        this.renderTargetsVertical[i].setSize(resx, resy);
-        this.separableBlurMaterials[i].uniforms["invSize"].value = new Vector2(1 / resx, 1 / resy);
-        resx = Math.round(resx / 2);
-        resy = Math.round(resy / 2);
-      }
-    }
-    render(renderer, writeBuffer, readBuffer, deltaTime, maskActive) {
-      renderer.getClearColor(this._oldClearColor);
-      this.oldClearAlpha = renderer.getClearAlpha();
-      const oldAutoClear = renderer.autoClear;
-      renderer.autoClear = false;
-      renderer.setClearColor(this.clearColor, 0);
-      if (maskActive) renderer.state.buffers.stencil.setTest(false);
-      if (this.renderToScreen) {
-        this.fsQuad.material = this.basic;
-        this.basic.map = readBuffer.texture;
-        renderer.setRenderTarget(null);
-        renderer.clear();
-        this.fsQuad.render(renderer);
-      }
-      this.highPassUniforms["tDiffuse"].value = readBuffer.texture;
-      this.highPassUniforms["luminosityThreshold"].value = this.threshold;
-      this.fsQuad.material = this.materialHighPassFilter;
-      renderer.setRenderTarget(this.renderTargetBright);
-      renderer.clear();
-      this.fsQuad.render(renderer);
-      let inputRenderTarget = this.renderTargetBright;
-      for (let i = 0; i < this.nMips; i++) {
-        this.fsQuad.material = this.separableBlurMaterials[i];
-        this.separableBlurMaterials[i].uniforms["colorTexture"].value = inputRenderTarget.texture;
-        this.separableBlurMaterials[i].uniforms["direction"].value = UnrealBloomPass.BlurDirectionX;
-        renderer.setRenderTarget(this.renderTargetsHorizontal[i]);
-        renderer.clear();
-        this.fsQuad.render(renderer);
-        this.separableBlurMaterials[i].uniforms["colorTexture"].value = this.renderTargetsHorizontal[i].texture;
-        this.separableBlurMaterials[i].uniforms["direction"].value = UnrealBloomPass.BlurDirectionY;
-        renderer.setRenderTarget(this.renderTargetsVertical[i]);
-        renderer.clear();
-        this.fsQuad.render(renderer);
-        inputRenderTarget = this.renderTargetsVertical[i];
-      }
-      this.fsQuad.material = this.compositeMaterial;
-      this.compositeMaterial.uniforms["bloomStrength"].value = this.strength;
-      this.compositeMaterial.uniforms["bloomRadius"].value = this.radius;
-      this.compositeMaterial.uniforms["bloomTintColors"].value = this.bloomTintColors;
-      renderer.setRenderTarget(this.renderTargetsHorizontal[0]);
-      renderer.clear();
-      this.fsQuad.render(renderer);
-      this.fsQuad.material = this.blendMaterial;
-      this.copyUniforms["tDiffuse"].value = this.renderTargetsHorizontal[0].texture;
-      if (maskActive) renderer.state.buffers.stencil.setTest(true);
-      if (this.renderToScreen) {
-        renderer.setRenderTarget(null);
-        this.fsQuad.render(renderer);
-      } else {
-        renderer.setRenderTarget(readBuffer);
-        this.fsQuad.render(renderer);
-      }
-      renderer.setClearColor(this._oldClearColor, this.oldClearAlpha);
-      renderer.autoClear = oldAutoClear;
-    }
-    getSeperableBlurMaterial(kernelRadius) {
-      const coefficients = [];
-      for (let i = 0; i < kernelRadius; i++) {
-        coefficients.push(0.39894 * Math.exp(-0.5 * i * i / (kernelRadius * kernelRadius)) / kernelRadius);
-      }
-      return new ShaderMaterial({
-        defines: {
-          "KERNEL_RADIUS": kernelRadius
-        },
-        uniforms: {
-          "colorTexture": { value: null },
-          "invSize": { value: new Vector2(0.5, 0.5) },
-          // inverse texture size
-          "direction": { value: new Vector2(0.5, 0.5) },
-          "gaussianCoefficients": { value: coefficients }
-          // precomputed Gaussian coefficients
-        },
-        vertexShader: `varying vec2 vUv;
-				void main() {
-					vUv = uv;
-					gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
-				}`,
-        fragmentShader: `#include <common>
-				varying vec2 vUv;
-				uniform sampler2D colorTexture;
-				uniform vec2 invSize;
-				uniform vec2 direction;
-				uniform float gaussianCoefficients[KERNEL_RADIUS];
-
-				void main() {
-					float weightSum = gaussianCoefficients[0];
-					vec3 diffuseSum = texture2D( colorTexture, vUv ).rgb * weightSum;
-					for( int i = 1; i < KERNEL_RADIUS; i ++ ) {
-						float x = float(i);
-						float w = gaussianCoefficients[i];
-						vec2 uvOffset = direction * invSize * x;
-						vec3 sample1 = texture2D( colorTexture, vUv + uvOffset ).rgb;
-						vec3 sample2 = texture2D( colorTexture, vUv - uvOffset ).rgb;
-						diffuseSum += (sample1 + sample2) * w;
-						weightSum += 2.0 * w;
-					}
-					gl_FragColor = vec4(diffuseSum/weightSum, 1.0);
-				}`
-      });
-    }
-    getCompositeMaterial(nMips) {
-      return new ShaderMaterial({
-        defines: {
-          "NUM_MIPS": nMips
-        },
-        uniforms: {
-          "blurTexture1": { value: null },
-          "blurTexture2": { value: null },
-          "blurTexture3": { value: null },
-          "blurTexture4": { value: null },
-          "blurTexture5": { value: null },
-          "bloomStrength": { value: 1 },
-          "bloomFactors": { value: null },
-          "bloomTintColors": { value: null },
-          "bloomRadius": { value: 0 }
-        },
-        vertexShader: `varying vec2 vUv;
-				void main() {
-					vUv = uv;
-					gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
-				}`,
-        fragmentShader: `varying vec2 vUv;
-				uniform sampler2D blurTexture1;
-				uniform sampler2D blurTexture2;
-				uniform sampler2D blurTexture3;
-				uniform sampler2D blurTexture4;
-				uniform sampler2D blurTexture5;
-				uniform float bloomStrength;
-				uniform float bloomRadius;
-				uniform float bloomFactors[NUM_MIPS];
-				uniform vec3 bloomTintColors[NUM_MIPS];
-
-				float lerpBloomFactor(const in float factor) {
-					float mirrorFactor = 1.2 - factor;
-					return mix(factor, mirrorFactor, bloomRadius);
-				}
-
-				void main() {
-					gl_FragColor = bloomStrength * ( lerpBloomFactor(bloomFactors[0]) * vec4(bloomTintColors[0], 1.0) * texture2D(blurTexture1, vUv) +
-						lerpBloomFactor(bloomFactors[1]) * vec4(bloomTintColors[1], 1.0) * texture2D(blurTexture2, vUv) +
-						lerpBloomFactor(bloomFactors[2]) * vec4(bloomTintColors[2], 1.0) * texture2D(blurTexture3, vUv) +
-						lerpBloomFactor(bloomFactors[3]) * vec4(bloomTintColors[3], 1.0) * texture2D(blurTexture4, vUv) +
-						lerpBloomFactor(bloomFactors[4]) * vec4(bloomTintColors[4], 1.0) * texture2D(blurTexture5, vUv) );
-				}`
-      });
-    }
-  }
-  UnrealBloomPass.BlurDirectionX = new Vector2(1, 0);
-  UnrealBloomPass.BlurDirectionY = new Vector2(0, 1);
-  const OutputShader = {
-    name: "OutputShader",
-    uniforms: {
-      "tDiffuse": { value: null },
-      "toneMappingExposure": { value: 1 }
-    },
-    vertexShader: (
-      /* glsl */
-      `
-		precision highp float;
-
-		uniform mat4 modelViewMatrix;
-		uniform mat4 projectionMatrix;
-
-		attribute vec3 position;
-		attribute vec2 uv;
-
-		varying vec2 vUv;
-
-		void main() {
-
-			vUv = uv;
-			gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
-
-		}`
-    ),
-    fragmentShader: (
-      /* glsl */
-      `
-	
-		precision highp float;
-
-		uniform sampler2D tDiffuse;
-
-		#include <tonemapping_pars_fragment>
-		#include <colorspace_pars_fragment>
-
-		varying vec2 vUv;
-
-		void main() {
-
-			gl_FragColor = texture2D( tDiffuse, vUv );
-
-			// tone mapping
-
-			#ifdef LINEAR_TONE_MAPPING
-
-				gl_FragColor.rgb = LinearToneMapping( gl_FragColor.rgb );
-
-			#elif defined( REINHARD_TONE_MAPPING )
-
-				gl_FragColor.rgb = ReinhardToneMapping( gl_FragColor.rgb );
-
-			#elif defined( CINEON_TONE_MAPPING )
-
-				gl_FragColor.rgb = CineonToneMapping( gl_FragColor.rgb );
-
-			#elif defined( ACES_FILMIC_TONE_MAPPING )
-
-				gl_FragColor.rgb = ACESFilmicToneMapping( gl_FragColor.rgb );
-
-			#elif defined( AGX_TONE_MAPPING )
-
-				gl_FragColor.rgb = AgXToneMapping( gl_FragColor.rgb );
-
-			#elif defined( NEUTRAL_TONE_MAPPING )
-
-				gl_FragColor.rgb = NeutralToneMapping( gl_FragColor.rgb );
-
-			#endif
-
-			// color space
-
-			#ifdef SRGB_TRANSFER
-
-				gl_FragColor = sRGBTransferOETF( gl_FragColor );
-
-			#endif
-
-		}`
-    )
-  };
-  class OutputPass extends Pass {
-    constructor() {
-      super();
-      const shader = OutputShader;
-      this.uniforms = UniformsUtils.clone(shader.uniforms);
-      this.material = new RawShaderMaterial({
-        name: shader.name,
-        uniforms: this.uniforms,
-        vertexShader: shader.vertexShader,
-        fragmentShader: shader.fragmentShader
-      });
-      this.fsQuad = new FullScreenQuad(this.material);
-      this._outputColorSpace = null;
-      this._toneMapping = null;
-    }
-    render(renderer, writeBuffer, readBuffer) {
-      this.uniforms["tDiffuse"].value = readBuffer.texture;
-      this.uniforms["toneMappingExposure"].value = renderer.toneMappingExposure;
-      if (this._outputColorSpace !== renderer.outputColorSpace || this._toneMapping !== renderer.toneMapping) {
-        this._outputColorSpace = renderer.outputColorSpace;
-        this._toneMapping = renderer.toneMapping;
-        this.material.defines = {};
-        if (ColorManagement.getTransfer(this._outputColorSpace) === SRGBTransfer) this.material.defines.SRGB_TRANSFER = "";
-        if (this._toneMapping === LinearToneMapping) this.material.defines.LINEAR_TONE_MAPPING = "";
-        else if (this._toneMapping === ReinhardToneMapping) this.material.defines.REINHARD_TONE_MAPPING = "";
-        else if (this._toneMapping === CineonToneMapping) this.material.defines.CINEON_TONE_MAPPING = "";
-        else if (this._toneMapping === ACESFilmicToneMapping) this.material.defines.ACES_FILMIC_TONE_MAPPING = "";
-        else if (this._toneMapping === AgXToneMapping) this.material.defines.AGX_TONE_MAPPING = "";
-        else if (this._toneMapping === NeutralToneMapping) this.material.defines.NEUTRAL_TONE_MAPPING = "";
-        this.material.needsUpdate = true;
-      }
-      if (this.renderToScreen === true) {
-        renderer.setRenderTarget(null);
-        this.fsQuad.render(renderer);
-      } else {
-        renderer.setRenderTarget(writeBuffer);
-        if (this.clear) renderer.clear(renderer.autoClearColor, renderer.autoClearDepth, renderer.autoClearStencil);
-        this.fsQuad.render(renderer);
-      }
-    }
-    dispose() {
-      this.material.dispose();
-      this.fsQuad.dispose();
-    }
-  }
-  function createEnvMap(renderer) {
-    const pmrem = new PMREMGenerator(renderer);
-    pmrem.compileEquirectangularShader();
-    const envScene = new Scene();
-    envScene.background = new Color(657940);
-    const l1 = new PointLight(52479, 100, 50);
-    l1.position.set(5, 8, 5);
-    envScene.add(l1);
-    const l2 = new PointLight(16711816, 80, 50);
-    l2.position.set(-5, 6, -5);
-    envScene.add(l2);
-    const l3 = new PointLight(16777215, 60, 50);
-    l3.position.set(0, 10, 0);
-    envScene.add(l3);
-    const floor = new Mesh(
-      new PlaneGeometry(30, 30),
-      new MeshBasicMaterial({ color: 328968 })
-    );
-    floor.rotation.x = -Math.PI / 2;
-    envScene.add(floor);
-    return pmrem.fromScene(envScene, 0.04).texture;
-  }
   function makeFlakeBlackPaint(envMap) {
     return new MeshPhysicalMaterial({
-      color: 328965,
-      metalness: 0.92,
-      roughness: 0.06,
+      color: 460812,
+      metalness: 0.42,
+      roughness: 0.22,
       clearcoat: 1,
-      clearcoatRoughness: 0.03,
+      clearcoatRoughness: 0.08,
       envMap,
-      envMapIntensity: 2.5,
-      reflectivity: 1,
-      specularIntensity: 1,
-      specularColor: new Color(16777215),
-      sheen: 0.3,
-      sheenRoughness: 0.2,
-      sheenColor: new Color(4473958)
+      envMapIntensity: 0.55,
+      reflectivity: 0.5,
+      specularIntensity: 0.7,
+      specularColor: new Color(14542062),
+      sheen: 0.05,
+      sheenRoughness: 0.4,
+      sheenColor: new Color(1711138)
     });
   }
-  function buildCity(THREE2, scene) {
+  function createDayEnv(THREE2, renderer) {
+    const pmrem = new THREE2.PMREMGenerator(renderer);
+    const env = new THREE2.Scene();
+    env.background = new THREE2.Color(9352924);
+    env.add(new THREE2.HemisphereLight(12047598, 9073500, 1));
+    const sun = new THREE2.DirectionalLight(16774116, 2.4);
+    sun.position.set(12, 18, 6);
+    env.add(sun);
+    const ground = new THREE2.Mesh(
+      new THREE2.PlaneGeometry(60, 60),
+      new THREE2.MeshBasicMaterial({ color: 10126444 })
+    );
+    ground.rotation.x = -Math.PI / 2;
+    env.add(ground);
+    const tex = pmrem.fromScene(env, 0.02).texture;
+    pmrem.dispose();
+    return tex;
+  }
+  function buildYard(THREE2, scene) {
     const boxes = [];
-    const asphalt = new THREE2.MeshStandardMaterial({ color: 1316380, roughness: 0.92, metalness: 0.05 });
-    const lineMat = new THREE2.MeshBasicMaterial({ color: 15124554 });
-    const curb = new THREE2.MeshStandardMaterial({ color: 2763828, roughness: 0.8 });
-    const pad = new THREE2.Mesh(new THREE2.PlaneGeometry(110, 100), new THREE2.MeshStandardMaterial({
-      color: 789778,
-      roughness: 1,
-      metalness: 0
-    }));
-    pad.rotation.x = -Math.PI / 2;
-    pad.position.set(0, -0.02, 36);
-    pad.receiveShadow = true;
-    scene.add(pad);
-    function road(x, z, w, d) {
-      const mesh = new THREE2.Mesh(new THREE2.PlaneGeometry(w, d), asphalt);
-      mesh.rotation.x = -Math.PI / 2;
-      mesh.position.set(x, 0.015, z);
-      mesh.receiveShadow = true;
-      scene.add(mesh);
-    }
-    function dash(x, z, w, d) {
-      const mesh = new THREE2.Mesh(new THREE2.PlaneGeometry(w, d), lineMat);
-      mesh.rotation.x = -Math.PI / 2;
-      mesh.position.set(x, 0.02, z);
-      scene.add(mesh);
-    }
-    road(0, 40, 8, 68);
-    road(0, 22, 28, 7);
-    road(0, 48, 36, 7);
-    road(-16, 40, 7, 40);
-    road(16, 40, 7, 40);
-    for (let z = 12; z < 70; z += 4) dash(0, z, 0.12, 1.4);
-    for (let x = -12; x <= 12; x += 4) dash(x, 22, 1.4, 0.12);
-    for (let x = -14; x <= 14; x += 4) dash(x, 48, 1.4, 0.12);
-    const curbGeo = new THREE2.BoxGeometry(0.18, 0.08, 1);
-    [-4.1, 4.1].forEach((x) => {
-      for (let z = 10; z < 70; z += 1.05) {
-        if (Math.abs(z - 22) < 4 || Math.abs(z - 48) < 4) continue;
-        const c = new THREE2.Mesh(curbGeo, curb);
-        c.position.set(x, 0.04, z);
-        scene.add(c);
-      }
-    });
-    const winCanvas = document.createElement("canvas");
-    winCanvas.width = 256;
-    winCanvas.height = 512;
-    const wctx = winCanvas.getContext("2d");
-    wctx.fillStyle = "#12141c";
-    wctx.fillRect(0, 0, 256, 512);
-    const warm = ["#ffd59a", "#9fd7ff", "#ff8fb8", "#1a1c28"];
-    for (let row = 0; row < 14; row++) {
-      for (let col = 0; col < 6; col++) {
-        wctx.fillStyle = warm[(row * 3 + col) % 4];
-        if ((row + col) % 5 === 0) wctx.fillStyle = "#1a1c28";
-        wctx.fillRect(18 + col * 40, 16 + row * 34, 22, 16);
-      }
-    }
-    const winTex = new THREE2.CanvasTexture(winCanvas);
-    winTex.colorSpace = THREE2.SRGBColorSpace;
-    winTex.wrapS = THREE2.RepeatWrapping;
-    winTex.wrapT = THREE2.RepeatWrapping;
-    function block(x, z, w, d, h, tint) {
-      const mat = new THREE2.MeshStandardMaterial({
-        color: tint,
-        roughness: 0.72,
-        metalness: 0.18,
-        map: winTex,
-        emissive: tint,
-        emissiveIntensity: 0.08,
-        emissiveMap: winTex
-      });
+    function solid(x, z, w, d, h, mat, y0 = 0) {
       const mesh = new THREE2.Mesh(new THREE2.BoxGeometry(w, h, d), mat);
-      mesh.position.set(x, h / 2, z);
+      mesh.position.set(x, y0 + h / 2, z);
       mesh.castShadow = true;
       mesh.receiveShadow = true;
       scene.add(mesh);
-      boxes.push({ x, z, hw: w / 2 + 0.8, hd: d / 2 + 0.8 });
+      boxes.push({ minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2, h: y0 + h });
       return mesh;
     }
-    function sign(text, color, x, y, z, rotY) {
-      const canvas = document.createElement("canvas");
-      canvas.width = 1024;
-      canvas.height = 256;
-      const ctx = canvas.getContext("2d");
-      ctx.clearRect(0, 0, 1024, 256);
-      ctx.shadowColor = color;
-      ctx.shadowBlur = 24;
-      ctx.fillStyle = color;
-      ctx.font = "bold 110px monospace";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(text, 512, 128);
-      const tex = new THREE2.CanvasTexture(canvas);
-      tex.colorSpace = THREE2.SRGBColorSpace;
-      const mesh = new THREE2.Mesh(
-        new THREE2.PlaneGeometry(text.length * 0.42, 0.7),
-        new THREE2.MeshBasicMaterial({ map: tex, transparent: true, side: THREE2.DoubleSide })
-      );
-      mesh.position.set(x, y, z);
-      mesh.rotation.y = rotY;
-      scene.add(mesh);
-    }
-    block(-10, 14, 6, 8, 7, 1711144);
-    block(-10, 32, 6.5, 9, 11, 1447970);
-    block(-10, 58, 6, 8, 6, 1841188);
-    block(10, 14, 6, 7, 5, 1578012);
-    block(10, 34, 7, 10, 14, 1184798);
-    block(10, 60, 6, 8, 8, 1710112);
-    block(-24, 22, 7, 8, 9, 1316382);
-    block(-24, 48, 6, 9, 16, 1053208);
-    block(24, 30, 6, 8, 10, 1446940);
-    block(24, 56, 7, 8, 7, 1709600);
-    sign("HUSH", "#ff4d9a", -10, 8.2, 14, 0);
-    sign("AGENTIC BIZ", "#7af6ff", 10, 15.2, 34, Math.PI);
-    sign("COMFORT", "#ffd59a", -24, 10.4, 48, Math.PI / 2);
-    sign("BALLITO", "#ffffff", 0, 3.2, 68, 0);
-    const poleMat = new THREE2.MeshStandardMaterial({ color: 2237484, metalness: 0.6, roughness: 0.4 });
-    for (let i = 0; i < 8; i++) {
-      const z = 12 + i * 7.5;
-      const x = i % 2 === 0 ? -5.2 : 5.2;
-      const pole = new THREE2.Mesh(new THREE2.CylinderGeometry(0.06, 0.08, 4.2, 6), poleMat);
-      pole.position.set(x, 2.1, z);
-      scene.add(pole);
-      const lamp = new THREE2.PointLight(16769456, 2.2, 9, 2);
-      lamp.position.set(x, 4.1, z);
-      scene.add(lamp);
-    }
-    const pink = new THREE2.PointLight(16731546, 6, 14, 2);
-    pink.position.set(-10, 3, 16);
-    scene.add(pink);
-    const cyan = new THREE2.PointLight(52479, 5, 16, 2);
-    cyan.position.set(10, 6, 36);
-    scene.add(cyan);
+    const asphalt = canvasTex(THREE2, 512, 512, (ctx, w, h) => {
+      ctx.fillStyle = "#6d6a66";
+      ctx.fillRect(0, 0, w, h);
+      for (let i = 0; i < 1400; i++) {
+        ctx.fillStyle = `rgba(40,38,34,${0.15 + Math.random() * 0.35})`;
+        ctx.fillRect(Math.random() * w, Math.random() * h, 2 + Math.random() * 8, 1);
+      }
+      ctx.strokeStyle = "rgba(30,28,24,0.45)";
+      ctx.lineWidth = 2;
+      for (let i = 0; i < 18; i++) {
+        ctx.beginPath();
+        let x = Math.random() * w;
+        let y = Math.random() * h;
+        ctx.moveTo(x, y);
+        for (let s = 0; s < 6; s++) {
+          x += (Math.random() - 0.5) * 80;
+          y += (Math.random() - 0.5) * 40;
+          ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+      }
+      ctx.fillStyle = "rgba(70,110,60,0.35)";
+      for (let i = 0; i < 40; i++) {
+        ctx.beginPath();
+        ctx.ellipse(Math.random() * w, Math.random() * h, 8, 4, Math.random(), 0, Math.PI * 2);
+        ctx.fill();
+      }
+    });
+    const verge = canvasTex(THREE2, 256, 256, (ctx, w, h) => {
+      ctx.fillStyle = "#7d8a62";
+      ctx.fillRect(0, 0, w, h);
+      for (let i = 0; i < 600; i++) {
+        ctx.fillStyle = Math.random() > 0.5 ? "#6a784f" : "#8d9a70";
+        ctx.fillRect(Math.random() * w, Math.random() * h, 3, 3);
+      }
+    });
+    const stucco = canvasTex(THREE2, 256, 256, (ctx, w, h) => {
+      ctx.fillStyle = "#e7e0d4";
+      ctx.fillRect(0, 0, w, h);
+      for (let i = 0; i < 2e3; i++) {
+        ctx.fillStyle = `rgba(120,110,96,${Math.random() * 0.18})`;
+        ctx.fillRect(Math.random() * w, Math.random() * h, 2, 2);
+      }
+    });
+    const tile = new THREE2.MeshStandardMaterial({ color: 9263682, roughness: 0.85 });
+    const stuccoMat = new THREE2.MeshStandardMaterial({ map: stucco, roughness: 0.92, color: 16777215 });
+    const wallGrey = new THREE2.MeshStandardMaterial({ color: 12038826, roughness: 0.95 });
+    const asphaltMat = new THREE2.MeshStandardMaterial({ map: asphalt, roughness: 0.92, metalness: 0.02 });
+    const vergeMat = new THREE2.MeshStandardMaterial({ map: verge, roughness: 1 });
+    const yard = new THREE2.Mesh(new THREE2.PlaneGeometry(80, 90), vergeMat);
+    yard.rotation.x = -Math.PI / 2;
+    yard.position.set(0, -0.02, 24);
+    yard.receiveShadow = true;
+    scene.add(yard);
+    const drive = new THREE2.Mesh(new THREE2.PlaneGeometry(5.2, 14), asphaltMat);
+    drive.rotation.x = -Math.PI / 2;
+    drive.position.set(0.2, 0, 4);
+    drive.receiveShadow = true;
+    scene.add(drive);
+    const street = new THREE2.Mesh(new THREE2.PlaneGeometry(9, 48), asphaltMat);
+    street.rotation.x = -Math.PI / 2;
+    street.position.set(0, 5e-3, 32);
+    street.receiveShadow = true;
+    scene.add(street);
+    solid(-5.1, 3.2, 5.4, 10, 3.15, stuccoMat);
+    const roof = new THREE2.Mesh(new THREE2.BoxGeometry(5.8, 0.28, 10.4), tile);
+    roof.position.set(-5.1, 3.35, 3.2);
+    roof.rotation.z = 0.08;
+    roof.castShadow = true;
+    scene.add(roof);
+    addWindows(THREE2, scene, -2.35, 3.2, 0, 4);
+    solid(2.85, 3.4, 0.22, 11, 1.35, wallGrey);
+    solid(0.1, -1.6, 6.2, 0.28, 3.2, stuccoMat);
+    addWindows(THREE2, scene, 0.1, -1.42, 1, 2);
+    const fronts = [
+      [-9.2, 18, 6, 7, 3.4],
+      [-9.4, 30, 5.5, 8, 4.2],
+      [-8.8, 44, 6, 7, 3.1],
+      [8.6, 20, 5.5, 8, 3.6],
+      [9.1, 34, 6, 7, 5.1],
+      [8.4, 48, 5.2, 8, 3.3]
+    ];
+    fronts.forEach((b, i) => {
+      solid(b[0], b[1], b[2], b[3], b[4], i % 2 ? wallGrey : stuccoMat);
+      const r = new THREE2.Mesh(new THREE2.BoxGeometry(b[2] + 0.4, 0.22, b[3] + 0.3), tile);
+      r.position.set(b[0], b[4] + 0.12, b[1]);
+      scene.add(r);
+    });
+    palm(THREE2, scene, 4.2, -0.4);
+    palm(THREE2, scene, 4.6, 8.5);
+    palm(THREE2, scene, -8.2, 12);
+    const wood = new THREE2.MeshStandardMaterial({ color: 7031346, roughness: 0.7 });
+    const table = new THREE2.Group();
+    const top = new THREE2.Mesh(new THREE2.BoxGeometry(0.7, 0.04, 0.45), wood);
+    top.position.y = 0.72;
+    top.castShadow = true;
+    table.add(top);
+    scene.add(table);
+    table.position.set(-1.55, 0, 5.4);
     return {
-      blocked(x, z) {
-        if (z < -3.35 && Math.abs(x) < 4.4) return true;
-        if (Math.abs(x) > 3.75 && z < 5.6 && z > -3.6) return true;
-        if (Math.abs(x) > 46 || z > 76 || z < -5) return true;
+      laptopSpot: new THREE2.Vector3(-1.55, 0, 5.4),
+      blocked(x, z, r = 0.32) {
+        if (x < -22 || x > 22 || z < -4.2 || z > 58) return true;
         for (const b of boxes) {
-          if (Math.abs(x - b.x) < b.hw && Math.abs(z - b.z) < b.hd) return true;
+          if (x > b.minX - r && x < b.maxX + r && z > b.minZ - r && z < b.maxZ + r) return true;
         }
         return false;
+      },
+      // Pull a camera back along from→to until it is clear of every solid.
+      // Low walls are skipped once the camera is above them.
+      shorten(from, to) {
+        const dir = to.clone().sub(from);
+        const len = dir.length();
+        if (len < 0.25) return to.clone();
+        dir.multiplyScalar(1 / len);
+        let safe = from.clone().addScaledVector(dir, 0.35);
+        const steps = 16;
+        for (let i = 1; i <= steps; i++) {
+          const p = from.clone().addScaledVector(dir, len * i / steps);
+          let hit = false;
+          for (const b of boxes) {
+            if (p.y > b.h - 0.05) continue;
+            if (p.x > b.minX - 0.15 && p.x < b.maxX + 0.15 && p.z > b.minZ - 0.15 && p.z < b.maxZ + 0.15) {
+              hit = true;
+              break;
+            }
+          }
+          if (hit) break;
+          safe = p;
+        }
+        return safe;
       }
     };
   }
+  function canvasTex(THREE2, w, h, paint) {
+    const c = document.createElement("canvas");
+    c.width = w;
+    c.height = h;
+    paint(c.getContext("2d"), w, h);
+    const tex = new THREE2.CanvasTexture(c);
+    tex.colorSpace = THREE2.SRGBColorSpace;
+    tex.wrapS = tex.wrapT = THREE2.RepeatWrapping;
+    return tex;
+  }
+  function addWindows(THREE2, scene, x, z, face, count) {
+    const frame = new THREE2.MeshStandardMaterial({ color: 6047286, roughness: 0.6 });
+    const glass = new THREE2.MeshStandardMaterial({
+      color: 10205129,
+      roughness: 0.15,
+      metalness: 0.1,
+      transparent: true,
+      opacity: 0.55
+    });
+    const bar = new THREE2.MeshStandardMaterial({ color: 15921906, roughness: 0.4, metalness: 0.3 });
+    for (let i = 0; i < count; i++) {
+      const group = new THREE2.Group();
+      const g = new THREE2.Mesh(new THREE2.PlaneGeometry(0.7, 0.85), glass);
+      group.add(g);
+      const fr = new THREE2.Mesh(new THREE2.BoxGeometry(0.78, 0.92, 0.04), frame);
+      fr.position.z = -0.02;
+      group.add(fr);
+      for (let k = -1; k <= 1; k++) {
+        const v = new THREE2.Mesh(new THREE2.BoxGeometry(0.02, 0.85, 0.03), bar);
+        v.position.set(k * 0.22, 0, 0.03);
+        group.add(v);
+      }
+      for (let k = -1; k <= 1; k++) {
+        const h = new THREE2.Mesh(new THREE2.BoxGeometry(0.7, 0.02, 0.03), bar);
+        h.position.set(0, k * 0.22, 0.03);
+        group.add(h);
+      }
+      if (face === 0) {
+        group.position.set(x, 1.7, z - 3 + i * 2.2);
+        group.rotation.y = Math.PI / 2;
+      } else {
+        group.position.set(x - 1.4 + i * 1.6, 1.7, z);
+      }
+      scene.add(group);
+    }
+  }
+  function palm(THREE2, scene, x, z) {
+    const trunk = new THREE2.Mesh(
+      new THREE2.CylinderGeometry(0.08, 0.12, 3.2, 6),
+      new THREE2.MeshStandardMaterial({ color: 7033668, roughness: 0.9 })
+    );
+    trunk.position.set(x, 1.6, z);
+    trunk.castShadow = true;
+    scene.add(trunk);
+    const frond = new THREE2.Mesh(
+      new THREE2.SphereGeometry(0.7, 8, 6),
+      new THREE2.MeshStandardMaterial({ color: 4090674, roughness: 0.8 })
+    );
+    frond.scale.set(1, 0.45, 1);
+    frond.position.set(x, 3.2, z);
+    frond.castShadow = true;
+    scene.add(frond);
+  }
   function start() {
+    var _a, _b, _c;
     const $ = (id) => document.getElementById(id);
     const barEl = $("load-bar");
     const statusEl = $("load-status");
     const infoBar = $("info-bar");
-    const gasIndicator = $("gas-indicator");
     const hintEl = $("hint");
-    let carReady = false;
+    const gasIndicator = $("gas-indicator");
     function setProgress(p, msg) {
       if (barEl) barEl.style.width = Math.min(100, p) + "%";
       if (msg && statusEl) statusEl.textContent = msg;
+    }
+    function say(text) {
+      if (infoBar) infoBar.textContent = text;
     }
     function hideLoad() {
       const el = $("loading");
       if (el) el.classList.add("hidden");
     }
-    function say(text) {
-      if (infoBar) infoBar.textContent = text;
-    }
+    if (hintEl) hintEl.textContent = "Click to look  ·  WASD  ·  V first / third  ·  E sit or laptop";
     const renderer = new WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
     renderer.setSize(innerWidth, innerHeight);
-    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.75));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = PCFSoftShadowMap;
     renderer.toneMapping = ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.25;
+    renderer.toneMappingExposure = 1.05;
     renderer.outputColorSpace = SRGBColorSpace;
     document.body.appendChild(renderer.domElement);
     const scene = new Scene();
-    scene.background = new Color(460814);
-    scene.fog = new Fog(460814, 34, 96);
-    const camera = new PerspectiveCamera(58, innerWidth / innerHeight, 0.05, 180);
-    camera.position.set(4.2, 1.7, 6.2);
-    const composer = new EffectComposer(renderer);
-    composer.addPass(new RenderPass(scene, camera));
-    const bloom = new UnrealBloomPass(new Vector2(innerWidth, innerHeight), 0.32, 0.4, 0.85);
-    composer.addPass(bloom);
-    composer.addPass(new OutputPass());
-    const envMap = createEnvMap(renderer);
+    scene.background = new Color(9352924);
+    scene.fog = new Fog(12965090, 28, 78);
+    const camera = new PerspectiveCamera(68, innerWidth / innerHeight, 0.08, 160);
+    const envMap = createDayEnv(THREE, renderer);
     scene.environment = envMap;
-    setProgress(8, "Lighting the bay");
-    scene.add(new HemisphereLight(9086152, 1708556, 0.55));
-    scene.add(new AmbientLight(1711144, 0.35));
-    const keyLight = new DirectionalLight(16773600, 1.35);
-    keyLight.position.set(6, 8, 7);
-    keyLight.castShadow = true;
-    keyLight.shadow.mapSize.set(2048, 2048);
-    keyLight.shadow.camera.near = 0.5;
-    keyLight.shadow.camera.far = 28;
-    keyLight.shadow.camera.left = -8;
-    keyLight.shadow.camera.right = 8;
-    keyLight.shadow.camera.top = 8;
-    keyLight.shadow.camera.bottom = -8;
-    keyLight.shadow.bias = -4e-4;
-    scene.add(keyLight);
-    const rim = new DirectionalLight(6737151, 0.55);
-    rim.position.set(-6, 4, -2);
-    scene.add(rim);
-    const plCyan = new PointLight(52479, 8, 14, 2);
-    plCyan.position.set(0, 2.6, -3.2);
-    scene.add(plCyan);
-    const plPink = new PointLight(16711816, 5, 12, 2);
-    plPink.position.set(0, 1.8, -3.2);
-    scene.add(plPink);
-    const bayLightL = new PointLight(16774365, 6, 10, 2);
-    bayLightL.position.set(-1.6, 3.1, 0.4);
-    scene.add(bayLightL);
-    const bayLightR = new PointLight(16774365, 6, 10, 2);
-    bayLightR.position.set(1.6, 3.1, 0.4);
-    scene.add(bayLightR);
-    const underglow = new PointLight(43775, 3.5, 5.5, 2);
-    underglow.position.set(0, 0.18, 1);
-    scene.add(underglow);
-    const noseLight = new SpotLight(16774894, 7, 14, 0.7, 0.55, 1);
-    noseLight.position.set(2.4, 3.4, 4.2);
-    noseLight.target.position.set(0, 0.7, 1);
-    noseLight.castShadow = false;
-    scene.add(noseLight);
-    scene.add(noseLight.target);
-    const floorMat = new MeshStandardMaterial({
-      color: 1711142,
-      metalness: 0.55,
-      roughness: 0.38,
-      envMap,
-      envMapIntensity: 0.55
-    });
-    const ground = new Mesh(new PlaneGeometry(40, 40), floorMat);
-    ground.rotation.x = -Math.PI / 2;
-    ground.receiveShadow = true;
-    scene.add(ground);
-    const grid = new GridHelper(40, 40, 3818072, 2369592);
-    grid.position.y = 4e-3;
-    scene.add(grid);
-    function bayLine(x, z, w, d, color) {
-      const m = new Mesh(
-        new PlaneGeometry(w, d),
-        new MeshBasicMaterial({ color, transparent: true, opacity: 0.55 })
-      );
-      m.rotation.x = -Math.PI / 2;
-      m.position.set(x, 8e-3, z);
-      scene.add(m);
-    }
-    bayLine(-1.15, 1.1, 0.04, 4.2, 52479);
-    bayLine(1.15, 1.1, 0.04, 4.2, 52479);
-    bayLine(0, -0.95, 2.2, 0.04, 16755200);
-    const wallMat = new MeshStandardMaterial({ color: 2237491, metalness: 0.25, roughness: 0.72 });
-    const backWall = new Mesh(new BoxGeometry(8.2, 3.6, 0.16), wallMat);
-    backWall.position.set(0, 1.8, -4);
-    backWall.receiveShadow = true;
-    backWall.castShadow = true;
-    scene.add(backWall);
-    const leftWall = new Mesh(new BoxGeometry(0.16, 3.6, 6.2), wallMat);
-    leftWall.position.set(-4.05, 1.8, -0.9);
-    leftWall.receiveShadow = true;
-    scene.add(leftWall);
-    const rightWall = leftWall.clone();
-    rightWall.position.x = 4.05;
-    scene.add(rightWall);
-    const roof = new Mesh(
-      new BoxGeometry(8.4, 0.08, 6.4),
-      new MeshStandardMaterial({ color: 1184540, metalness: 0.4, roughness: 0.6 })
+    scene.add(new HemisphereLight(12967925, 9073500, 0.72));
+    scene.add(new AmbientLight(16774376, 0.18));
+    const sun = new DirectionalLight(16773600, 2.6);
+    sun.position.set(14, 18, 8);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.camera.near = 1;
+    sun.shadow.camera.far = 46;
+    sun.shadow.camera.left = -14;
+    sun.shadow.camera.right = 14;
+    sun.shadow.camera.top = 14;
+    sun.shadow.camera.bottom = -14;
+    sun.shadow.bias = -4e-4;
+    scene.add(sun);
+    scene.add(sun.target);
+    const fill = new DirectionalLight(10402008, 0.35);
+    fill.position.set(-6, 6, -4);
+    scene.add(fill);
+    setProgress(12, "Daylight");
+    const yard = buildYard(THREE, scene);
+    setProgress(30, "Driveway");
+    const player = new Group();
+    const cloth = new MeshStandardMaterial({ color: 2761760, roughness: 0.8 });
+    const skin = new MeshStandardMaterial({ color: 12880482, roughness: 0.65 });
+    const legs = new Mesh(new CapsuleGeometry(0.12, 0.46, 4, 8), cloth);
+    legs.position.y = 0.42;
+    legs.castShadow = true;
+    player.add(legs);
+    const torso = new Mesh(
+      new CapsuleGeometry(0.2, 0.36, 4, 8),
+      new MeshStandardMaterial({ color: 12867146, roughness: 0.7 })
     );
-    roof.position.set(0, 3.6, -0.9);
-    scene.add(roof);
-    function tube(x, z, len, color, intensity) {
-      const mesh = new Mesh(
-        new BoxGeometry(len, 0.045, 0.045),
-        new MeshStandardMaterial({ color, emissive: color, emissiveIntensity: intensity })
-      );
-      mesh.position.set(x, 3.42, z);
-      scene.add(mesh);
-    }
-    tube(0, -1.2, 6.4, 16773853, 2.2);
-    tube(0, 0.8, 6.4, 8969727, 1.4);
-    function neonSign(text, color, w, h, y) {
-      const canvas = document.createElement("canvas");
-      canvas.width = 1024;
-      canvas.height = 256;
-      const ctx = canvas.getContext("2d");
-      ctx.clearRect(0, 0, 1024, 256);
-      ctx.shadowColor = color;
-      ctx.shadowBlur = 28;
-      ctx.fillStyle = color;
-      ctx.font = 'bold 120px "JetBrains Mono", monospace';
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(text, 512, 128);
-      const tex = new CanvasTexture(canvas);
-      tex.colorSpace = SRGBColorSpace;
-      const mesh = new Mesh(
-        new PlaneGeometry(w, h),
-        new MeshBasicMaterial({ map: tex, transparent: true })
-      );
-      mesh.position.set(0, y, -3.9);
-      scene.add(mesh);
-      const frame2 = new LineSegments(
-        new EdgesGeometry(new PlaneGeometry(w + 0.18, h + 0.12)),
-        new LineBasicMaterial({ color })
-      );
-      frame2.position.copy(mesh.position);
-      frame2.position.z += 0.01;
-      scene.add(frame2);
-    }
-    neonSign("AGENTIC BIZ", "#7af6ff", 3.4, 0.72, 2.85);
-    neonSign("HERMES", "#ff4d9a", 2.2, 0.42, 2.15);
-    const toolMat = new MeshStandardMaterial({ color: 3817038, metalness: 0.7, roughness: 0.35 });
-    [[-2.6, 1.5, 0.55, 0.08, 0.9], [-2.2, 1.7, 0.08, 0.5, 0.08], [-3.1, 1.2, 0.35, 0.08, 0.35]].forEach((t) => {
-      const tool = new Mesh(new BoxGeometry(t[2], t[3], t[4]), toolMat);
-      tool.position.set(t[0], t[1], -3.88);
-      scene.add(tool);
-    });
-    const bldgMat = new MeshStandardMaterial({ color: 1184798, metalness: 0.15, roughness: 0.8 });
-    const buildings = [
-      [-10, -16, 2.4, 9, 2],
-      [-6, -18, 1.8, 13, 1.6],
-      [-2, -15, 2.6, 7, 2],
-      [2, -17, 2, 11, 1.8],
-      [6, -16, 2.4, 8, 2],
-      [10, -19, 1.6, 15, 1.6],
-      [13, -15, 2.8, 6.5, 2.2],
-      [-13, -18, 2, 10, 2]
-    ];
-    const winGeo = new BoxGeometry(0.12, 0.16, 0.04);
-    const winMats = [
-      new MeshBasicMaterial({ color: 16769448 }),
-      new MeshBasicMaterial({ color: 10475519 }),
-      new MeshBasicMaterial({ color: 16748472 })
-    ];
-    buildings.forEach((b, i) => {
-      const mesh = new Mesh(new BoxGeometry(b[2], b[3], b[4]), bldgMat);
-      mesh.position.set(b[0], b[3] / 2, b[1]);
-      scene.add(mesh);
-      const cols = 3;
-      const rows = Math.max(3, Math.floor(b[3] / 1.4));
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-          if ((r * 3 + c + i) % 3 === 0) continue;
-          const w = new Mesh(winGeo, winMats[(r + c + i) % 3]);
-          w.position.set(
-            b[0] - b[2] * 0.28 + c * b[2] * 0.28,
-            0.8 + r * 1.15,
-            b[1] + b[4] * 0.5 + 0.02
-          );
-          scene.add(w);
-        }
-      }
-    });
-    setProgress(28, "Bay built");
-    const city = buildCity(THREE, scene);
-    setProgress(36, "City laid out");
-    const character = new Group();
-    const cloth = new MeshStandardMaterial({ color: 1842728, roughness: 0.75, metalness: 0.08 });
-    const visorMat = new MeshStandardMaterial({
-      color: 462872,
-      emissive: 52479,
-      emissiveIntensity: 1.6,
-      roughness: 0.2,
-      metalness: 0.4
-    });
-    const legs = new Mesh(new CapsuleGeometry(0.11, 0.42, 4, 8), cloth);
-    legs.position.y = 0.38;
-    character.add(legs);
-    const torso = new Mesh(new CapsuleGeometry(0.2, 0.38, 4, 8), cloth);
-    torso.position.y = 0.95;
-    character.add(torso);
-    const hood = new Mesh(new SphereGeometry(0.16, 16, 12), cloth);
-    hood.position.y = 1.38;
-    character.add(hood);
-    const visor = new Mesh(new BoxGeometry(0.2, 0.045, 0.04), visorMat);
-    visor.position.set(0, 1.36, 0.13);
-    character.add(visor);
+    torso.position.y = 0.98;
+    torso.castShadow = true;
+    player.add(torso);
+    const head = new Mesh(new SphereGeometry(0.13, 16, 12), skin);
+    head.position.y = 1.42;
+    head.castShadow = true;
+    player.add(head);
     const face = new Mesh(
-      new CircleGeometry(0.11, 24),
-      new MeshBasicMaterial({ color: 2236962, transparent: true })
+      new CircleGeometry(0.1, 20),
+      new MeshBasicMaterial({ color: 16777215, transparent: true })
     );
-    face.position.set(0, 1.37, 0.16);
+    face.position.set(0, 1.42, 0.12);
     face.visible = false;
-    character.add(face);
+    player.add(face);
     const faceImg = new Image();
     faceImg.onload = () => {
       const c = document.createElement("canvas");
@@ -27267,415 +26018,212 @@ void main() {
       c.height = 512;
       const ctx = c.getContext("2d");
       ctx.beginPath();
-      ctx.arc(256, 256, 248, 0, Math.PI * 2);
+      ctx.arc(256, 240, 210, 0, Math.PI * 2);
       ctx.clip();
-      const sw = faceImg.width * 0.7;
-      const sh = faceImg.height * 0.55;
-      const sx = (faceImg.width - sw) / 2;
-      const sy = faceImg.height * 0.02;
-      ctx.drawImage(faceImg, sx, sy, sw, sh, 0, 0, 512, 512);
+      const sw = faceImg.width * 0.62;
+      const sh = faceImg.height * 0.5;
+      ctx.drawImage(faceImg, (faceImg.width - sw) / 2, faceImg.height * 0.02, sw, sh, 0, 0, 512, 512);
       const tex = new CanvasTexture(c);
       tex.colorSpace = SRGBColorSpace;
       face.material.map = tex;
-      face.material.color.setHex(16777215);
       face.material.needsUpdate = true;
       face.visible = true;
     };
     faceImg.src = "assets/portraits/akhil-face.jpg";
-    character.position.set(1.7, 0, 2.4);
-    character.visible = false;
-    scene.add(character);
-    const moveState = { forward: false, backward: false, left: false, right: false };
-    const speed = 2.7;
-    const markers = [];
-    function makeRing(color) {
-      const ring = new Mesh(
-        new RingGeometry(0.38, 0.48, 32),
-        new MeshBasicMaterial({ color, transparent: true, opacity: 0.85, side: DoubleSide })
-      );
-      ring.rotation.x = -Math.PI / 2;
-      ring.position.y = 0.02;
-      scene.add(ring);
-      return ring;
-    }
-    function makeTag(text, color) {
-      const canvas = document.createElement("canvas");
-      canvas.width = 512;
-      canvas.height = 128;
-      const ctx = canvas.getContext("2d");
-      ctx.fillStyle = color;
-      ctx.font = 'bold 64px "JetBrains Mono", monospace';
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(text, 256, 64);
-      const tex = new CanvasTexture(canvas);
-      tex.colorSpace = SRGBColorSpace;
-      const sprite = new Sprite(new SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
-      sprite.scale.set(1.35, 0.34, 1);
-      scene.add(sprite);
-      return sprite;
-    }
-    let laptop = null;
-    let laptopScreenTexture = null;
-    function buildLaptop() {
-      const group = new Group();
-      const base = new Mesh(
-        new BoxGeometry(0.62, 0.028, 0.4),
-        new MeshStandardMaterial({ color: 1710618, metalness: 0.85, roughness: 0.25 })
-      );
-      group.add(base);
-      const lid = new Mesh(
-        new BoxGeometry(0.62, 0.4, 0.018),
-        new MeshStandardMaterial({ color: 1118481, metalness: 0.9, roughness: 0.18 })
-      );
-      lid.position.set(0, 0.22, -0.19);
-      lid.rotation.x = -0.22;
-      group.add(lid);
-      const canvas = document.createElement("canvas");
-      canvas.width = 512;
-      canvas.height = 320;
-      const ctx = canvas.getContext("2d");
-      ctx.fillStyle = "#0e1117";
-      ctx.fillRect(0, 0, 512, 320);
-      ctx.fillStyle = "#00ccff";
-      ctx.font = "bold 28px monospace";
-      ctx.fillText("HERMES", 24, 48);
-      ctx.fillStyle = "#e8e8e8";
-      ctx.font = "16px monospace";
-      ctx.fillText("akhil pillay", 24, 90);
-      ctx.fillStyle = "#8b93a7";
-      ctx.fillText("press E  —  open", 24, 124);
-      laptopScreenTexture = new CanvasTexture(canvas);
-      laptopScreenTexture.colorSpace = SRGBColorSpace;
-      const screen = new Mesh(
-        new PlaneGeometry(0.56, 0.32),
-        new MeshBasicMaterial({ map: laptopScreenTexture })
-      );
-      screen.position.set(0, 0.23, -0.175);
-      screen.rotation.x = -0.22;
-      group.add(screen);
-      return group;
-    }
-    const bench = new Group();
-    const benchTop = new Mesh(
-      new BoxGeometry(1.1, 0.06, 0.55),
-      new MeshStandardMaterial({ color: 2761756, roughness: 0.65, metalness: 0.15 })
-    );
-    benchTop.position.y = 0.78;
-    benchTop.castShadow = true;
-    benchTop.receiveShadow = true;
-    bench.add(benchTop);
-    const legMat = new MeshStandardMaterial({ color: 1118481, metalness: 0.6, roughness: 0.4 });
-    [[-0.45, -0.2], [0.45, -0.2], [-0.45, 0.2], [0.45, 0.2]].forEach((p) => {
-      const leg = new Mesh(new BoxGeometry(0.05, 0.78, 0.05), legMat);
-      leg.position.set(p[0], 0.39, p[1]);
-      bench.add(leg);
-    });
-    bench.visible = false;
-    scene.add(bench);
-    let carModel = null;
+    player.position.set(1.85, 0, 6.8);
+    player.visible = false;
+    scene.add(player);
+    const keys = { f: false, b: false, l: false, r: false };
+    let mode = "walk";
+    let view = "first";
+    let yaw = Math.PI;
+    let pitch = -0.06;
+    let lookOffset = 0;
+    let pointerLocked = false;
+    let dragging = false;
+    let car = null;
     let frame = null;
     let eyeAnchor = null;
     let exhaustAnchor = null;
     let doorLocal = null;
     let headLights = null;
-    const drive = { speed: 0, chase: false };
-    let lookOffset = 0;
+    const drive = { speed: 0 };
+    let flameOn = false;
     const loader = new GLTFLoader();
-    function measureFrame(root) {
-      root.updateMatrixWorld(true);
-      const box = new Box3().setFromObject(root);
-      const center = box.getCenter(new Vector3());
-      const size = box.getSize(new Vector3());
+    loader.load("assets/models/runx.glb", (gltf) => {
+      car = gltf.scene;
+      const box = new Box3().setFromObject(car);
+      const size = new Vector3();
+      box.getSize(size);
+      const maxDim = Math.max(size.x, size.y, size.z) || 1;
+      const S = 4.15 / maxDim;
+      car.scale.setScalar(S);
+      const center = new Vector3();
+      box.getCenter(center);
+      car.position.set(-center.x * S, -box.min.y * S + 0.02, 2.2 - center.z * S);
+      car.traverse((child) => {
+        if (!child.isMesh || !child.material) return;
+        child.castShadow = true;
+        child.receiveShadow = true;
+        const mn = (child.material.name || "").toLowerCase();
+        const cb = new Box3().setFromObject(child);
+        const cs = cb.getSize(new Vector3());
+        const vol = cs.x * cs.y * cs.z;
+        const body2 = mn.includes("paint") && vol > 0.4 || mn.includes("silver") && vol > 2 && !mn.includes("rim");
+        if (body2) {
+          child.material = makeFlakeBlackPaint(envMap);
+        } else if (mn.includes("chrome") || mn.includes("rim") || mn.includes("aluminum")) {
+          child.material.metalness = 1;
+          child.material.roughness = 0.18;
+          child.material.envMap = envMap;
+          child.material.envMapIntensity = 0.8;
+          if (child.material.color) child.material.color.setHex(13158600);
+          child.material.needsUpdate = true;
+        } else if (mn.includes("glass") || mn.includes("translucent")) {
+          child.material.transparent = true;
+          child.material.opacity = 0.28;
+          if (child.material.color) child.material.color.setHex(791064);
+          child.material.envMap = envMap;
+          child.material.needsUpdate = true;
+        } else if (mn.includes("light")) {
+          child.material.emissive = new Color(16773584);
+          child.material.emissiveIntensity = 0.35;
+          child.material.needsUpdate = true;
+        }
+      });
+      scene.add(car);
+      car.updateMatrixWorld(true);
+      const world = new Box3().setFromObject(car);
+      const c = world.getCenter(new Vector3());
+      const sz = world.getSize(new Vector3());
       const frontPts = [];
-      root.traverse((obj) => {
-        const name = (obj.name || "").toLowerCase();
-        if (!name.includes("front-gla")) return;
-        const b = new Box3().setFromObject(obj);
-        if (b.isEmpty()) return;
-        frontPts.push(b.getCenter(new Vector3()));
+      car.traverse((obj) => {
+        if ((obj.name || "").toLowerCase().includes("front-gla")) {
+          const b = new Box3().setFromObject(obj);
+          if (!b.isEmpty()) frontPts.push(b.getCenter(new Vector3()));
+        }
       });
       const forward = new Vector3(0, 0, 1);
       if (frontPts.length) {
-        const front = frontPts.reduce((a, p) => a.add(p), new Vector3()).multiplyScalar(1 / frontPts.length);
-        forward.copy(front).sub(center);
+        const f = frontPts.reduce((a, p) => a.add(p), new Vector3()).multiplyScalar(1 / frontPts.length);
+        forward.copy(f).sub(c);
+        forward.y = 0;
+        if (forward.lengthSq() > 1e-6) forward.normalize();
       }
-      forward.y = 0;
-      if (forward.lengthSq() < 1e-6) forward.set(0, 0, 1);
-      forward.normalize();
       const right = new Vector3().crossVectors(new Vector3(0, 1, 0), forward).normalize();
-      const halfW = size.x * 0.5;
-      const halfL = Math.max(size.x, size.z) * 0.5;
-      const length = Math.abs(size.dot(new Vector3(Math.abs(forward.x), 0, Math.abs(forward.z)))) || size.z;
-      const width = Math.abs(size.dot(new Vector3(Math.abs(right.x), 0, Math.abs(right.z)))) || size.x;
-      const driverStand = center.clone().addScaledVector(right, width * 0.5 + 0.85);
-      driverStand.y = 0;
-      const passengerStand = center.clone().addScaledVector(right, -(width * 0.5 + 1.15));
-      passengerStand.y = 0;
-      const rearStand = center.clone().addScaledVector(forward, -(length * 0.5 + 0.9));
-      rearStand.y = 0;
-      const driverEye = center.clone().addScaledVector(right, width * 0.18).addScaledVector(forward, length * 0.02);
-      driverEye.y = box.min.y + size.y * 0.62;
-      const exhaust = center.clone().addScaledVector(forward, -(length * 0.48)).addScaledVector(right, width * 0.22);
-      exhaust.y = box.min.y + size.y * 0.1;
-      return {
-        box,
-        center,
-        size,
-        forward,
-        right,
-        length,
-        width,
-        halfW,
-        halfL,
-        driverStand,
-        passengerStand,
-        rearStand,
-        driverEye,
-        exhaust
-      };
-    }
-    function placeWorld() {
-      frame = measureFrame(carModel);
-      const shadow = new Mesh(
-        new CircleGeometry(1, 40),
-        new MeshBasicMaterial({ color: 0, transparent: true, opacity: 0.5, depthWrite: false })
-      );
-      shadow.rotation.x = -Math.PI / 2;
-      shadow.position.copy(frame.center);
-      shadow.position.y = 0.01;
-      shadow.scale.set(frame.width * 0.55, frame.length * 0.42, 1);
-      scene.add(shadow);
-      underglow.position.set(frame.center.x, 0.16, frame.center.z);
-      noseLight.position.copy(frame.center).addScaledVector(frame.forward, frame.length * 0.55).addScaledVector(frame.right, frame.width * 1.15);
-      noseLight.position.y = 3.4;
-      noseLight.target.position.copy(frame.center);
-      noseLight.target.position.y = 0.65;
-      const mouth = frame.center.clone().addScaledVector(frame.forward, frame.length * 0.5 + 3.4);
-      mouth.y = 0;
-      const mouthMat = new MeshStandardMaterial({
-        color: 8058623,
-        emissive: 52479,
-        emissiveIntensity: 2.2,
-        roughness: 0.4
-      });
-      const span = 4.4;
-      const postH = 2.7;
-      [-1, 1].forEach((side2) => {
-        const post = new Mesh(new BoxGeometry(0.07, postH, 0.07), mouthMat);
-        post.position.copy(mouth).addScaledVector(frame.right, side2 * span * 0.5);
-        post.position.y = postH / 2;
-        scene.add(post);
-      });
-      const header = new Mesh(new BoxGeometry(span, 0.07, 0.07), mouthMat);
-      header.position.copy(mouth);
-      header.position.y = postH;
-      header.quaternion.setFromUnitVectors(new Vector3(1, 0, 0), frame.right.clone().normalize());
-      scene.add(header);
-      const apron = new PointLight(10475519, 5, 12, 2);
-      apron.position.copy(mouth).addScaledVector(frame.forward, -1.6);
-      apron.position.y = 1.1;
-      scene.add(apron);
-      const zones = [
-        { id: "driver", label: "DRIVER", color: 52479, pos: frame.driverStand, action: "enter", prompt: "E  —  sit in the RunX" },
-        { id: "laptop", label: "LAPTOP", color: 16731546, pos: frame.passengerStand, action: "laptop", prompt: "E  —  open the laptop" },
-        { id: "rev", label: "REV", color: 16737792, pos: frame.rearStand, action: "rev", prompt: "SPACE  —  rev it" }
-      ];
-      zones.forEach((z) => {
-        const ring = makeRing(z.color);
-        ring.position.x = z.pos.x;
-        ring.position.z = z.pos.z;
-        const tag = makeTag(z.label, "#" + z.color.toString(16).padStart(6, "0"));
-        tag.position.set(z.pos.x, 1.15, z.pos.z);
-        markers.push({ ...z, ring, tag });
-      });
-      bench.position.copy(frame.passengerStand);
-      bench.position.y = 0;
-      bench.lookAt(frame.center.x, 0, frame.center.z);
-      bench.visible = true;
-      laptop = buildLaptop();
-      laptop.position.set(0, 0.84, 0);
-      laptop.rotation.y = Math.PI;
-      bench.add(laptop);
-      character.position.copy(frame.driverStand);
-      character.position.x += frame.right.x * 0.15;
-      character.position.z += frame.right.z * 0.15;
-      character.lookAt(frame.center.x, 0, frame.center.z);
-      carModel.updateMatrixWorld(true);
+      const length = Math.abs(sz.dot(new Vector3(Math.abs(forward.x), 0, Math.abs(forward.z)))) || sz.z;
+      const width = Math.abs(sz.dot(new Vector3(Math.abs(right.x), 0, Math.abs(right.z)))) || sz.x;
+      frame = { forward, right, length, width };
+      function toLocal(worldPos) {
+        return car.worldToLocal(worldPos.clone());
+      }
       eyeAnchor = new Object3D();
-      carModel.worldToLocal(eyeAnchor.position.copy(frame.driverEye));
-      carModel.add(eyeAnchor);
+      const eyeWorld = c.clone().addScaledVector(right, width * 0.14).addScaledVector(forward, length * 0.16);
+      eyeWorld.y = world.min.y + sz.y * 0.7;
+      eyeAnchor.position.copy(toLocal(eyeWorld));
+      car.add(eyeAnchor);
       exhaustAnchor = new Object3D();
-      carModel.worldToLocal(exhaustAnchor.position.copy(frame.exhaust));
-      carModel.add(exhaustAnchor);
-      doorLocal = carModel.worldToLocal(frame.driverStand.clone());
-      function plateTexture() {
-        const c = document.createElement("canvas");
-        c.width = 512;
-        c.height = 220;
-        const ctx = c.getContext("2d");
-        ctx.fillStyle = "#f7f9fc";
-        ctx.fillRect(0, 0, 512, 220);
-        ctx.strokeStyle = "#163a86";
-        ctx.lineWidth = 16;
-        ctx.strokeRect(8, 8, 496, 204);
-        ctx.fillStyle = "#163a86";
-        ctx.textAlign = "center";
-        ctx.font = "bold 28px sans-serif";
-        ctx.fillText("KWAZULU-NATAL", 256, 52);
-        ctx.font = "bold 72px sans-serif";
-        ctx.fillText("CP 43FW ZN", 256, 145);
-        const tex = new CanvasTexture(c);
-        tex.colorSpace = SRGBColorSpace;
-        return tex;
-      }
-      const plateMap = plateTexture();
-      const plateMat = new MeshBasicMaterial({ map: plateMap });
-      const frontPlate = new Mesh(new PlaneGeometry(0.46, 0.2), plateMat);
-      const frontPos = frame.center.clone().addScaledVector(frame.forward, frame.length * 0.49);
-      frontPos.y = frame.box.min.y + frame.size.y * 0.28;
-      carModel.add(frontPlate);
-      carModel.worldToLocal(frontPlate.position.copy(frontPos));
-      frontPlate.lookAt(frontPos.clone().add(frame.forward));
-      const rearPlate = new Mesh(new PlaneGeometry(0.46, 0.2), plateMat);
-      const rearPos = frame.center.clone().addScaledVector(frame.forward, -frame.length * 0.49);
-      rearPos.y = frontPos.y;
-      carModel.add(rearPlate);
-      carModel.worldToLocal(rearPlate.position.copy(rearPos));
-      rearPlate.lookAt(rearPos.clone().addScaledVector(frame.forward, -1));
-      headLights = new SpotLight(16774365, 0, 26, 0.5, 0.4, 1);
-      const nose = frame.center.clone().addScaledVector(frame.forward, frame.length * 0.46);
-      nose.y = frame.box.min.y + 0.55;
-      carModel.worldToLocal(headLights.position.copy(nose));
+      const exWorld = c.clone().addScaledVector(forward, -length * 0.48).addScaledVector(right, width * 0.22);
+      exWorld.y = world.min.y + sz.y * 0.1;
+      exhaustAnchor.position.copy(toLocal(exWorld));
+      car.add(exhaustAnchor);
+      const doorWorld = c.clone().addScaledVector(right, width * 0.5 + 0.85);
+      doorWorld.y = 0;
+      doorLocal = toLocal(doorWorld);
+      const front = c.clone().addScaledVector(forward, length * 0.49);
+      front.y = world.min.y + sz.y * 0.28;
+      const plate = plateMesh();
+      car.add(plate);
+      plate.position.copy(toLocal(front));
+      plate.lookAt(front.clone().add(forward));
+      const back = c.clone().addScaledVector(forward, -length * 0.49);
+      back.y = front.y;
+      const rear = plateMesh();
+      car.add(rear);
+      rear.position.copy(toLocal(back));
+      rear.lookAt(back.clone().addScaledVector(forward, -1));
+      headLights = new SpotLight(16774890, 0, 22, 0.55, 0.45, 1);
+      const nose = c.clone().addScaledVector(forward, length * 0.46);
+      nose.y = world.min.y + 0.55;
+      headLights.position.copy(toLocal(nose));
       const aim = new Object3D();
-      const aimWorld = nose.clone().addScaledVector(frame.forward, 10);
-      carModel.worldToLocal(aim.position.copy(aimWorld));
-      carModel.add(headLights);
-      carModel.add(aim);
+      aim.position.copy(toLocal(nose.clone().addScaledVector(forward, 12)));
+      car.add(headLights);
+      car.add(aim);
       headLights.target = aim;
-      carModel.position.y -= 0.05;
-      const hero = frame.center.clone().addScaledVector(frame.forward, frame.length * 0.95).addScaledVector(frame.right, frame.width * 0.7);
-      hero.y = 1.55;
-      camera.position.copy(hero);
-      showcase.focus.copy(frame.center);
-      showcase.focus.y = 0.72;
-      showcase.theta = Math.atan2(hero.x - showcase.focus.x, hero.z - showcase.focus.z);
-      showcase.dist = hero.distanceTo(showcase.focus);
-      showcase.phi = 0.22;
-      applyShowcase();
-    }
-    loader.load("assets/models/runx.glb", (gltf) => {
-      try {
-        carModel = gltf.scene;
-        const box = new Box3().setFromObject(carModel);
-        const size = new Vector3();
-        box.getSize(size);
-        const maxDim = Math.max(size.x, size.y, size.z) || 1;
-        const S = 3.5 / maxDim;
-        carModel.scale.setScalar(S);
-        const center = new Vector3();
-        box.getCenter(center);
-        carModel.position.set(-center.x * S, -box.min.y * S, 1 - center.z * S);
-        let paintCount = 0;
-        carModel.traverse((child) => {
-          if (!child.isMesh || !child.material) return;
-          child.castShadow = true;
-          child.receiveShadow = true;
-          const mn = (child.material.name || "").toLowerCase();
-          if (mn === "paint1" || mn.includes("paint")) {
-            const cb = new Box3().setFromObject(child);
-            const cs = cb.getSize(new Vector3());
-            if (cs.x * cs.y * S > 0.3) {
-              child.material = makeFlakeBlackPaint(envMap);
-              paintCount++;
-            }
-          } else if (mn.includes("chrome") || mn.includes("silver") || mn.includes("rim")) {
-            child.material.metalness = 1;
-            child.material.roughness = 0.08;
-            child.material.envMap = envMap;
-            child.material.envMapIntensity = 1.6;
-            if (child.material.color) child.material.color.setHex(14540253);
-            child.material.needsUpdate = true;
-          } else if (mn.includes("glass") || mn.includes("translucent")) {
-            child.material.transparent = true;
-            child.material.opacity = 0.35;
-            if (child.material.color) child.material.color.setHex(659480);
-            child.material.envMap = envMap;
-            child.material.envMapIntensity = 1.2;
-            child.material.needsUpdate = true;
-          } else if (mn.includes("light")) {
-            child.material.emissive = new Color(16742178);
-            child.material.emissiveIntensity = 1.4;
-            child.material.needsUpdate = true;
-          }
-        });
-        scene.add(carModel);
-        placeWorld();
-        carReady = true;
-        setProgress(100, "RunX in the bay");
-        say("Drag to orbit  ·  WASD to walk in  ·  the strip is out the bay");
-        setTimeout(hideLoad, 400);
-        console.log("CAR FRAME", {
-          center: frame.center.toArray().map((n) => +n.toFixed(2)),
-          forward: frame.forward.toArray().map((n) => +n.toFixed(2)),
-          paintCount
-        });
-      } catch (err) {
-        console.error(err);
-        setProgress(100, "Car failed to place");
-        hideLoad();
+      yaw = Math.atan2(c.x - player.position.x, c.z - player.position.z);
+      if (location.search.includes("view=third")) {
+        view = "third";
+        player.visible = true;
       }
+      if (location.search.includes("drive=1")) {
+        mode = "drive";
+        view = "first";
+        pitch = 0.12;
+        player.visible = false;
+        keys.f = true;
+        if (headLights) headLights.intensity = 10;
+      }
+      setProgress(100, "RunX in the driveway");
+      say(viewLabel());
+      setTimeout(hideLoad, 280);
     }, (xhr) => {
-      if (xhr.total) setProgress(30 + Math.round(xhr.loaded / xhr.total * 60), "Loading the RunX");
-    }, (err) => {
-      console.error(err);
+      if (xhr.total) setProgress(40 + Math.round(xhr.loaded / xhr.total * 50), "Loading the RunX");
+    }, () => {
       setProgress(100, "Car model missing");
       hideLoad();
     });
-    setTimeout(() => {
-      if (!carReady) {
-        setProgress(100, "Still waiting on the car");
-        hideLoad();
-      }
-    }, 12e3);
-    let flameActive = false;
-    const flameCount = 80;
-    const flameGeo = new BufferGeometry();
+    function plateMesh() {
+      const c = document.createElement("canvas");
+      c.width = 512;
+      c.height = 220;
+      const ctx = c.getContext("2d");
+      ctx.fillStyle = "#f4f7fb";
+      ctx.fillRect(0, 0, 512, 220);
+      ctx.strokeStyle = "#163a86";
+      ctx.lineWidth = 16;
+      ctx.strokeRect(8, 8, 496, 204);
+      ctx.fillStyle = "#163a86";
+      ctx.textAlign = "center";
+      ctx.font = "bold 26px sans-serif";
+      ctx.fillText("KWAZULU-NATAL", 256, 50);
+      ctx.font = "bold 68px sans-serif";
+      ctx.fillText("CP 43FW ZN", 256, 142);
+      const tex = new CanvasTexture(c);
+      tex.colorSpace = SRGBColorSpace;
+      return new Mesh(new PlaneGeometry(0.46, 0.2), new MeshBasicMaterial({ map: tex }));
+    }
+    const flameCount = 70;
     const flamePos = new Float32Array(flameCount * 3);
     const flameVel = new Float32Array(flameCount * 3);
     const flameLife = new Float32Array(flameCount);
-    for (let i = 0; i < flameCount; i++) flamePos[i * 3 + 1] = -100;
+    for (let i = 0; i < flameCount; i++) flamePos[i * 3 + 1] = -50;
+    const flameGeo = new BufferGeometry();
     flameGeo.setAttribute("position", new BufferAttribute(flamePos, 3));
-    const flames = new Points(
-      flameGeo,
-      new PointsMaterial({
-        color: 16738816,
-        size: 0.22,
-        transparent: true,
-        opacity: 0.9,
-        blending: AdditiveBlending,
-        depthWrite: false,
-        sizeAttenuation: true
-      })
-    );
+    const flames = new Points(flameGeo, new PointsMaterial({
+      color: 16738816,
+      size: 0.16,
+      transparent: true,
+      opacity: 0.85,
+      blending: AdditiveBlending,
+      depthWrite: false,
+      sizeAttenuation: true
+    }));
     scene.add(flames);
-    const flameLight = new PointLight(16729088, 0, 6, 2);
-    scene.add(flameLight);
     let flameCursor = 0;
     function emitFlame() {
-      if (!frame || !carModel) return;
-      const tip = exhaustAnchor ? exhaustAnchor.getWorldPosition(new Vector3()) : frame.exhaust;
-      const back = new Vector3(0, 0, -1).applyQuaternion(carModel.quaternion);
-      for (let n = 0; n < 4; n++) {
-        const i = flameCursor % flameCount;
-        flameCursor++;
-        flamePos[i * 3] = tip.x + (Math.random() - 0.5) * 0.08;
-        flamePos[i * 3 + 1] = tip.y + Math.random() * 0.04;
-        flamePos[i * 3 + 2] = tip.z + (Math.random() - 0.5) * 0.08;
-        const kick = 0.9 + Math.random() * 1.4;
-        flameVel[i * 3] = back.x * kick + (Math.random() - 0.5) * 0.3;
-        flameVel[i * 3 + 1] = 0.4 + Math.random() * 0.8;
-        flameVel[i * 3 + 2] = back.z * kick + (Math.random() - 0.5) * 0.3;
+      if (!exhaustAnchor || !car) return;
+      const tip = exhaustAnchor.getWorldPosition(new Vector3());
+      const back = frame ? frame.forward.clone().applyAxisAngle(new Vector3(0, 1, 0), car.rotation.y).multiplyScalar(-1) : new Vector3(0, 0, -1).applyQuaternion(car.quaternion);
+      for (let n = 0; n < 3; n++) {
+        const i = flameCursor++ % flameCount;
+        flamePos[i * 3] = tip.x;
+        flamePos[i * 3 + 1] = tip.y;
+        flamePos[i * 3 + 2] = tip.z;
+        const k = 1.2 + Math.random();
+        flameVel[i * 3] = back.x * k;
+        flameVel[i * 3 + 1] = 0.3 + Math.random() * 0.5;
+        flameVel[i * 3 + 2] = back.z * k;
         flameLife[i] = 1;
       }
       flameGeo.attributes.position.needsUpdate = true;
@@ -27683,579 +26231,376 @@ void main() {
     function updateFlame(dt) {
       for (let i = 0; i < flameCount; i++) {
         if (flameLife[i] <= 0) continue;
-        flameLife[i] -= dt * 1.8;
+        flameLife[i] -= dt * 1.6;
         flamePos[i * 3] += flameVel[i * 3] * dt;
         flamePos[i * 3 + 1] += flameVel[i * 3 + 1] * dt;
         flamePos[i * 3 + 2] += flameVel[i * 3 + 2] * dt;
-        if (flameLife[i] <= 0) flamePos[i * 3 + 1] = -100;
+        if (flameLife[i] <= 0) flamePos[i * 3 + 1] = -50;
       }
       flameGeo.attributes.position.needsUpdate = true;
-      flameLight.intensity = flameActive ? 6 + Math.sin(performance.now() * 0.03) * 2 : 0;
-      if (frame && flameActive) {
-        const tip = exhaustAnchor ? exhaustAnchor.getWorldPosition(new Vector3()) : frame.exhaust;
-        flameLight.position.copy(tip);
-      }
-      if (gasIndicator) gasIndicator.style.color = flameActive ? "rgba(255,120,40,0.95)" : "rgba(255,102,0,0)";
+      if (gasIndicator) gasIndicator.style.color = flameOn ? "rgba(180,70,20,0.9)" : "rgba(255,102,0,0)";
     }
-    function toggleFlame() {
-      flameActive = !flameActive;
-    }
-    let mode = "showcase";
-    const showcase = {
-      focus: new Vector3(0, 0.7, 1),
-      theta: 0.6,
-      phi: 0.28,
-      dist: 6.2
+    const overlay = document.createElement("div");
+    overlay.style.cssText = "display:none;position:fixed;inset:0;z-index:300;background:rgba(20,16,12,0.55);justify-content:center;align-items:center;padding:24px;";
+    const panel = document.createElement("div");
+    panel.style.cssText = "width:min(720px,94vw);max-height:82vh;overflow:auto;background:#f6f1e8;color:#1c1916;border-radius:12px;padding:28px 32px;font-family:Space Grotesk,sans-serif;position:relative;";
+    overlay.appendChild(panel);
+    document.body.appendChild(overlay);
+    const closeBtn = document.createElement("button");
+    closeBtn.textContent = "Close";
+    closeBtn.style.cssText = "position:absolute;top:12px;right:12px;border:none;background:#1c1916;color:#fff;border-radius:6px;padding:6px 10px;cursor:pointer;";
+    closeBtn.onclick = () => {
+      overlay.style.display = "none";
     };
-    let camYaw = 0.4;
-    let camDist = 4.2;
-    let dragging = false;
-    let dragMoved = false;
-    let lastX = 0;
-    let lastY = 0;
-    const entry = {
-      active: false,
-      t: 0,
-      dur: 0.85,
-      from: new Vector3(),
-      to: new Vector3(),
-      fromLook: new Vector3(),
-      toLook: new Vector3()
-    };
-    let fpPitch = -0.04;
-    let pointerLocked = false;
-    function applyShowcase() {
-      const h = Math.cos(showcase.phi) * showcase.dist;
-      camera.position.set(
-        showcase.focus.x + Math.sin(showcase.theta) * h,
-        showcase.focus.y + Math.sin(showcase.phi) * showcase.dist,
-        showcase.focus.z + Math.cos(showcase.theta) * h
-      );
-      camera.lookAt(showcase.focus);
-    }
-    function nearestZone() {
-      if (!frame || mode !== "walk") return null;
-      let best = null;
-      let bestD = 1.35;
-      markers.forEach((z) => {
-        const dx = character.position.x - z.pos.x;
-        const dz = character.position.z - z.pos.z;
-        const d = Math.hypot(dx, dz);
-        if (d < bestD) {
-          bestD = d;
-          best = z;
-        }
-      });
-      return best;
-    }
-    function enterCar() {
-      if (!frame || mode !== "walk") return;
-      mode = "entering";
-      entry.active = true;
-      entry.t = 0;
-      entry.from.copy(camera.position);
-      entry.fromLook.copy(character.position);
-      entry.fromLook.y = 1.2;
-      if (eyeAnchor) eyeAnchor.getWorldPosition(entry.to);
-      else entry.to.copy(frame.driverEye);
-      const nose = new Vector3(0, 0, 1).applyQuaternion(carModel.quaternion);
-      entry.toLook.copy(entry.to).addScaledVector(nose, 4);
-      character.visible = false;
-      say("Getting in…");
-    }
-    function finishEnter() {
-      var _a, _b;
-      mode = "driving";
-      lookOffset = 0;
-      fpPitch = -0.06;
-      noseLight.intensity = 0;
-      if (headLights) headLights.intensity = 14;
-      drive.speed = 0;
-      say("W drive  ·  A/D steer  ·  S brake  ·  C chase  ·  SPACE flames  ·  E out");
-      (_b = (_a = renderer.domElement).requestPointerLock) == null ? void 0 : _b.call(_a);
-    }
-    function exitCar() {
-      if (mode !== "driving" || !frame) return;
-      if (pointerLocked) document.exitPointerLock();
-      mode = "exiting";
-      entry.active = true;
-      entry.t = 0;
-      entry.from.copy(camera.position);
-      const dir = new Vector3();
-      camera.getWorldDirection(dir);
-      entry.fromLook.copy(camera.position).add(dir);
-      const stand = doorLocal ? carModel.localToWorld(doorLocal.clone()) : frame.driverStand.clone();
-      stand.y = 0;
-      character.position.copy(stand);
-      character.visible = true;
-      entry.to.copy(stand).add(new Vector3(0, 1.6, 0));
-      const carPos = new Vector3();
-      carModel.getWorldPosition(carPos);
-      entry.toLook.copy(carPos);
-      entry.toLook.y = 0.8;
-      say("Stepping out…");
-    }
-    function finishExit() {
-      mode = "walk";
-      const carNow = new Vector3();
-      carModel.getWorldPosition(carNow);
-      const back = character.position.clone().sub(carNow);
-      back.y = 0;
-      camYaw = Math.atan2(back.x, back.z);
-      noseLight.intensity = 7;
-      if (headLights) headLights.intensity = 0;
-      drive.speed = 0;
-      say("WASD  ·  rings on the floor are the doors");
+    panel.appendChild(closeBtn);
+    const body = document.createElement("div");
+    body.style.cssText = "font-size:15px;line-height:1.6;";
+    panel.appendChild(body);
+    body.innerHTML = `
+        <h2 style="margin:0 0 8px;font-size:22px">Akhil Pillay</h2>
+        <p style="margin:0 0 12px;color:#5c564e">Tongaat driveway. Ballito work. The black RunX in between.</p>
+        <p>Lead web and app at Comfort Shooting. Hush is the car social. AgenticBiz is the systems work.</p>
+        <p><a href="https://akhil-devs-portfolio.vercel.app" target="_blank" rel="noopener">Portfolio</a> ·
+           <a href="https://github.com/Mr-Akhil12" target="_blank" rel="noopener">GitHub</a> ·
+           <a href="https://hush-v1.vercel.app" target="_blank" rel="noopener">Hush</a> ·
+           <a href="https://www.agenticbiz.co.za/" target="_blank" rel="noopener">AgenticBiz</a></p>
+        <p style="color:#5c564e">WhatsApp <a href="https://wa.me/27678659396">+27 67 865 9396</a> · <a href="mailto:akhilpillay2.0@gmail.com">akhilpillay2.0@gmail.com</a></p>
+        <p style="font-size:12px;color:#8a8176">RunX mesh by OUTPISTON, CC BY-NC-SA 4.0. Drop a rev recording at assets/audio/runx-rev.mp3 and it replaces the synth.</p>`;
+    function closeLaptop() {
+      overlay.style.display = "none";
     }
     function openLaptop() {
-      fsOverlay.style.display = "flex";
-      renderFsPage();
+      overlay.style.display = "flex";
     }
-    function closeLaptop() {
-      fsOverlay.style.display = "none";
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) closeLaptop();
+    });
+    function nearLaptop() {
+      return player.position.distanceTo(yard.laptopSpot) < 1.6;
     }
-    function interact() {
-      if (mode === "showcase") {
-        openLaptop();
-        return;
-      }
-      if (mode === "driving") {
-        exitCar();
-        return;
-      }
-      const zone = nearestZone();
-      if (!zone) {
-        say("Walk to a ring  —  driver door, laptop bench, or the rear");
-        return;
-      }
-      if (zone.action === "enter") enterCar();
-      else if (zone.action === "laptop") openLaptop();
-      else if (zone.action === "rev") toggleFlame();
+    function nearDoor() {
+      if (!car || !doorLocal) return false;
+      const door = car.localToWorld(doorLocal.clone());
+      door.y = 0;
+      return player.position.distanceTo(door) < 1.5;
     }
-    function pushOutOfCar() {
-      if (!frame) return;
-      const rel = character.position.clone().sub(frame.center);
-      const along = rel.dot(frame.forward);
-      const side2 = rel.dot(frame.right);
-      const halfL = frame.length * 0.5 + 0.28;
-      const halfW = frame.width * 0.5 + 0.28;
-      if (Math.abs(along) < halfL && Math.abs(side2) < halfW) {
-        const outL = halfL - Math.abs(along);
-        const outW = halfW - Math.abs(side2);
-        if (outW < outL) character.position.addScaledVector(frame.right, Math.sign(side2 || 1) * (outW + 0.02));
-        else character.position.addScaledVector(frame.forward, Math.sign(along || 1) * (outL + 0.02));
-      }
-      character.position.x = Math.max(-3.7, Math.min(3.7, character.position.x));
-      character.position.z = Math.max(-3.3, Math.min(6.4, character.position.z));
-      character.position.y = 0;
+    function baseYaw() {
+      if (!frame || !car) return 0;
+      return Math.atan2(frame.forward.x, frame.forward.z) + car.rotation.y;
     }
-    const fsOverlay = document.createElement("div");
-    fsOverlay.id = "fs-laptop-overlay";
-    fsOverlay.style.cssText = "display:none;position:fixed;inset:0;z-index:300;background:rgba(4,6,12,0.9);backdrop-filter:blur(16px);justify-content:center;align-items:center;padding:24px;";
-    document.body.appendChild(fsOverlay);
-    const fsFrame = document.createElement("div");
-    fsFrame.style.cssText = "width:min(920px,94vw);height:min(640px,86vh);background:#0e1117;border:1px solid rgba(255,255,255,0.08);border-radius:14px;display:flex;flex-direction:column;overflow:hidden;position:relative;";
-    fsOverlay.appendChild(fsFrame);
-    const titleBar = document.createElement("div");
-    titleBar.style.cssText = "height:40px;background:#161922;display:flex;align-items:center;gap:8px;padding:0 14px;border-bottom:1px solid rgba(255,255,255,0.06);flex-shrink:0;";
-    titleBar.innerHTML = '<span style="width:11px;height:11px;border-radius:50%;background:#ff5f57"></span><span style="width:11px;height:11px;border-radius:50%;background:#febc2e"></span><span style="width:11px;height:11px;border-radius:50%;background:#28c840"></span><span style="margin-left:10px;color:rgba(255,255,255,0.45);font-family:JetBrains Mono,monospace;font-size:12px">agent@workshop — akhil pillay</span>';
-    fsFrame.appendChild(titleBar);
-    const fsClose = document.createElement("button");
-    fsClose.textContent = "✕";
-    fsClose.setAttribute("aria-label", "Close laptop");
-    fsClose.style.cssText = "position:absolute;top:6px;right:10px;width:28px;height:28px;border:none;border-radius:6px;background:rgba(255,255,255,0.06);color:#aaa;cursor:pointer;";
-    fsClose.onclick = closeLaptop;
-    fsFrame.appendChild(fsClose);
-    const body = document.createElement("div");
-    body.style.cssText = "flex:1;display:flex;min-height:0;";
-    fsFrame.appendChild(body);
-    const side = document.createElement("nav");
-    side.style.cssText = "width:168px;background:#141824;border-right:1px solid rgba(255,255,255,0.06);padding:12px 0;flex-shrink:0;";
-    body.appendChild(side);
-    const pageHost = document.createElement("div");
-    pageHost.style.cssText = "flex:1;overflow:auto;padding:22px 26px 28px;font-family:JetBrains Mono,monospace;color:#d5d8e0;font-size:13px;line-height:1.65;";
-    body.appendChild(pageHost);
-    const link = (href, label) => `<a href="${href}" target="_blank" rel="noopener" style="color:#7af6ff;text-decoration:none;border-bottom:1px solid rgba(122,246,255,0.35)">${label}</a>`;
-    const pages = {
-      now: {
-        label: "Now",
-        html: `
-                <h2 style="margin:0 0 12px;font-size:18px;color:#fff">Akhil Pillay</h2>
-                <p>Lead Web &amp; App Dev at Comfort Shooting. Ballito / Tongaat, KZN.</p>
-                <p>I build the systems, then I try to take myself out of the loop. This bay is the workshop those systems live next to — the black RunX included.</p>
-                <p>${link("https://akhil-devs-portfolio.vercel.app", "Portfolio")}<br>
-                ${link("https://github.com/Mr-Akhil12", "GitHub — Mr-Akhil12")}<br>
-                ${link("https://www.agenticbiz.co.za/", "AgenticBiz")}<br>
-                ${link("https://hush-v1.vercel.app", "Hush")}</p>`
-      },
-      projects: {
-        label: "Projects",
-        html: `
-                <h2 style="margin:0 0 12px;font-size:18px;color:#fff">Shipped</h2>
-                <p><b style="color:#fff">Hush</b> — SA car social. ${link("https://hush-v1.vercel.app", "hush-v1.vercel.app")}</p>
-                <p><b style="color:#fff">AgenticBiz</b> — agentic systems, in public. ${link("https://www.agenticbiz.co.za/", "agenticbiz.co.za")}</p>
-                <p><b style="color:#fff">Comfort Shooting</b> — day job. Systems, portals, the unglamorous things that have to stay up.</p>
-                <p><b style="color:#fff">This bay</b> — walk it, then drive the strip. The mesh is OUTPISTON's RunX. The plate, the tint, and the road are yours.</p>`
-      },
-      journey: {
-        label: "Journey",
-        html: `
-                <h2 style="margin:0 0 12px;font-size:18px;color:#fff">Tongaat → Ballito</h2>
-                <p>The car is the constant. Tongaat driveway, KZN plate, gloss black, one pipe on the right. The work grew up next to it.</p>
-                <p>Comfort Shooting — lead web and app. The unglamorous systems that have to stay up.</p>
-                <p>Hush — take SA car culture off WhatsApp. ${link("https://hush-v1.vercel.app", "hush-v1.vercel.app")}</p>
-                <p>AgenticBiz — stop thinking in tickets, start thinking in outcomes. ${link("https://www.agenticbiz.co.za/", "agenticbiz.co.za")}</p>
-                <p>This city is that map, shrunk. Bay at the bottom. Hush on the left. AgenticBiz on the right. Comfort further out. Drive it.</p>
-                <p style="color:#8b93a7">Engine note is a stand-in until the rev-range recording lands in assets/audio/runx-rev.mp3. Face is the public Linktree portrait — LinkedIn would not serve the photo.</p>`
-      },
-      garage: {
-        label: "Garage",
-        html: `
-                <h2 style="margin:0 0 12px;font-size:18px;color:#fff">140rt RunX</h2>
-                <p>Toyota RunX. Gloss black. Manual. Flames when it is asked.</p>
-                <p>Right-hand drive — driver door is the right-hand ring. Rear ring revs it. Passenger side is the bench, not a seat you have to clip through.</p>
-                <p>Model: 2001 Toyota Corolla RunX by ${link("https://sketchfab.com/outpiston", "OUTPISTON")}, ${link("https://creativecommons.org/licenses/by-nc-sa/4.0/", "CC BY-NC-SA 4.0")}.</p>`
-      },
-      contact: {
-        label: "Contact",
-        html: `
-                <h2 style="margin:0 0 12px;font-size:18px;color:#fff">Contact</h2>
-                <p>${link("mailto:akhilpillay2.0@gmail.com", "akhilpillay2.0@gmail.com")}<br>
-                ${link("https://wa.me/27678659396", "WhatsApp +27 67 865 9396")}<br>
-                ${link("https://youtube.com/@that-it-dude", "YouTube @that-it-dude")}<br>
-                ${link("https://www.tiktok.com/@that_it_dude", "TikTok @that_it_dude")}<br>
-                ${link("https://github.com/Mr-Akhil12", "github.com/Mr-Akhil12")}</p>
-                <p style="color:#8b93a7">Ballito, KwaZulu-Natal.</p>`
-      }
-    };
-    let activePage = "now";
-    const navBtns = {};
-    Object.entries(pages).forEach(([id, page]) => {
-      const btn = document.createElement("button");
-      btn.textContent = page.label;
-      btn.style.cssText = "display:block;width:100%;text-align:left;background:transparent;border:none;border-left:3px solid transparent;color:#8b93a7;font-family:JetBrains Mono,monospace;font-size:12px;padding:10px 14px;cursor:pointer;";
-      btn.onclick = () => {
-        activePage = id;
-        renderFsPage();
-      };
-      side.appendChild(btn);
-      navBtns[id] = btn;
-    });
-    function renderFsPage() {
-      Object.entries(navBtns).forEach(([id, btn]) => {
-        const on = id === activePage;
-        btn.style.color = on ? "#7af6ff" : "#8b93a7";
-        btn.style.borderLeftColor = on ? "#7af6ff" : "transparent";
-        btn.style.background = on ? "rgba(122,246,255,0.06)" : "transparent";
-      });
-      pageHost.innerHTML = pages[activePage].html;
+    function enterCar() {
+      if (!car || mode !== "walk") return;
+      mode = "drive";
+      drive.speed = 0;
+      lookOffset = 0;
+      pitch = 0.12;
+      player.visible = false;
+      if (headLights) headLights.intensity = 8;
+      view = "first";
+      say(viewLabel());
     }
-    fsOverlay.addEventListener("click", (e) => {
-      if (e.target === fsOverlay) closeLaptop();
-    });
-    addEventListener("keydown", (e) => {
-      var _a;
-      if (e.code === "KeyW" || e.code === "ArrowUp") moveState.forward = true;
-      if (e.code === "KeyS" || e.code === "ArrowDown") moveState.backward = true;
-      if (e.code === "KeyA" || e.code === "ArrowLeft") moveState.left = true;
-      if (e.code === "KeyD" || e.code === "ArrowRight") moveState.right = true;
-      const walkingKey = ["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.code);
-      if (walkingKey && mode === "showcase" && carReady) {
-        mode = "walk";
-        character.visible = true;
-        if (frame) {
-          const back = character.position.clone().sub(frame.center);
-          back.y = 0;
-          camYaw = Math.atan2(back.x, back.z);
-        }
-        say("WASD  ·  rings on the floor are the doors");
-      }
-      if (e.code === "KeyE") {
-        if (fsOverlay.style.display === "flex") closeLaptop();
-        else interact();
-      }
-      if (e.code === "Space") {
-        e.preventDefault();
-        if (mode === "driving" || mode === "showcase" || mode === "walk" && ((_a = nearestZone()) == null ? void 0 : _a.action) === "rev") toggleFlame();
-      }
-      if (e.code === "KeyC" && mode === "driving") drive.chase = !drive.chase;
-      if (e.code === "Escape") closeLaptop();
-    });
-    addEventListener("keyup", (e) => {
-      if (e.code === "KeyW" || e.code === "ArrowUp") moveState.forward = false;
-      if (e.code === "KeyS" || e.code === "ArrowDown") moveState.backward = false;
-      if (e.code === "KeyA" || e.code === "ArrowLeft") moveState.left = false;
-      if (e.code === "KeyD" || e.code === "ArrowRight") moveState.right = false;
-    });
-    renderer.domElement.addEventListener("pointerdown", (e) => {
-      dragging = true;
-      dragMoved = false;
-      lastX = e.clientX;
-      lastY = e.clientY;
-    });
-    addEventListener("pointermove", (e) => {
-      if (!dragging || mode === "driving") return;
-      const dx = e.clientX - lastX;
-      const dy = e.clientY - lastY;
-      if (Math.hypot(dx, dy) > 3) dragMoved = true;
-      lastX = e.clientX;
-      lastY = e.clientY;
-      if (mode === "showcase") {
-        showcase.theta -= dx * 5e-3;
-        showcase.phi = Math.max(0.08, Math.min(1.05, showcase.phi + dy * 4e-3));
-      } else if (mode === "walk") {
-        camYaw -= dx * 5e-3;
-      }
-    });
-    addEventListener("pointerup", () => {
-      dragging = false;
-    });
-    renderer.domElement.addEventListener("pointerup", (e) => {
-      var _a, _b;
-      if (dragMoved) return;
-      if (mode === "driving" && !pointerLocked) {
-        (_b = (_a = renderer.domElement).requestPointerLock) == null ? void 0 : _b.call(_a);
-        return;
-      }
-      if (mode === "walk") interact();
-    });
-    renderer.domElement.addEventListener("wheel", (e) => {
-      if (mode !== "showcase") return;
-      showcase.dist = Math.max(3.2, Math.min(9, showcase.dist + Math.sign(e.deltaY) * 0.35));
-    }, { passive: true });
-    document.addEventListener("pointerlockchange", () => {
-      pointerLocked = document.pointerLockElement === renderer.domElement;
-    });
-    document.addEventListener("mousemove", (e) => {
-      if (!pointerLocked || mode !== "driving") return;
-      lookOffset -= e.movementX * 25e-4;
-      lookOffset = Math.max(-1.2, Math.min(1.2, lookOffset));
-      fpPitch -= e.movementY * 22e-4;
-      fpPitch = Math.max(-0.6, Math.min(0.45, fpPitch));
-    });
-    const btnGas = $("btn-gas");
-    const btnLaptop = $("btn-laptop");
-    if (btnGas) {
-      const fire = (e) => {
-        e.preventDefault();
-        toggleFlame();
-      };
-      btnGas.addEventListener("click", fire);
-      btnGas.addEventListener("touchstart", fire, { passive: false });
+    function exitCar() {
+      if (mode !== "drive" || !car || !doorLocal) return;
+      const stand = car.localToWorld(doorLocal.clone());
+      stand.y = 0;
+      if (yard.blocked(stand.x, stand.z, 0.3)) stand.z += 1.2;
+      player.position.copy(stand);
+      mode = "walk";
+      drive.speed = 0;
+      if (headLights) headLights.intensity = 0;
+      player.visible = view === "third";
+      const carPos = new Vector3();
+      car.getWorldPosition(carPos);
+      yaw = Math.atan2(carPos.x - stand.x, carPos.z - stand.z);
+      say(viewLabel());
     }
-    if (btnLaptop) {
-      const open = (e) => {
-        e.preventDefault();
-        openLaptop();
-      };
-      btnLaptop.addEventListener("click", open);
-      btnLaptop.addEventListener("touchstart", open, { passive: false });
+    function toggleView() {
+      var _a2, _b2, _c2;
+      view = view === "first" ? "third" : "first";
+      player.visible = mode === "walk" && view === "third";
+      if (view === "first") (_b2 = (_a2 = renderer.domElement).requestPointerLock) == null ? void 0 : _b2.call(_a2);
+      else (_c2 = document.exitPointerLock) == null ? void 0 : _c2.call(document);
+      say(viewLabel());
     }
-    const joystickZone = $("joystick-zone");
-    const joystickKnob = $("joystick-knob");
-    if (joystickZone && joystickKnob) {
-      let joy = false;
-      let joyStart = { x: 0, y: 0 };
-      joystickZone.addEventListener("touchstart", (e) => {
-        e.preventDefault();
-        joy = true;
-        const t = e.touches[0];
-        joyStart = { x: t.clientX, y: t.clientY };
-        if (mode === "showcase" && carReady) {
-          mode = "walk";
-          character.visible = true;
-        }
-      }, { passive: false });
-      joystickZone.addEventListener("touchmove", (e) => {
-        e.preventDefault();
-        if (!joy) return;
-        const t = e.touches[0];
-        let dx = t.clientX - joyStart.x;
-        let dy = t.clientY - joyStart.y;
-        const dist = Math.hypot(dx, dy);
-        const max = 30;
-        if (dist > max) {
-          dx = dx / dist * max;
-          dy = dy / dist * max;
-        }
-        joystickKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
-        moveState.forward = dy < -10;
-        moveState.backward = dy > 10;
-        moveState.left = dx < -10;
-        moveState.right = dx > 10;
-      }, { passive: false });
-      joystickZone.addEventListener("touchend", () => {
-        joy = false;
-        moveState.forward = moveState.backward = moveState.left = moveState.right = false;
-        joystickKnob.style.transform = "translate(-50%, -50%)";
-      });
+    function viewLabel() {
+      const cam = view === "first" ? "first person" : "third person";
+      if (mode === "drive") return `${cam}  ·  ${Math.abs(drive.speed * 3.6).toFixed(0)} km/h  ·  W drive  A/D steer  V camera  E out`;
+      if (nearDoor()) return `${cam}  ·  E sit in  ·  V camera`;
+      if (nearLaptop()) return `${cam}  ·  E laptop  ·  V camera`;
+      return `${cam}  ·  WASD  ·  V camera  ·  driver door is on the right of the car`;
     }
-    addEventListener("resize", () => {
-      camera.aspect = innerWidth / innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(innerWidth, innerHeight);
-      composer.setSize(innerWidth, innerHeight);
-    });
-    if (hintEl) hintEl.textContent = "Walk in · sit in the RunX · W drives the strip · E laptop";
+    function slide(pos, delta, radius) {
+      const next = pos.clone().add(delta);
+      if (!yard.blocked(next.x, next.z, radius)) return next;
+      const xOnly = pos.clone();
+      xOnly.x += delta.x;
+      if (!yard.blocked(xOnly.x, xOnly.z, radius)) return xOnly;
+      const zOnly = pos.clone();
+      zOnly.z += delta.z;
+      if (!yard.blocked(zOnly.x, zOnly.z, radius)) return zOnly;
+      return pos;
+    }
     let audioCtx = null;
     let engineGain = null;
     let engineOsc = null;
-    let engineReady = false;
+    let revBuffer = null;
+    let revSource = null;
     function bootAudio() {
       if (audioCtx) return;
       const Ctx = window.AudioContext || window.webkitAudioContext;
       if (!Ctx) return;
       audioCtx = new Ctx();
-      engineOsc = audioCtx.createOscillator();
-      engineOsc.type = "sawtooth";
-      engineOsc.frequency.value = 48;
-      const filter = audioCtx.createBiquadFilter();
-      filter.type = "lowpass";
-      filter.frequency.value = 240;
       engineGain = audioCtx.createGain();
       engineGain.gain.value = 0;
+      engineGain.connect(audioCtx.destination);
+      engineOsc = audioCtx.createOscillator();
+      engineOsc.type = "sawtooth";
+      engineOsc.frequency.value = 55;
+      const filter = audioCtx.createBiquadFilter();
+      filter.type = "lowpass";
+      filter.frequency.value = 280;
       engineOsc.connect(filter);
       filter.connect(engineGain);
-      engineGain.connect(audioCtx.destination);
       engineOsc.start();
-      engineReady = true;
       fetch("assets/audio/runx-rev.mp3").then((r) => r.ok ? r.arrayBuffer() : null).then((buf) => {
-        if (!buf || !audioCtx) return;
-        return audioCtx.decodeAudioData(buf).then((decoded) => {
-          audioCtx._runxClip = decoded;
-        });
+        if (!buf) return null;
+        return audioCtx.decodeAudioData(buf);
+      }).then((decoded) => {
+        if (!decoded) return;
+        revBuffer = decoded;
+        engineOsc.disconnect();
       }).catch(() => {
       });
     }
-    function updateEngine(amount, throttle) {
-      if (!engineReady) return;
-      const clip = audioCtx._runxClip;
-      if (clip && !audioCtx._runxSrc) {
-        const src = audioCtx.createBufferSource();
-        src.buffer = clip;
-        src.loop = true;
-        const g = audioCtx.createGain();
-        g.gain.value = 0.35;
-        src.connect(g);
-        g.connect(audioCtx.destination);
-        src.start();
-        audioCtx._runxSrc = src;
-        audioCtx._runxGain = g;
-        engineGain.gain.value = 0;
-      }
-      if (audioCtx._runxSrc) {
-        audioCtx._runxSrc.playbackRate.value = 0.55 + amount * 1.7 + (flameActive ? 0.25 : 0);
+    function setEngine(throttle, speed) {
+      if (!audioCtx) return;
+      if (audioCtx.state === "suspended") audioCtx.resume();
+      const rpm = 0.15 + Math.min(1, Math.abs(speed) / 12) * 0.7 + (throttle ? 0.25 : 0);
+      if (revBuffer) {
+        if (!revSource) {
+          revSource = audioCtx.createBufferSource();
+          revSource.buffer = revBuffer;
+          revSource.loop = true;
+          revSource.connect(engineGain);
+          revSource.start();
+        }
+        revSource.playbackRate.value = 0.45 + rpm * 1.3;
+        engineGain.gain.setTargetAtTime(throttle || Math.abs(speed) > 0.2 ? 0.55 : 0.08, audioCtx.currentTime, 0.08);
         return;
       }
-      engineOsc.frequency.value = 42 + amount * 90 + (throttle > 0 ? 18 : 0) + (flameActive ? 30 : 0);
-      engineGain.gain.value = mode === "driving" ? 0.015 + amount * 0.04 : 0;
+      if (!engineOsc) return;
+      engineOsc.frequency.setTargetAtTime(48 + rpm * 140, audioCtx.currentTime, 0.05);
+      engineGain.gain.setTargetAtTime(mode === "drive" && (throttle || Math.abs(speed) > 0.2) ? 0.045 : 0, audioCtx.currentTime, 0.08);
     }
-    addEventListener("keydown", bootAudio, { once: true });
-    addEventListener("pointerdown", bootAudio, { once: true });
-    let prev = performance.now();
-    function animate() {
-      requestAnimationFrame(animate);
-      const now2 = performance.now();
-      const dt = Math.min((now2 - prev) * 1e-3, 0.05);
-      prev = now2;
-      const t = now2 * 1e-3;
-      if (entry.active) {
-        entry.t += dt / entry.dur;
-        const a = Math.min(1, entry.t);
-        const e = 1 - Math.pow(1 - a, 3);
-        camera.position.lerpVectors(entry.from, entry.to, e);
-        camera.lookAt(new Vector3().lerpVectors(entry.fromLook, entry.toLook, e));
-        if (a >= 1) {
-          entry.active = false;
-          if (mode === "entering") finishEnter();
-          else if (mode === "exiting") finishExit();
+    addEventListener("keydown", (e) => {
+      var _a2;
+      if (e.code === "KeyW" || e.code === "ArrowUp") keys.f = true;
+      if (e.code === "KeyS" || e.code === "ArrowDown") keys.b = true;
+      if (e.code === "KeyA" || e.code === "ArrowLeft") keys.l = true;
+      if (e.code === "KeyD" || e.code === "ArrowRight") keys.r = true;
+      if (e.code === "Space") {
+        e.preventDefault();
+        flameOn = true;
+        bootAudio();
+      }
+      if (e.code === "KeyV") toggleView();
+      if (e.code === "KeyE") {
+        bootAudio();
+        if (overlay.style.display === "flex") closeLaptop();
+        else if (mode === "drive") exitCar();
+        else if (nearDoor()) enterCar();
+        else if (nearLaptop()) openLaptop();
+      }
+      if (e.code === "Escape") {
+        closeLaptop();
+        (_a2 = document.exitPointerLock) == null ? void 0 : _a2.call(document);
+      }
+      if (keys.f || keys.b) bootAudio();
+    });
+    addEventListener("keyup", (e) => {
+      if (e.code === "KeyW" || e.code === "ArrowUp") keys.f = false;
+      if (e.code === "KeyS" || e.code === "ArrowDown") keys.b = false;
+      if (e.code === "KeyA" || e.code === "ArrowLeft") keys.l = false;
+      if (e.code === "KeyD" || e.code === "ArrowRight") keys.r = false;
+      if (e.code === "Space") flameOn = false;
+    });
+    renderer.domElement.addEventListener("click", () => {
+      var _a2, _b2;
+      if (overlay.style.display === "flex") return;
+      if (view === "first") (_b2 = (_a2 = renderer.domElement).requestPointerLock) == null ? void 0 : _b2.call(_a2);
+    });
+    document.addEventListener("pointerlockchange", () => {
+      pointerLocked = document.pointerLockElement === renderer.domElement;
+    });
+    renderer.domElement.addEventListener("pointerdown", (e) => {
+      dragging = true;
+      lx = e.clientX;
+      ly = e.clientY;
+    });
+    addEventListener("pointerup", () => {
+      dragging = false;
+    });
+    let lx = 0;
+    let ly = 0;
+    addEventListener("mousemove", (e) => {
+      let dx = 0;
+      let dy = 0;
+      if (pointerLocked) {
+        dx = e.movementX || 0;
+        dy = e.movementY || 0;
+      } else if (dragging) {
+        dx = e.clientX - lx;
+        dy = e.clientY - ly;
+        lx = e.clientX;
+        ly = e.clientY;
+      } else return;
+      const sens = pointerLocked ? 22e-4 : 4e-3;
+      if (mode === "drive") lookOffset = MathUtils.clamp(lookOffset - dx * sens, -1.1, 1.1);
+      else yaw -= dx * sens;
+      pitch = MathUtils.clamp(pitch - dy * sens * 0.75, -0.65, 0.45);
+    });
+    const joy = $("joystick-zone");
+    const knob = $("joystick-knob");
+    if (joy && knob) {
+      let active = false;
+      const setJoy = (cx, cy) => {
+        const r = joy.getBoundingClientRect();
+        let x = cx - (r.left + r.width / 2);
+        let y = cy - (r.top + r.height / 2);
+        const m = Math.hypot(x, y) || 1;
+        const cap = r.width * 0.32;
+        if (m > cap) {
+          x = x / m * cap;
+          y = y / m * cap;
         }
-      } else if (mode === "showcase") {
-        applyShowcase();
-      } else if (mode === "walk") {
+        knob.style.transform = `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`;
+        keys.f = y < -12;
+        keys.b = y > 12;
+        keys.l = x < -12;
+        keys.r = x > 12;
+      };
+      joy.addEventListener("pointerdown", (e) => {
+        active = true;
+        joy.setPointerCapture(e.pointerId);
+        setJoy(e.clientX, e.clientY);
+        bootAudio();
+      });
+      joy.addEventListener("pointermove", (e) => {
+        if (active) setJoy(e.clientX, e.clientY);
+      });
+      const endJoy = () => {
+        active = false;
+        knob.style.transform = "translate(-50%, -50%)";
+        keys.f = keys.b = keys.l = keys.r = false;
+      };
+      joy.addEventListener("pointerup", endJoy);
+      joy.addEventListener("pointercancel", endJoy);
+    }
+    (_a = $("btn-gas")) == null ? void 0 : _a.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      flameOn = true;
+      bootAudio();
+    });
+    addEventListener("pointerup", (e) => {
+      if (e.target && e.target.id === "btn-gas") flameOn = false;
+    });
+    (_b = $("btn-laptop")) == null ? void 0 : _b.addEventListener("click", () => {
+      if (mode === "drive") exitCar();
+      else if (nearDoor()) enterCar();
+      else openLaptop();
+    });
+    const viewBtn = document.createElement("button");
+    viewBtn.className = "action-btn";
+    viewBtn.textContent = "👁";
+    viewBtn.title = "First / third person";
+    (_c = $("action-buttons")) == null ? void 0 : _c.appendChild(viewBtn);
+    viewBtn.addEventListener("click", toggleView);
+    addEventListener("resize", () => {
+      camera.aspect = innerWidth / innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth, innerHeight);
+    });
+    const look = new Vector3();
+    const desired = new Vector3();
+    const headPos = new Vector3();
+    let last = performance.now();
+    let labelTick = 0;
+    function tick(now) {
+      requestAnimationFrame(tick);
+      const dt = Math.min(0.05, (now - last) / 1e3);
+      last = now;
+      if (mode === "walk") {
+        const forward = new Vector3(Math.sin(yaw), 0, Math.cos(yaw));
+        const right = new Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
         const wish = new Vector3();
-        const look = new Vector3(-Math.sin(camYaw), 0, -Math.cos(camYaw));
-        const strafe = new Vector3(look.z, 0, -look.x);
-        if (moveState.forward) wish.add(look);
-        if (moveState.backward) wish.sub(look);
-        if (moveState.right) wish.add(strafe);
-        if (moveState.left) wish.sub(strafe);
+        if (keys.f) wish.add(forward);
+        if (keys.b) wish.sub(forward);
+        if (keys.l) wish.sub(right);
+        if (keys.r) wish.add(right);
         if (wish.lengthSq() > 0) {
-          wish.normalize();
-          character.position.addScaledVector(wish, speed * dt);
-          pushOutOfCar();
-          character.rotation.y = Math.atan2(wish.x, wish.z);
+          wish.normalize().multiplyScalar(3.1 * dt);
+          player.position.copy(slide(player.position, wish, 0.28));
         }
-        const head = character.position.clone();
-        head.y = 1.25;
-        const ideal = head.clone();
-        ideal.x += Math.sin(camYaw) * camDist;
-        ideal.z += Math.cos(camYaw) * camDist;
-        ideal.y = 1.7;
-        camera.position.lerp(ideal, 1 - Math.exp(-7 * dt));
-        camera.lookAt(head);
-        const zone = nearestZone();
-        say(zone ? zone.prompt : "WASD  ·  cyan driver  ·  pink laptop  ·  orange rev");
-      } else if (mode === "driving" && frame && carModel && eyeAnchor) {
-        let throttle = 0;
-        if (moveState.forward) throttle = 1;
-        if (moveState.backward) throttle = -0.55;
-        drive.speed += throttle * 8 * dt;
-        drive.speed -= Math.sign(drive.speed) * 1.6 * dt;
-        if (Math.abs(drive.speed) < 0.04 && throttle === 0) drive.speed = 0;
-        drive.speed = Math.max(-4, Math.min(14, drive.speed));
-        const steer = (moveState.left ? 1 : 0) + (moveState.right ? -1 : 0);
-        if (Math.abs(drive.speed) > 0.2) {
-          carModel.rotation.y += steer * 1.5 * dt * Math.min(1, Math.abs(drive.speed) / 4) * Math.sign(drive.speed);
-        }
-        const fwd = new Vector3(0, 0, 1).applyQuaternion(carModel.quaternion);
-        const next = carModel.position.clone().addScaledVector(fwd, drive.speed * dt);
-        if (!city.blocked(next.x, next.z)) carModel.position.copy(next);
-        else drive.speed *= -0.15;
-        updateEngine(Math.abs(drive.speed) / 14, throttle);
-        const kmh = Math.abs(drive.speed) * 3.6;
-        say(`${kmh.toFixed(0)} km/h  ·  W drive  ·  A/D steer  ·  C ${drive.chase ? "cabin" : "chase"}  ·  E out`);
-        if (drive.chase) {
-          const behind = fwd.clone().multiplyScalar(-6.2);
-          const ideal = carModel.position.clone().add(behind);
-          ideal.y = 2.1;
-          camera.position.lerp(ideal, 1 - Math.exp(-6 * dt));
-          const look = carModel.position.clone();
-          look.y = 0.8;
-          camera.lookAt(look);
+        player.rotation.y = yaw;
+        player.visible = view === "third";
+      } else if (car && frame) {
+        const accel = (keys.f ? 7.5 : 0) - (keys.b ? 10 : 0);
+        drive.speed += accel * dt;
+        drive.speed *= 1 - 1.4 * dt;
+        drive.speed = MathUtils.clamp(drive.speed, -3.5, 12);
+        const steer = (keys.l ? 1 : 0) - (keys.r ? 1 : 0);
+        if (Math.abs(drive.speed) > 0.15) car.rotation.y += steer * 1.5 * dt * Math.sign(drive.speed || 1);
+        const fwd = frame.forward.clone().applyAxisAngle(new Vector3(0, 1, 0), car.rotation.y);
+        const step = fwd.multiplyScalar(drive.speed * dt);
+        const radius = Math.max(frame.width, 1.4) * 0.55;
+        const next = car.position.clone().add(step);
+        if (yard.blocked(next.x, next.z, radius)) drive.speed *= -0.15;
+        else car.position.add(step);
+        if (headLights) headLights.intensity = keys.f || Math.abs(drive.speed) > 0.4 ? 10 : 4;
+      }
+      if (flameOn) emitFlame();
+      updateFlame(dt);
+      setEngine(keys.f || flameOn, mode === "drive" ? drive.speed : 0);
+      const focus = mode === "drive" && car ? car.position : player.position;
+      sun.position.set(focus.x + 12, 18, focus.z + 6);
+      sun.target.position.set(focus.x, 0, focus.z);
+      sun.target.updateMatrixWorld();
+      if (view === "first") {
+        if (mode === "drive" && eyeAnchor && frame) {
+          eyeAnchor.getWorldPosition(camera.position);
+          const fwd = frame.forward.clone().applyAxisAngle(new Vector3(0, 1, 0), car.rotation.y + lookOffset);
+          fwd.y = Math.sin(pitch);
+          fwd.normalize();
+          camera.lookAt(camera.position.clone().add(fwd));
         } else {
-          const eye = new Vector3();
-          eyeAnchor.getWorldPosition(eye);
-          eye.y += Math.sin(t * 11) * 4e-3;
-          if (flameActive || throttle > 0.4) {
-            eye.x += (Math.random() - 0.5) * 8e-3;
-            eye.y += (Math.random() - 0.5) * 4e-3;
-          }
-          camera.position.copy(eye);
-          const yaw = carModel.rotation.y + lookOffset;
-          const look = new Vector3(
-            Math.sin(yaw) * Math.cos(fpPitch),
-            Math.sin(fpPitch),
-            Math.cos(yaw) * Math.cos(fpPitch)
-          );
+          camera.position.set(player.position.x, 1.62, player.position.z);
+          look.set(Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch));
           camera.lookAt(camera.position.clone().add(look));
         }
+      } else if (mode === "drive" && car) {
+        const ay = baseYaw();
+        headPos.set(car.position.x, 1.05, car.position.z);
+        desired.set(headPos.x - Math.sin(ay) * 5.6, 1.85, headPos.z - Math.cos(ay) * 5.6);
+        const safe = yard.shorten(headPos, desired);
+        camera.position.lerp(safe, 1 - Math.exp(-8 * dt));
+        camera.lookAt(headPos);
+      } else {
+        headPos.set(player.position.x, 1.35, player.position.z);
+        const side = Math.cos(yaw) * 1.15;
+        const sideZ = -Math.sin(yaw) * 1.15;
+        desired.set(headPos.x - Math.sin(yaw) * 3.8 + side, 1.7, headPos.z - Math.cos(yaw) * 3.8 + sideZ);
+        const safe = yard.shorten(headPos, desired);
+        camera.position.lerp(safe, 1 - Math.exp(-10 * dt));
+        camera.lookAt(headPos.x, 1.4, headPos.z);
       }
-      markers.forEach((z) => {
-        const pulse = 0.9 + Math.sin(t * 3 + z.pos.x) * 0.08;
-        z.ring.scale.setScalar(pulse);
-        const hot = mode === "walk" && nearestZone() === z;
-        z.ring.material.opacity = hot ? 1 : 0.45;
-        z.tag.position.y = 1.12 + Math.sin(t * 2 + z.pos.z) * 0.04;
-      });
-      plCyan.intensity = 7 + Math.sin(t * 1.6) * 1.2;
-      plPink.intensity = 4.5 + Math.cos(t * 1.3) * 0.8;
-      if (flameActive) emitFlame();
-      updateFlame(dt);
-      composer.render();
+      labelTick += dt;
+      if (labelTick > 0.25) {
+        labelTick = 0;
+        say(viewLabel());
+      }
+      renderer.render(scene, camera);
     }
-    animate();
-    setProgress(40, "Waiting on the RunX");
+    requestAnimationFrame(tick);
   }
   exports.start = start;
   Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });

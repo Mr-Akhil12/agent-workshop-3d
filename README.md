@@ -1,8 +1,8 @@
 # The Agent's Workshop
 
-Interactive 3D portfolio. A lit cyberpunk bay, a gloss-black Toyota RunX, and a laptop that actually opens.
+Daylight Tongaat driveway. The gloss-black RunX is the only mesh kept from the first build. No garage box — the houses are set pieces, and the camera stops at them instead of clipping through.
 
-Drag to orbit the poster. WASD walks you in. Cyan ring is the driver door (right-hand drive). Once you're in the seat, W drives, A/D steers, S brakes, C flips to a chase camera, SPACE throws flames. The strip north of the bay is a small night city — Hush, AgenticBiz, Comfort, Ballito.
+You start in first person, standing in the mouth of the driveway looking at the car. V switches to third person. WASD walks. E at the driver door (right-hand side) sits you in. In the seat, W drives, A/D steers, S brakes, V flips between the cabin and a chase camera, SPACE throws flames. E gets you back out. The laptop is on the table against the house.
 
 Drop a rev-range recording at `assets/audio/runx-rev.mp3` and rebuild. Until then the engine note is a synth stand-in. The face on the walker is the public Linktree portrait; LinkedIn would not serve the photo.
 
