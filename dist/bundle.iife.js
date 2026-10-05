@@ -25812,19 +25812,18 @@ void main() {
   }
   function makeFlakeBlackPaint(envMap) {
     return new MeshPhysicalMaterial({
-      color: 329224,
-      metalness: 0.06,
-      roughness: 0.38,
-      clearcoat: 1,
-      clearcoatRoughness: 0.05,
+      color: 460810,
+      metalness: 0.12,
+      roughness: 0.32,
+      clearcoat: 0.85,
+      clearcoatRoughness: 0.12,
       envMap,
-      envMapIntensity: 0.28,
-      reflectivity: 0.35,
-      specularIntensity: 0.45,
-      specularColor: new Color(12963028),
-      sheen: 0,
-      sheenRoughness: 0.5,
-      sheenColor: new Color(329224)
+      envMapIntensity: 0.4,
+      transparent: false,
+      opacity: 1,
+      depthWrite: true,
+      transmission: 0,
+      side: FrontSide
     });
   }
   function createDayEnv(THREE2, renderer) {
@@ -26305,13 +26304,14 @@ void main() {
       envMap,
       envMapIntensity: 0.35
     });
-    const glass = new THREE2.MeshStandardMaterial({
-      color: 1713196,
+    new THREE2.MeshStandardMaterial({
+      color: 1054752,
       roughness: 0.08,
-      metalness: 0.45,
+      metalness: 0.2,
       envMap,
       transparent: true,
-      opacity: 0.55
+      opacity: 0.82,
+      depthWrite: true
     });
     const trim = new THREE2.MeshStandardMaterial({ color: 2763824, roughness: 0.55, metalness: 0.35 });
     const rubber = new THREE2.MeshStandardMaterial({ color: 1842204, roughness: 0.92 });
@@ -26329,7 +26329,7 @@ void main() {
     }
     box(1.62, 0.46, 3.35, paint, 0, 0.48, 0.05);
     box(1.56, 0.1, 1.05, paint, 0, 0.74, 1.22, -0.08);
-    box(1.5, 0.38, 1.45, glass, 0, 0.98, -0.12);
+    box(1.5, 0.38, 1.45, paint, 0, 0.98, -0.12);
     box(1.52, 0.32, 0.72, paint, 0, 0.9, -1.42, 0.42);
     box(1.66, 0.16, 0.14, trim, 0, 0.28, 1.92);
     box(1.66, 0.14, 0.1, trim, 0, 0.3, -1.92);
@@ -26599,27 +26599,38 @@ void main() {
         const cb = new Box3().setFromObject(child);
         const cs = cb.getSize(new Vector3());
         const vol = cs.x * cs.y * cs.z;
-        const skip = /glass|translucent|tire|tyre|rim|light|chrome|mirror|wheel/;
-        const trim = /plastic|internal|interior/;
-        const body2 = !skip.test(mn) && !trim.test(mn) && (mn.includes("paint") || mn.includes("silver") || mn.includes("steel") || mn.includes("white") || vol > 1.3);
-        if (body2) {
+        const windowGlass = (mn === "glass" || mn === "glass2" || mn.includes("front-gla")) && vol < 1.2;
+        const ghostShell = mn.includes("translucent") || (mn.includes("glass") || child.material.transparent && child.material.opacity < 0.95) && !windowGlass;
+        const skip = /tire|tyre|rim|chrome|mirror|wheel|light/;
+        if (ghostShell || !windowGlass && !skip.test(mn) && (mn.includes("paint") || mn.includes("silver") || mn.includes("steel") || vol > 0.8)) {
           child.material = makeFlakeBlackPaint(envMap);
+        } else if (windowGlass) {
+          child.material = new MeshPhysicalMaterial({
+            color: 791064,
+            metalness: 0.1,
+            roughness: 0.05,
+            transmission: 0.55,
+            thickness: 0.02,
+            transparent: true,
+            opacity: 0.85,
+            envMap,
+            envMapIntensity: 0.6,
+            depthWrite: false
+          });
         } else if (mn.includes("chrome") || mn.includes("rim") || mn.includes("aluminum")) {
+          child.material.transparent = false;
+          child.material.opacity = 1;
+          child.material.depthWrite = true;
           child.material.metalness = 1;
-          child.material.roughness = 0.18;
+          child.material.roughness = 0.22;
           child.material.envMap = envMap;
-          child.material.envMapIntensity = 0.8;
+          child.material.envMapIntensity = 0.7;
           if (child.material.color) child.material.color.setHex(13158600);
           child.material.needsUpdate = true;
-        } else if (mn.includes("glass") || mn.includes("translucent")) {
-          child.material.transparent = true;
-          child.material.opacity = 0.28;
-          if (child.material.color) child.material.color.setHex(791064);
-          child.material.envMap = envMap;
-          child.material.needsUpdate = true;
-        } else if (mn.includes("light")) {
-          child.material.emissive = new Color(16773584);
-          child.material.emissiveIntensity = 0.35;
+        } else {
+          child.material.transparent = false;
+          child.material.opacity = 1;
+          child.material.depthWrite = true;
           child.material.needsUpdate = true;
         }
       });

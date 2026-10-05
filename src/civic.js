@@ -14,7 +14,7 @@ export function buildCivic(THREE, envMap) {
         envMapIntensity: 0.35,
     });
     const glass = new THREE.MeshStandardMaterial({
-        color: 0x1a242c, roughness: 0.08, metalness: 0.45, envMap, transparent: true, opacity: 0.55,
+        color: 0x101820, roughness: 0.08, metalness: 0.2, envMap, transparent: true, opacity: 0.82, depthWrite: true,
     });
     const trim = new THREE.MeshStandardMaterial({ color: 0x2a2c30, roughness: 0.55, metalness: 0.35 });
     const rubber = new THREE.MeshStandardMaterial({ color: 0x1c1c1c, roughness: 0.92 });
@@ -34,7 +34,7 @@ export function buildCivic(THREE, envMap) {
 
     box(1.62, 0.46, 3.35, paint, 0, 0.48, 0.05);
     box(1.56, 0.1, 1.05, paint, 0, 0.74, 1.22, -0.08);
-    box(1.5, 0.38, 1.45, glass, 0, 0.98, -0.12);
+    box(1.5, 0.38, 1.45, paint, 0, 0.98, -0.12);
     box(1.52, 0.32, 0.72, paint, 0, 0.9, -1.42, 0.42);
     box(1.66, 0.16, 0.14, trim, 0, 0.28, 1.92);
     box(1.66, 0.14, 0.1, trim, 0, 0.3, -1.92);

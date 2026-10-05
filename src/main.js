@@ -240,29 +240,38 @@ export function start() {
             const cb = new THREE.Box3().setFromObject(child);
             const cs = cb.getSize(new THREE.Vector3());
             const vol = cs.x * cs.y * cs.z;
-            // Body panels on this GLB are named Silver / Paint, not just Paint.
-            // Rims stay metal. Large silver shells are the panels that were reading pale blue.
-            const skip = /glass|translucent|tire|tyre|rim|light|chrome|mirror|wheel/;
-            const trim = /plastic|internal|interior/;
-            const body = !skip.test(mn) && !trim.test(mn) && (mn.includes('paint') || mn.includes('silver') || mn.includes('steel') || mn.includes('white') || vol > 1.3);
-            if (body) {
+            const windowGlass = (mn === 'glass' || mn === 'glass2' || mn.includes('front-gla')) && vol < 1.2;
+            const ghostShell = mn.includes('translucent') || ((mn.includes('glass') || (child.material.transparent && child.material.opacity < 0.95)) && !windowGlass);
+            const skip = /tire|tyre|rim|chrome|mirror|wheel|light/;
+            if (ghostShell || (!windowGlass && !skip.test(mn) && (mn.includes('paint') || mn.includes('silver') || mn.includes('steel') || vol > 0.8))) {
                 child.material = makeFlakeBlackPaint(envMap);
+            } else if (windowGlass) {
+                child.material = new THREE.MeshPhysicalMaterial({
+                    color: 0x0c1218,
+                    metalness: 0.1,
+                    roughness: 0.05,
+                    transmission: 0.55,
+                    thickness: 0.02,
+                    transparent: true,
+                    opacity: 0.85,
+                    envMap,
+                    envMapIntensity: 0.6,
+                    depthWrite: false,
+                });
             } else if (mn.includes('chrome') || mn.includes('rim') || mn.includes('aluminum')) {
+                child.material.transparent = false;
+                child.material.opacity = 1;
+                child.material.depthWrite = true;
                 child.material.metalness = 1;
-                child.material.roughness = 0.18;
+                child.material.roughness = 0.22;
                 child.material.envMap = envMap;
-                child.material.envMapIntensity = 0.8;
+                child.material.envMapIntensity = 0.7;
                 if (child.material.color) child.material.color.setHex(0xc8c8c8);
                 child.material.needsUpdate = true;
-            } else if (mn.includes('glass') || mn.includes('translucent')) {
-                child.material.transparent = true;
-                child.material.opacity = 0.28;
-                if (child.material.color) child.material.color.setHex(0x0c1218);
-                child.material.envMap = envMap;
-                child.material.needsUpdate = true;
-            } else if (mn.includes('light')) {
-                child.material.emissive = new THREE.Color(0xfff1d0);
-                child.material.emissiveIntensity = 0.35;
+            } else {
+                child.material.transparent = false;
+                child.material.opacity = 1;
+                child.material.depthWrite = true;
                 child.material.needsUpdate = true;
             }
         });
