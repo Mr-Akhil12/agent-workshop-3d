@@ -3370,29 +3370,29 @@ var AgentWorkshop = function(exports) {
       _edge2.subVectors(c, a);
       _normal$1.crossVectors(_edge1, _edge2);
       let DdN = this.direction.dot(_normal$1);
-      let sign2;
+      let sign;
       if (DdN > 0) {
         if (backfaceCulling) return null;
-        sign2 = 1;
+        sign = 1;
       } else if (DdN < 0) {
-        sign2 = -1;
+        sign = -1;
         DdN = -DdN;
       } else {
         return null;
       }
       _diff.subVectors(this.origin, a);
-      const DdQxE2 = sign2 * this.direction.dot(_edge2.crossVectors(_diff, _edge2));
+      const DdQxE2 = sign * this.direction.dot(_edge2.crossVectors(_diff, _edge2));
       if (DdQxE2 < 0) {
         return null;
       }
-      const DdE1xQ = sign2 * this.direction.dot(_edge1.cross(_diff));
+      const DdE1xQ = sign * this.direction.dot(_edge1.cross(_diff));
       if (DdE1xQ < 0) {
         return null;
       }
       if (DdQxE2 + DdE1xQ > DdN) {
         return null;
       }
-      const QdN = -sign2 * _diff.dot(_normal$1);
+      const QdN = -sign * _diff.dot(_normal$1);
       if (QdN < 0) {
         return null;
       }
@@ -20596,10 +20596,10 @@ void main() {
         const vertex2 = new Vector3();
         let groupCount = 0;
         const radius = top === true ? radiusTop : radiusBottom;
-        const sign2 = top === true ? 1 : -1;
+        const sign = top === true ? 1 : -1;
         for (let x = 1; x <= radialSegments; x++) {
-          vertices.push(0, halfHeight * sign2, 0);
-          normals.push(0, sign2, 0);
+          vertices.push(0, halfHeight * sign, 0);
+          normals.push(0, sign, 0);
           uvs.push(0.5, 0.5);
           index++;
         }
@@ -20610,12 +20610,12 @@ void main() {
           const cosTheta = Math.cos(theta);
           const sinTheta = Math.sin(theta);
           vertex2.x = radius * sinTheta;
-          vertex2.y = halfHeight * sign2;
+          vertex2.y = halfHeight * sign;
           vertex2.z = radius * cosTheta;
           vertices.push(vertex2.x, vertex2.y, vertex2.z);
-          normals.push(0, sign2, 0);
+          normals.push(0, sign, 0);
           uv.x = cosTheta * 0.5 + 0.5;
-          uv.y = sinTheta * 0.5 * sign2 + 0.5;
+          uv.y = sinTheta * 0.5 * sign + 0.5;
           uvs.push(uv.x, uv.y);
           index++;
         }
@@ -20771,6 +20771,66 @@ void main() {
     }
     static fromJSON(data) {
       return new SphereGeometry(data.radius, data.widthSegments, data.heightSegments, data.phiStart, data.phiLength, data.thetaStart, data.thetaLength);
+    }
+  }
+  class TorusGeometry extends BufferGeometry {
+    constructor(radius = 1, tube = 0.4, radialSegments = 12, tubularSegments = 48, arc = Math.PI * 2) {
+      super();
+      this.type = "TorusGeometry";
+      this.parameters = {
+        radius,
+        tube,
+        radialSegments,
+        tubularSegments,
+        arc
+      };
+      radialSegments = Math.floor(radialSegments);
+      tubularSegments = Math.floor(tubularSegments);
+      const indices = [];
+      const vertices = [];
+      const normals = [];
+      const uvs = [];
+      const center = new Vector3();
+      const vertex2 = new Vector3();
+      const normal = new Vector3();
+      for (let j = 0; j <= radialSegments; j++) {
+        for (let i = 0; i <= tubularSegments; i++) {
+          const u = i / tubularSegments * arc;
+          const v = j / radialSegments * Math.PI * 2;
+          vertex2.x = (radius + tube * Math.cos(v)) * Math.cos(u);
+          vertex2.y = (radius + tube * Math.cos(v)) * Math.sin(u);
+          vertex2.z = tube * Math.sin(v);
+          vertices.push(vertex2.x, vertex2.y, vertex2.z);
+          center.x = radius * Math.cos(u);
+          center.y = radius * Math.sin(u);
+          normal.subVectors(vertex2, center).normalize();
+          normals.push(normal.x, normal.y, normal.z);
+          uvs.push(i / tubularSegments);
+          uvs.push(j / radialSegments);
+        }
+      }
+      for (let j = 1; j <= radialSegments; j++) {
+        for (let i = 1; i <= tubularSegments; i++) {
+          const a = (tubularSegments + 1) * j + i - 1;
+          const b = (tubularSegments + 1) * (j - 1) + i - 1;
+          const c = (tubularSegments + 1) * (j - 1) + i;
+          const d = (tubularSegments + 1) * j + i;
+          indices.push(a, b, d);
+          indices.push(b, c, d);
+        }
+      }
+      this.setIndex(indices);
+      this.setAttribute("position", new Float32BufferAttribute(vertices, 3));
+      this.setAttribute("normal", new Float32BufferAttribute(normals, 3));
+      this.setAttribute("uv", new Float32BufferAttribute(uvs, 2));
+    }
+    copy(source) {
+      super.copy(source);
+      this.parameters = Object.assign({}, source.parameters);
+      return this;
+    }
+    static fromJSON(data) {
+      return new TorusGeometry(data.radius, data.tube, data.radialSegments, data.tubularSegments, data.arc);
     }
   }
   class MeshStandardMaterial extends Material {
@@ -23192,6 +23252,7 @@ void main() {
     TangentSpaceNormalMap,
     Texture,
     TextureLoader,
+    TorusGeometry,
     Triangle,
     TriangleFanDrawMode,
     TriangleStripDrawMode,
@@ -25769,14 +25830,14 @@ void main() {
   function createDayEnv(THREE2, renderer) {
     const pmrem = new THREE2.PMREMGenerator(renderer);
     const env = new THREE2.Scene();
-    env.background = new THREE2.Color(9352924);
-    env.add(new THREE2.HemisphereLight(12047598, 9073500, 1));
-    const sun = new THREE2.DirectionalLight(16774116, 2.4);
+    env.background = new THREE2.Color(10134443);
+    env.add(new THREE2.HemisphereLight(12042438, 6972508, 1));
+    const sun = new THREE2.DirectionalLight(16773340, 1.2);
     sun.position.set(12, 18, 6);
     env.add(sun);
     const ground = new THREE2.Mesh(
       new THREE2.PlaneGeometry(60, 60),
-      new THREE2.MeshBasicMaterial({ color: 10126444 })
+      new THREE2.MeshBasicMaterial({ color: 6973024 })
     );
     ground.rotation.x = -Math.PI / 2;
     env.add(ground);
@@ -25824,15 +25885,15 @@ void main() {
       }
     });
     const verge = canvasTex$1(THREE2, 256, 256, (ctx, w, h) => {
-      ctx.fillStyle = "#7d8a62";
+      ctx.fillStyle = "#6e6a62";
       ctx.fillRect(0, 0, w, h);
       for (let i = 0; i < 600; i++) {
-        ctx.fillStyle = Math.random() > 0.5 ? "#6a784f" : "#8d9a70";
+        ctx.fillStyle = Math.random() > 0.5 ? "#5e5a54" : "#7a756c";
         ctx.fillRect(Math.random() * w, Math.random() * h, 3, 3);
       }
     });
     const stucco = canvasTex$1(THREE2, 256, 256, (ctx, w, h) => {
-      ctx.fillStyle = "#e7e0d4";
+      ctx.fillStyle = "#7a5648";
       ctx.fillRect(0, 0, w, h);
       for (let i = 0; i < 2e3; i++) {
         ctx.fillStyle = `rgba(120,110,96,${Math.random() * 0.18})`;
@@ -25883,9 +25944,9 @@ void main() {
       r.position.set(b[0], b[4] + 0.12, b[1]);
       scene.add(r);
     });
-    palm$1(THREE2, scene, 4.2, -0.4);
-    palm$1(THREE2, scene, 4.6, 8.5);
-    palm$1(THREE2, scene, -8.2, 12);
+    palm(THREE2, scene, 4.2, -0.4);
+    palm(THREE2, scene, 4.6, 8.5);
+    palm(THREE2, scene, -8.2, 12);
     const wood = new THREE2.MeshStandardMaterial({ color: 7031346, roughness: 0.7 });
     const table = new THREE2.Group();
     const top = new THREE2.Mesh(new THREE2.BoxGeometry(0.7, 0.04, 0.45), wood);
@@ -25975,7 +26036,7 @@ void main() {
       scene.add(group);
     }
   }
-  function palm$1(THREE2, scene, x, z) {
+  function palm(THREE2, scene, x, z) {
     const trunk = new THREE2.Mesh(
       new THREE2.CylinderGeometry(0.08, 0.12, 3.2, 6),
       new THREE2.MeshStandardMaterial({ color: 7033668, roughness: 0.9 })
@@ -25994,206 +26055,109 @@ void main() {
   }
   function buildCity(THREE2, scene) {
     const boxes = [];
-    const rand = mulberry(12648430);
-    const road = canvasTex(THREE2, 512, 512, (ctx, w, h) => {
-      ctx.fillStyle = "#5a5854";
+    const asphalt = canvasTex(THREE2, 512, 512, (ctx, w, h) => {
+      ctx.fillStyle = "#454542";
       ctx.fillRect(0, 0, w, h);
-      for (let i = 0; i < 900; i++) {
-        ctx.fillStyle = `rgba(30,28,26,${0.12 + rand() * 0.25})`;
-        ctx.fillRect(rand() * w, rand() * h, 2 + rand() * 6, 1);
+      for (let i = 0; i < 1600; i++) {
+        const g = 36 + Math.floor(Math.random() * 28);
+        ctx.fillStyle = `rgba(${g},${g - 2},${g - 4},0.4)`;
+        ctx.fillRect(Math.random() * w, Math.random() * h, 3 + Math.random() * 12, 1);
       }
-      ctx.strokeStyle = "rgba(230,210,140,0.85)";
-      ctx.lineWidth = 6;
-      ctx.setLineDash([28, 22]);
+      ctx.strokeStyle = "rgba(214,210,196,0.5)";
+      ctx.lineWidth = 3;
+      ctx.setLineDash([34, 26]);
       ctx.beginPath();
       ctx.moveTo(w / 2, 0);
       ctx.lineTo(w / 2, h);
       ctx.stroke();
     });
-    road.repeat.set(1, 8);
-    const roadMat = new THREE2.MeshStandardMaterial({ map: road, roughness: 0.92, metalness: 0.02 });
-    const vergeMat = new THREE2.MeshStandardMaterial({ color: 8227426, roughness: 1 });
-    const sandMat = new THREE2.MeshStandardMaterial({ color: 14206882, roughness: 1 });
-    const waterMat = new THREE2.MeshStandardMaterial({
-      color: 1732506,
-      roughness: 0.18,
-      metalness: 0.05
-    });
-    const ground = new THREE2.Mesh(new THREE2.PlaneGeometry(280, 240), vergeMat);
+    asphalt.repeat.set(1, 8);
+    const roadMat = new THREE2.MeshStandardMaterial({ map: asphalt, roughness: 0.95 });
+    const walkMat = new THREE2.MeshStandardMaterial({ color: 9407364, roughness: 0.97 });
+    const curbMat = new THREE2.MeshStandardMaterial({ color: 11841446, roughness: 0.9 });
+    const lotMat = new THREE2.MeshStandardMaterial({ color: 6973024, roughness: 1 });
+    const ground = new THREE2.Mesh(new THREE2.PlaneGeometry(80, 460), lotMat);
     ground.rotation.x = -Math.PI / 2;
-    ground.position.set(0, -0.03, 130);
+    ground.position.set(0, -0.05, 200);
     ground.receiveShadow = true;
     scene.add(ground);
-    const avenues = [-72, -36, 0, 36, 72];
-    const streets = [48, 88, 128, 168, 208];
-    avenues.forEach((x) => {
-      const mesh = new THREE2.Mesh(new THREE2.PlaneGeometry(12, 200), roadMat);
-      mesh.rotation.x = -Math.PI / 2;
-      mesh.position.set(x, 0.01, 128);
-      mesh.receiveShadow = true;
-      scene.add(mesh);
-    });
-    streets.forEach((z) => {
-      const mesh = new THREE2.Mesh(new THREE2.PlaneGeometry(168, 12), roadMat);
-      mesh.rotation.x = -Math.PI / 2;
-      mesh.position.set(0, 0.012, z);
-      mesh.receiveShadow = true;
-      scene.add(mesh);
-    });
-    const connector = new THREE2.Mesh(new THREE2.PlaneGeometry(9, 28), roadMat);
-    connector.rotation.x = -Math.PI / 2;
-    connector.position.set(0.2, 0.011, 34);
-    connector.receiveShadow = true;
-    scene.add(connector);
-    const stuccoTex = canvasTex(THREE2, 128, 256, (ctx, w, h) => {
-      ctx.fillStyle = "#efe6d8";
-      ctx.fillRect(0, 0, w, h);
-      for (let y = 18; y < h - 8; y += 22) {
-        for (let x = 8; x < w - 8; x += 18) {
-          ctx.fillStyle = rand() > 0.35 ? "#f4e7b0" : "#2a3340";
-          ctx.fillRect(x, y, 8, 10);
-        }
-      }
-    });
-    const glassTex = canvasTex(THREE2, 128, 256, (ctx, w, h) => {
-      ctx.fillStyle = "#8ea8bc";
-      ctx.fillRect(0, 0, w, h);
-      for (let y = 10; y < h - 6; y += 16) {
-        for (let x = 6; x < w - 6; x += 14) {
-          ctx.fillStyle = rand() > 0.4 ? "#d7e6f2" : "#1c2833";
-          ctx.fillRect(x, y, 8, 9);
-        }
-      }
-    });
-    const stuccoMat = new THREE2.MeshStandardMaterial({ map: stuccoTex, roughness: 0.9, color: 16777215 });
-    const creamMat = new THREE2.MeshStandardMaterial({ map: stuccoTex, roughness: 0.9, color: 15986662 });
-    const glassMat = new THREE2.MeshStandardMaterial({ map: glassTex, roughness: 0.35, metalness: 0.25, color: 16777215 });
-    const tileMat = new THREE2.MeshStandardMaterial({ color: 9263682, roughness: 0.85 });
-    const mats = [stuccoMat, creamMat, glassMat];
-    function block(x, z, w, d, h, mat) {
-      const mesh = new THREE2.Mesh(new THREE2.BoxGeometry(w, h, d), mat);
-      mesh.position.set(x, h / 2, z);
-      mesh.castShadow = false;
-      mesh.receiveShadow = true;
-      scene.add(mesh);
-      boxes.push({ minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2, h });
-      if (h < 16 && mat !== glassMat) {
-        const roof = new THREE2.Mesh(new THREE2.BoxGeometry(w + 0.3, 0.22, d + 0.3), tileMat);
-        roof.position.set(x, h + 0.1, z);
-        scene.add(roof);
-      }
-      return mesh;
-    }
-    for (let ix = 0; ix < avenues.length - 1; ix++) {
-      for (let iz = 0; iz < streets.length - 1; iz++) {
-        const x0 = (avenues[ix] + avenues[ix + 1]) / 2;
-        const z0 = (streets[iz] + streets[iz + 1]) / 2;
-        const gap = 7;
-        const bw = avenues[ix + 1] - avenues[ix] - 12 - gap;
-        const bd = streets[iz + 1] - streets[iz] - 12 - gap;
-        if (bw < 6 || bd < 6) continue;
-        const towers = 1 + Math.floor(rand() * 2);
-        for (let t = 0; t < towers; t++) {
-          const ww = bw * (0.42 + rand() * 0.2);
-          const dd = bd * (0.4 + rand() * 0.25);
-          const ox = (rand() - 0.5) * (bw - ww) * 0.6;
-          const oz = (rand() - 0.5) * (bd - dd) * 0.6;
-          const tall = rand() > 0.82;
-          const h = tall ? 18 + rand() * 22 : 4 + rand() * 9;
-          const mat = tall ? glassMat : mats[Math.floor(rand() * 2)];
-          block(x0 + ox, z0 + oz, ww, dd, h, mat);
-        }
-      }
-    }
-    const water = new THREE2.Mesh(new THREE2.PlaneGeometry(70, 220), waterMat);
-    water.rotation.x = -Math.PI / 2;
-    water.position.set(118, -0.04, 140);
-    scene.add(water);
-    const beach = new THREE2.Mesh(new THREE2.PlaneGeometry(16, 200), sandMat);
-    beach.rotation.x = -Math.PI / 2;
-    beach.position.set(92, 5e-3, 140);
-    scene.add(beach);
-    boxes.push({ minX: 100, maxX: 160, minZ: 20, maxZ: 250, h: 1.2 });
-    const foam = new THREE2.Mesh(
-      new THREE2.PlaneGeometry(3, 200),
-      new THREE2.MeshBasicMaterial({ color: 16054267 })
-    );
-    foam.rotation.x = -Math.PI / 2;
-    foam.position.set(84, 0.02, 140);
-    scene.add(foam);
-    const lampMat = new THREE2.MeshStandardMaterial({ color: 2761760, roughness: 0.6 });
-    const bulbMat = new THREE2.MeshBasicMaterial({ color: 16773576 });
-    for (let z = 56; z <= 200; z += 24) {
-      const pole = new THREE2.Mesh(new THREE2.CylinderGeometry(0.06, 0.08, 4.2, 5), lampMat);
-      pole.position.set(-7.2, 2.1, z);
-      scene.add(pole);
-      const bulb = new THREE2.Mesh(new THREE2.SphereGeometry(0.14, 8, 6), bulbMat);
-      bulb.position.set(-7.2, 4.2, z);
-      scene.add(bulb);
-    }
-    palm(THREE2, scene, 88, 110);
-    palm(THREE2, scene, 84, 156);
-    const highway = new THREE2.Mesh(new THREE2.PlaneGeometry(16, 220), roadMat);
+    const road = new THREE2.Mesh(new THREE2.PlaneGeometry(8.4, 210), roadMat);
+    road.rotation.x = -Math.PI / 2;
+    road.position.set(0, 0.01, 112);
+    road.receiveShadow = true;
+    scene.add(road);
+    const highway = new THREE2.Mesh(new THREE2.PlaneGeometry(11, 190), roadMat);
     highway.rotation.x = -Math.PI / 2;
-    highway.position.set(0, 0.015, 320);
+    highway.position.set(0, 0.012, 312);
     highway.receiveShadow = true;
     scene.add(highway);
+    [-1, 1].forEach((side) => {
+      const walk = new THREE2.Mesh(new THREE2.BoxGeometry(2.4, 0.12, 200), walkMat);
+      walk.position.set(side * 6.15, 0.06, 108);
+      walk.receiveShadow = true;
+      scene.add(walk);
+      const curb = new THREE2.Mesh(new THREE2.BoxGeometry(0.16, 0.14, 200), curbMat);
+      curb.position.set(side * 4.55, 0.07, 108);
+      scene.add(curb);
+      const wall = new THREE2.Mesh(
+        new THREE2.BoxGeometry(0.35, 0.65, 170),
+        new THREE2.MeshStandardMaterial({ color: 9078658, roughness: 0.88 })
+      );
+      wall.position.set(side * 5.8, 0.32, 312);
+      scene.add(wall);
+    });
+    const left = [
+      [40, 12, 4, 8015424],
+      [56, 14, 5, 7226940],
+      [74, 12, 3, 6574664],
+      [92, 14, 4, 8148548],
+      [112, 16, 6, 5654592],
+      [132, 12, 4, 7557188],
+      [150, 14, 3, 6442052],
+      [168, 12, 4, 6967368]
+    ];
+    const right = [
+      [38, 12, 3, 6968910],
+      [54, 12, 4, 7624776],
+      [104, 14, 5, 6443080],
+      [124, 14, 4, 7361604],
+      [144, 12, 3, 6180422],
+      [162, 14, 4, 7230024]
+    ];
+    left.forEach((b, i) => walkup(THREE2, scene, boxes, -10.6, b[0], 9.2, b[1], b[2], b[3], 1, i));
+    right.forEach((b, i) => walkup(THREE2, scene, boxes, 10.6, b[0], 9.2, b[1], b[2], b[3], -1, i + 4));
+    [-1, 1].forEach((side, i) => {
+      [46, 78, 112, 148].forEach((z, k) => lamp(THREE2, scene, side * 5.5, z + i * 6 + k));
+    });
+    const bin = new THREE2.Mesh(
+      new THREE2.BoxGeometry(1.2, 1.05, 0.75),
+      new THREE2.MeshStandardMaterial({ color: 3954752, roughness: 0.72 })
+    );
+    bin.position.set(5.7, 0.62, 88);
+    bin.castShadow = true;
+    scene.add(bin);
     const pins = [
-      {
-        id: "comfort",
-        title: "Comfort Shooting",
-        body: "Lead web and app. The systems that have to stay up. Ballito, under Wayne.",
-        pos: new THREE2.Vector3(-36, 0, 68),
-        color: "#c4564a"
-      },
-      {
-        id: "hush",
-        title: "Hush",
-        body: "The car social. A white hatch is parked on this avenue. Walk up and press E to swap.",
-        pos: new THREE2.Vector3(36, 0, 96),
-        color: "#1f6f8a"
-      },
-      {
-        id: "agentic",
-        title: "AgenticBiz",
-        body: "Stop thinking in tickets. Start thinking in outcomes.",
-        pos: new THREE2.Vector3(0, 0, 176),
-        color: "#2f6b4f"
-      },
-      {
-        id: "ballito",
-        title: "Ballito",
-        body: "The coast. Rivers Church. The drive up from Tongaat.",
-        pos: new THREE2.Vector3(72, 0, 168),
-        color: "#c4a15a"
-      }
+      { id: "comfort", title: "Comfort", body: "Lead web and app. The systems that have to stay up.", pos: new THREE2.Vector3(0, 0, 46), color: "#c4564a" },
+      { id: "hush", title: "Hush", body: "The Civic is at the right-hand curb.", pos: new THREE2.Vector3(0, 0, 78), color: "#1f6f8a" },
+      { id: "agentic", title: "AgenticBiz", body: "Stop thinking in tickets.", pos: new THREE2.Vector3(0, 0, 112), color: "#2f6b4f" },
+      { id: "ballito", title: "Ballito", body: "The straight north of the block is where fifth gear lives.", pos: new THREE2.Vector3(0, 0, 150), color: "#c4a15a" }
     ];
     pins.forEach((pin) => {
-      const pole = new THREE2.Mesh(
-        new THREE2.CylinderGeometry(0.08, 0.08, 3.2, 6),
-        new THREE2.MeshStandardMaterial({ color: 2761760, roughness: 0.7 })
-      );
-      pole.position.set(pin.pos.x, 1.6, pin.pos.z);
-      scene.add(pole);
-      const board = sign(THREE2, pin.title, pin.color);
-      board.position.set(pin.pos.x, 3.1, pin.pos.z);
-      scene.add(board);
       const ring = new THREE2.Mesh(
-        new THREE2.RingGeometry(1.6, 1.85, 28),
-        new THREE2.MeshBasicMaterial({ color: pin.color, transparent: true, opacity: 0.85, side: THREE2.DoubleSide })
+        new THREE2.RingGeometry(1.35, 1.55, 24),
+        new THREE2.MeshBasicMaterial({ color: pin.color, transparent: true, opacity: 0.65, side: THREE2.DoubleSide })
       );
       ring.rotation.x = -Math.PI / 2;
-      ring.position.set(pin.pos.x, 0.03, pin.pos.z);
+      ring.position.set(pin.pos.x, 0.025, pin.pos.z);
       scene.add(ring);
       pin.ring = ring;
     });
-    block(18, 188, 8, 8, 34, glassMat);
     return {
       pins,
-      civicSpot: new THREE2.Vector3(42, 0, 96),
+      civicSpot: new THREE2.Vector3(2.9, 0, 70),
       boxes,
-      blocked(x, z, r = 0.4) {
-        if (x < -110 || x > 102 || z < -6 || z > 450) return true;
+      blocked(x, z, r = 0.35) {
+        if (x < -24 || x > 24 || z < -6 || z > 420) return true;
         for (const b of boxes) {
           if (x > b.minX - r && x < b.maxX + r && z > b.minZ - r && z < b.maxZ + r) return true;
         }
@@ -26204,14 +26168,13 @@ void main() {
         const len = dir.length();
         if (len < 0.25) return to.clone();
         dir.multiplyScalar(1 / len);
-        let safe = from.clone().addScaledVector(dir, 0.35);
-        const steps = 14;
-        for (let i = 1; i <= steps; i++) {
-          const p = from.clone().addScaledVector(dir, len * i / steps);
+        let safe = from.clone().addScaledVector(dir, 0.3);
+        for (let i = 1; i <= 12; i++) {
+          const p = from.clone().addScaledVector(dir, len * i / 12);
           let hit = false;
           for (const b of boxes) {
             if (p.y > b.h - 0.05) continue;
-            if (p.x > b.minX - 0.2 && p.x < b.maxX + 0.2 && p.z > b.minZ - 0.2 && p.z < b.maxZ + 0.2) {
+            if (p.x > b.minX - 0.12 && p.x < b.maxX + 0.12 && p.z > b.minZ - 0.12 && p.z < b.maxZ + 0.12) {
               hit = true;
               break;
             }
@@ -26223,111 +26186,183 @@ void main() {
       }
     };
   }
-  function mulberry(seed) {
-    let a = seed >>> 0;
-    return function() {
-      a |= 0;
-      a = a + 1831565813 | 0;
-      let t = Math.imul(a ^ a >>> 15, 1 | a);
-      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
-      return ((t ^ t >>> 14) >>> 0) / 4294967296;
-    };
+  function walkup(THREE2, scene, boxes, x, z, depth, span, floors, brick, face, seed) {
+    const h = 1.05 + floors * 2.55;
+    const body = new THREE2.Mesh(
+      new THREE2.BoxGeometry(depth, h, span),
+      new THREE2.MeshStandardMaterial({ color: brick, roughness: 0.93 })
+    );
+    body.position.set(x, h / 2, z);
+    body.castShadow = true;
+    body.receiveShadow = true;
+    scene.add(body);
+    boxes.push({
+      minX: x - depth / 2,
+      maxX: x + depth / 2,
+      minZ: z - span / 2,
+      maxZ: z + span / 2,
+      h
+    });
+    const faceMesh = new THREE2.Mesh(
+      new THREE2.PlaneGeometry(span * 0.98, h * 0.98),
+      new THREE2.MeshStandardMaterial({ map: facade(THREE2, floors, brick, seed), roughness: 0.88, side: THREE2.DoubleSide })
+    );
+    faceMesh.position.set(x + face * (depth / 2 + 0.02), h / 2, z);
+    faceMesh.rotation.y = face > 0 ? -Math.PI / 2 : Math.PI / 2;
+    scene.add(faceMesh);
+    if (seed % 2 === 0) {
+      for (let f = 1; f < floors; f++) {
+        const rail = new THREE2.Mesh(
+          new THREE2.BoxGeometry(0.45, 0.04, span * 0.62),
+          new THREE2.MeshStandardMaterial({ color: 2764338, roughness: 0.55, metalness: 0.35 })
+        );
+        rail.position.set(x + face * (depth / 2 + 0.26), 1.15 + f * 2.55, z);
+        scene.add(rail);
+      }
+    }
+    const lip = new THREE2.Mesh(
+      new THREE2.BoxGeometry(depth + 0.25, 0.16, span + 0.2),
+      new THREE2.MeshStandardMaterial({ color: 3814706, roughness: 0.82 })
+    );
+    lip.position.set(x, h + 0.06, z);
+    scene.add(lip);
+  }
+  function facade(THREE2, floors, brick, seed) {
+    const c = document.createElement("canvas");
+    c.width = 256;
+    c.height = 512;
+    const ctx = c.getContext("2d");
+    const hex = "#" + brick.toString(16).padStart(6, "0");
+    ctx.fillStyle = hex;
+    ctx.fillRect(0, 0, 256, 512);
+    for (let row = 0; row < 80; row++) {
+      const y = row * 6;
+      const off = row % 2 ? 9 : 0;
+      ctx.strokeStyle = "rgba(40,22,16,0.45)";
+      ctx.strokeRect(0, y, 256, 6);
+      for (let x = off; x < 256; x += 18) {
+        ctx.fillStyle = "rgba(255,255,255,0.04)";
+        ctx.fillRect(x, y + 1, 16, 4);
+      }
+    }
+    ctx.fillStyle = "#2e2a28";
+    ctx.fillRect(0, 408, 256, 104);
+    ctx.fillStyle = "#141c24";
+    ctx.fillRect(18, 432, 78, 48);
+    ctx.fillRect(156, 432, 78, 48);
+    ctx.fillStyle = "#5c4e40";
+    ctx.fillRect(112, 438, 26, 58);
+    for (let f = 0; f < Math.min(floors, 6); f++) {
+      const y = 348 - f * 62;
+      for (let col = 0; col < 3; col++) {
+        const x = 22 + col * 78;
+        ctx.fillStyle = "#ddd6cc";
+        ctx.fillRect(x - 3, y - 3, 48, 38);
+        const on = (seed + f * 2 + col) % 4 !== 0;
+        ctx.fillStyle = on ? "#1a2730" : "#f3e6bf";
+        ctx.fillRect(x, y, 42, 30);
+        ctx.fillStyle = "rgba(0,0,0,0.25)";
+        ctx.fillRect(x + 20, y, 1, 30);
+      }
+    }
+    const map = new THREE2.CanvasTexture(c);
+    map.colorSpace = THREE2.SRGBColorSpace;
+    return map;
+  }
+  function lamp(THREE2, scene, x, z) {
+    const metal = new THREE2.MeshStandardMaterial({ color: 2895410, roughness: 0.5, metalness: 0.5 });
+    const pole = new THREE2.Mesh(new THREE2.CylinderGeometry(0.05, 0.07, 4.6, 6), metal);
+    pole.position.set(x, 2.3, z);
+    scene.add(pole);
+    const arm = new THREE2.Mesh(new THREE2.BoxGeometry(0.7, 0.06, 0.06), metal);
+    arm.position.set(x + (x < 0 ? 0.3 : -0.3), 4.5, z);
+    scene.add(arm);
+    const bulb = new THREE2.Mesh(
+      new THREE2.BoxGeometry(0.28, 0.08, 0.16),
+      new THREE2.MeshStandardMaterial({ color: 16774092, emissive: 16770724, emissiveIntensity: 0.55 })
+    );
+    bulb.position.set(x + (x < 0 ? 0.55 : -0.55), 4.42, z);
+    scene.add(bulb);
   }
   function canvasTex(THREE2, w, h, paint) {
     const c = document.createElement("canvas");
     c.width = w;
     c.height = h;
     paint(c.getContext("2d"), w, h);
-    const tex = new THREE2.CanvasTexture(c);
-    tex.colorSpace = THREE2.SRGBColorSpace;
-    tex.wrapS = tex.wrapT = THREE2.RepeatWrapping;
-    return tex;
+    const t = new THREE2.CanvasTexture(c);
+    t.colorSpace = THREE2.SRGBColorSpace;
+    t.wrapS = t.wrapT = THREE2.RepeatWrapping;
+    return t;
   }
-  function sign(THREE2, text, color) {
-    const c = document.createElement("canvas");
-    c.width = 512;
-    c.height = 128;
-    const ctx = c.getContext("2d");
-    ctx.fillStyle = "#161410";
-    ctx.fillRect(0, 0, 512, 128);
-    ctx.fillStyle = color;
-    ctx.fillRect(0, 0, 8, 128);
-    ctx.fillStyle = "#f6f1e8";
-    ctx.font = "bold 54px sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(text.toUpperCase(), 264, 64);
-    const tex = new THREE2.CanvasTexture(c);
-    tex.colorSpace = THREE2.SRGBColorSpace;
-    const mesh = new THREE2.Mesh(
-      new THREE2.PlaneGeometry(3.2, 0.8),
-      new THREE2.MeshBasicMaterial({ map: tex, side: THREE2.DoubleSide })
-    );
-    return mesh;
-  }
-  function palm(THREE2, scene, x, z) {
-    const trunk = new THREE2.Mesh(
-      new THREE2.CylinderGeometry(0.1, 0.14, 4.2, 6),
-      new THREE2.MeshStandardMaterial({ color: 7033668, roughness: 0.9 })
-    );
-    trunk.position.set(x, 2.1, z);
-    scene.add(trunk);
-    const frond = new THREE2.Mesh(
-      new THREE2.SphereGeometry(0.9, 8, 6),
-      new THREE2.MeshStandardMaterial({ color: 4090674, roughness: 0.8 })
-    );
-    frond.scale.set(1, 0.4, 1);
-    frond.position.set(x, 4.2, z);
-    scene.add(frond);
-  }
-  function buildHatch(THREE2, envMap) {
+  function buildCivic(THREE2, envMap) {
     const car = new THREE2.Group();
     const paint = new THREE2.MeshPhysicalMaterial({
-      color: 15922165,
-      metalness: 0.35,
-      roughness: 0.28,
-      clearcoat: 1,
-      clearcoatRoughness: 0.12,
+      color: 15197407,
+      metalness: 0.18,
+      roughness: 0.34,
+      clearcoat: 0.7,
+      clearcoatRoughness: 0.18,
       envMap,
-      envMapIntensity: 0.45
+      envMapIntensity: 0.35
     });
     const glass = new THREE2.MeshStandardMaterial({
-      color: 1317924,
-      roughness: 0.15,
-      metalness: 0.2,
+      color: 1713196,
+      roughness: 0.08,
+      metalness: 0.45,
       envMap,
       transparent: true,
-      opacity: 0.72
+      opacity: 0.55
     });
-    const rubber = new THREE2.MeshStandardMaterial({ color: 1710618, roughness: 0.9 });
-    const metal = new THREE2.MeshStandardMaterial({ color: 13158600, metalness: 1, roughness: 0.25, envMap });
-    const lower = new THREE2.Mesh(new THREE2.BoxGeometry(1.72, 0.48, 4.05), paint);
-    lower.position.y = 0.52;
-    lower.castShadow = true;
-    car.add(lower);
-    const cabin = new THREE2.Mesh(new THREE2.BoxGeometry(1.58, 0.46, 1.85), glass);
-    cabin.position.set(0, 0.92, -0.15);
-    car.add(cabin);
-    const hood = new THREE2.Mesh(new THREE2.BoxGeometry(1.68, 0.12, 1.15), paint);
-    hood.position.set(0, 0.78, 1.15);
-    car.add(hood);
-    const hatch = new THREE2.Mesh(new THREE2.BoxGeometry(1.66, 0.38, 0.9), paint);
-    hatch.position.set(0, 0.86, -1.35);
-    hatch.rotation.x = 0.35;
-    car.add(hatch);
-    const grille = new THREE2.Mesh(new THREE2.BoxGeometry(1.15, 0.16, 0.04), new THREE2.MeshStandardMaterial({ color: 9117214, roughness: 0.45 }));
-    grille.position.set(0, 0.48, 2.02);
-    car.add(grille);
-    const wheel = new THREE2.Mesh(new THREE2.CylinderGeometry(0.32, 0.32, 0.18, 12), rubber);
-    wheel.rotation.z = Math.PI / 2;
-    [[-0.82, 0.32, 1.25], [0.82, 0.32, 1.25], [-0.82, 0.32, -1.25], [0.82, 0.32, -1.25]].forEach((p) => {
-      const w = wheel.clone();
-      w.position.set(p[0], p[1], p[2]);
-      const rim = new THREE2.Mesh(new THREE2.CylinderGeometry(0.18, 0.18, 0.2, 10), metal);
-      rim.rotation.z = Math.PI / 2;
-      rim.position.copy(w.position);
-      car.add(w);
-      car.add(rim);
+    const trim = new THREE2.MeshStandardMaterial({ color: 2763824, roughness: 0.55, metalness: 0.35 });
+    const rubber = new THREE2.MeshStandardMaterial({ color: 1842204, roughness: 0.92 });
+    const lamp2 = new THREE2.MeshStandardMaterial({ color: 16774360, emissive: 16773576, emissiveIntensity: 0.35, roughness: 0.25 });
+    const tail = new THREE2.MeshStandardMaterial({ color: 9050646, emissive: 6950928, emissiveIntensity: 0.4, roughness: 0.35 });
+    const metal = new THREE2.MeshStandardMaterial({ color: 12105912, metalness: 0.85, roughness: 0.28, envMap });
+    function box(w, h, d, mat, x, y, z, rx = 0) {
+      const m = new THREE2.Mesh(new THREE2.BoxGeometry(w, h, d), mat);
+      m.position.set(x, y, z);
+      m.rotation.x = rx;
+      m.castShadow = true;
+      m.receiveShadow = true;
+      car.add(m);
+      return m;
+    }
+    box(1.62, 0.46, 3.35, paint, 0, 0.48, 0.05);
+    box(1.56, 0.1, 1.05, paint, 0, 0.74, 1.22, -0.08);
+    box(1.5, 0.38, 1.45, glass, 0, 0.98, -0.12);
+    box(1.52, 0.32, 0.72, paint, 0, 0.9, -1.42, 0.42);
+    box(1.66, 0.16, 0.14, trim, 0, 0.28, 1.92);
+    box(1.66, 0.14, 0.1, trim, 0, 0.3, -1.92);
+    box(0.72, 0.1, 0.04, trim, 0, 0.42, 1.98);
+    box(0.42, 0.1, 0.05, lamp2, -0.52, 0.52, 1.9);
+    box(0.42, 0.1, 0.05, lamp2, 0.52, 0.52, 1.9);
+    box(0.38, 0.08, 0.04, tail, -0.55, 0.62, -1.96);
+    box(0.38, 0.08, 0.04, tail, 0.55, 0.62, -1.96);
+    box(1.48, 0.04, 0.9, paint, 0, 1.2, -0.15);
+    box(0.08, 0.08, 0.16, trim, -0.82, 0.95, 0.35);
+    box(0.08, 0.08, 0.16, trim, 0.82, 0.95, 0.35);
+    const arch = new THREE2.Mesh(
+      new THREE2.TorusGeometry(0.34, 0.06, 6, 10, Math.PI),
+      trim
+    );
+    [[-0.8, 1.22], [0.8, 1.22], [-0.8, -1.22], [0.8, -1.22]].forEach(([x, z]) => {
+      const a = arch.clone();
+      a.rotation.y = Math.PI / 2;
+      a.rotation.z = Math.PI;
+      a.position.set(x, 0.32, z);
+      car.add(a);
+    });
+    const tire = new THREE2.Mesh(new THREE2.CylinderGeometry(0.3, 0.3, 0.18, 16), rubber);
+    tire.rotation.z = Math.PI / 2;
+    const rim = new THREE2.Mesh(new THREE2.CylinderGeometry(0.16, 0.16, 0.2, 8), metal);
+    rim.rotation.z = Math.PI / 2;
+    [[-0.78, 1.22], [0.78, 1.22], [-0.78, -1.22], [0.78, -1.22]].forEach(([x, z]) => {
+      const t = tire.clone();
+      t.position.set(x, 0.3, z);
+      const r = rim.clone();
+      r.position.set(x, 0.3, z);
+      car.add(t);
+      car.add(r);
     });
     car.userData.forward = new THREE2.Vector3(0, 0, 1);
     return car;
@@ -26362,14 +26397,14 @@ void main() {
     renderer.outputColorSpace = SRGBColorSpace;
     document.body.appendChild(renderer.domElement);
     const scene = new Scene();
-    scene.background = new Color(9352924);
-    scene.fog = new Fog(12965090, 48, 210);
+    scene.background = new Color(10134443);
+    scene.fog = new Fog(10989750, 28, 150);
     const camera = new PerspectiveCamera(68, innerWidth / innerHeight, 0.08, 420);
     const envMap = createDayEnv(THREE, renderer);
     scene.environment = envMap;
-    scene.add(new HemisphereLight(12967925, 9073500, 0.72));
-    scene.add(new AmbientLight(16774376, 0.18));
-    const sun = new DirectionalLight(16773600, 2.6);
+    scene.add(new HemisphereLight(12042438, 6972508, 0.9));
+    scene.add(new AmbientLight(13157048, 0.22));
+    const sun = new DirectionalLight(16773340, 1.35);
     sun.position.set(14, 18, 8);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
@@ -26398,10 +26433,11 @@ void main() {
       return city.shorten(from, yard.shorten(from, to));
     }
     setProgress(30, "City laid out");
-    const hatch = buildHatch(THREE, envMap);
-    mountSimple(hatch, "Hatch", city.civicSpot);
+    const civic = buildCivic(THREE, envMap);
+    mountSimple(civic, "Civic", city.civicSpot);
+    civic.rotation.y = 0.04;
     new GLTFLoader().load("assets/models/civic.glb", (gltf) => {
-      const old = fleet.find((v) => v.name === "Hatch");
+      const old = fleet.find((v) => v.name === "Civic" || v.name === "Hatch");
       if (old) {
         scene.remove(old.root);
         fleet.splice(fleet.indexOf(old), 1);
@@ -26615,8 +26651,8 @@ void main() {
       }
       const driverSide = right.clone().multiplyScalar(-1);
       eyeAnchor = new Object3D();
-      const eyeWorld = c.clone().addScaledVector(driverSide, width * 0.3).addScaledVector(forward, length * 0.08);
-      eyeWorld.y = world.min.y + sz.y * 0.72;
+      const eyeWorld = c.clone().addScaledVector(driverSide, width * 0.16).addScaledVector(forward, length * 0.2);
+      eyeWorld.y = world.min.y + sz.y * 0.74;
       eyeAnchor.position.copy(toLocal(eyeWorld));
       car.add(eyeAnchor);
       exhaustAnchor = new Object3D();
@@ -26791,14 +26827,14 @@ void main() {
       const sz = world.getSize(new Vector3());
       const frame2 = { forward: new Vector3(0, 0, 1), right: new Vector3(1, 0, 0), length: sz.z, width: sz.x };
       const eye = new Object3D();
-      const eyeWorld = new Vector3(c.x - 0.28, 1.15, c.z + 0.1);
+      const eyeWorld = new Vector3(c.x + 0.32, 1.08, c.z + 0.05);
       root.add(eye);
       root.worldToLocal(eye.position.copy(eyeWorld));
       const exhaust = new Object3D();
       const ex = new Vector3(c.x + 0.35, 0.32, c.z - sz.z * 0.42);
       root.add(exhaust);
       root.worldToLocal(exhaust.position.copy(ex));
-      const door = root.worldToLocal(new Vector3(c.x - sz.x * 0.5 - 0.9, 0, c.z));
+      const door = root.worldToLocal(new Vector3(c.x + sz.x * 0.5 + 0.85, 0, c.z));
       const lights = new SpotLight(16774890, 0, 22, 0.55, 0.45, 1);
       const nose = new Vector3(c.x, 0.5, c.z + sz.z * 0.46);
       root.add(lights);
@@ -26807,6 +26843,13 @@ void main() {
       root.add(aim);
       root.worldToLocal(aim.position.copy(nose.clone().add(new Vector3(0, 0, 10))));
       lights.target = aim;
+      const blob = new Mesh(
+        new CircleGeometry(1.2, 20),
+        new MeshBasicMaterial({ color: 0, transparent: true, opacity: 0.4, depthWrite: false })
+      );
+      blob.rotation.x = -Math.PI / 2;
+      blob.position.y = 0.02;
+      root.add(blob);
       fleet.push({ root, frame: frame2, eye, exhaust, door, lights, name });
     }
     function nearestVehicle() {
@@ -27207,7 +27250,10 @@ void main() {
       sun.position.set(focus.x + 12, 18, focus.z + 6);
       sun.target.position.set(focus.x, 0, focus.z);
       sun.target.updateMatrixWorld();
-      if (location.search.includes("overview=1") && car) {
+      if (location.search.includes("street=1")) {
+        camera.position.set(-1.2, 2.2, 36);
+        camera.lookAt(1.5, 1.2, 72);
+      } else if (location.search.includes("overview=1") && car) {
         camera.position.set(28, 42, 8);
         camera.lookAt(0, 0, 90);
       } else if (view === "first") {

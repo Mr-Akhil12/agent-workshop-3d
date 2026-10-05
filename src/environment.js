@@ -7,14 +7,14 @@
 export function createDayEnv(THREE, renderer) {
     const pmrem = new THREE.PMREMGenerator(renderer);
     const env = new THREE.Scene();
-    env.background = new THREE.Color(0x8eb6dc);
-    env.add(new THREE.HemisphereLight(0xb7d4ee, 0x8a735c, 1));
-    const sun = new THREE.DirectionalLight(0xfff3e4, 2.4);
+    env.background = new THREE.Color(0x9aa3ab);
+    env.add(new THREE.HemisphereLight(0xb7c0c6, 0x6a645c, 1));
+    const sun = new THREE.DirectionalLight(0xfff0dc, 1.2);
     sun.position.set(12, 18, 6);
     env.add(sun);
     const ground = new THREE.Mesh(
         new THREE.PlaneGeometry(60, 60),
-        new THREE.MeshBasicMaterial({ color: 0x9a846c })
+        new THREE.MeshBasicMaterial({ color: 0x6a6660 })
     );
     ground.rotation.x = -Math.PI / 2;
     env.add(ground);
@@ -65,15 +65,15 @@ export function buildYard(THREE, scene) {
         }
     });
     const verge = canvasTex(THREE, 256, 256, (ctx, w, h) => {
-        ctx.fillStyle = '#7d8a62';
+        ctx.fillStyle = '#6e6a62';
         ctx.fillRect(0, 0, w, h);
         for (let i = 0; i < 600; i++) {
-            ctx.fillStyle = Math.random() > 0.5 ? '#6a784f' : '#8d9a70';
+            ctx.fillStyle = Math.random() > 0.5 ? '#5e5a54' : '#7a756c';
             ctx.fillRect(Math.random() * w, Math.random() * h, 3, 3);
         }
     });
     const stucco = canvasTex(THREE, 256, 256, (ctx, w, h) => {
-        ctx.fillStyle = '#e7e0d4';
+        ctx.fillStyle = '#7a5648';
         ctx.fillRect(0, 0, w, h);
         for (let i = 0; i < 2000; i++) {
             ctx.fillStyle = `rgba(120,110,96,${Math.random() * 0.18})`;

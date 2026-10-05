@@ -8,7 +8,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { makeFlakeBlackPaint } from './materials.js';
 import { buildYard, createDayEnv } from './environment.js';
 import { buildCity } from './city.js';
-import { buildHatch } from './hatch.js';
+import { buildCivic } from './civic.js';
 
 export function start() {
     const $ = (id) => document.getElementById(id);
@@ -40,16 +40,16 @@ export function start() {
     document.body.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x8eb6dc);
-    scene.fog = new THREE.Fog(0xc5d4e2, 48, 210);
+    scene.background = new THREE.Color(0x9aa3ab);
+    scene.fog = new THREE.Fog(0xa7b0b6, 28, 150);
 
     const camera = new THREE.PerspectiveCamera(68, innerWidth / innerHeight, 0.08, 420);
     const envMap = createDayEnv(THREE, renderer);
     scene.environment = envMap;
 
-    scene.add(new THREE.HemisphereLight(0xc5dff5, 0x8a735c, 0.72));
-    scene.add(new THREE.AmbientLight(0xfff4e8, 0.18));
-    const sun = new THREE.DirectionalLight(0xfff1e0, 2.6);
+    scene.add(new THREE.HemisphereLight(0xb7c0c6, 0x6a645c, 0.9));
+    scene.add(new THREE.AmbientLight(0xc8c2b8, 0.22));
+    const sun = new THREE.DirectionalLight(0xfff0dc, 1.35);
     sun.position.set(14, 18, 8);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
@@ -79,10 +79,11 @@ export function start() {
         return city.shorten(from, yard.shorten(from, to));
     }
     setProgress(30, 'City laid out');
-    const hatch = buildHatch(THREE, envMap);
-    mountSimple(hatch, 'Hatch', city.civicSpot);
+    const civic = buildCivic(THREE, envMap);
+    mountSimple(civic, 'Civic', city.civicSpot);
+    civic.rotation.y = 0.04;
     new GLTFLoader().load('assets/models/civic.glb', (gltf) => {
-        const old = fleet.find((v) => v.name === 'Hatch');
+        const old = fleet.find((v) => v.name === 'Civic' || v.name === 'Hatch');
         if (old) {
             scene.remove(old.root);
             fleet.splice(fleet.indexOf(old), 1);
@@ -295,8 +296,8 @@ export function start() {
         }
         const driverSide = right.clone().multiplyScalar(-1);
         eyeAnchor = new THREE.Object3D();
-        const eyeWorld = c.clone().addScaledVector(driverSide, width * 0.30).addScaledVector(forward, length * 0.08);
-        eyeWorld.y = world.min.y + sz.y * 0.72;
+        const eyeWorld = c.clone().addScaledVector(driverSide, width * 0.16).addScaledVector(forward, length * 0.2);
+        eyeWorld.y = world.min.y + sz.y * 0.74;
         eyeAnchor.position.copy(toLocal(eyeWorld));
         car.add(eyeAnchor);
 
@@ -470,14 +471,14 @@ export function start() {
         const sz = world.getSize(new THREE.Vector3());
         const frame = { forward: new THREE.Vector3(0, 0, 1), right: new THREE.Vector3(1, 0, 0), length: sz.z, width: sz.x };
         const eye = new THREE.Object3D();
-        const eyeWorld = new THREE.Vector3(c.x - 0.28, 1.15, c.z + 0.1);
+        const eyeWorld = new THREE.Vector3(c.x + 0.32, 1.08, c.z + 0.05);
         root.add(eye);
         root.worldToLocal(eye.position.copy(eyeWorld));
         const exhaust = new THREE.Object3D();
         const ex = new THREE.Vector3(c.x + 0.35, 0.32, c.z - sz.z * 0.42);
         root.add(exhaust);
         root.worldToLocal(exhaust.position.copy(ex));
-        const door = root.worldToLocal(new THREE.Vector3(c.x - sz.x * 0.5 - 0.9, 0, c.z));
+        const door = root.worldToLocal(new THREE.Vector3(c.x + sz.x * 0.5 + 0.85, 0, c.z));
         const lights = new THREE.SpotLight(0xfff6ea, 0, 22, 0.55, 0.45, 1);
         const nose = new THREE.Vector3(c.x, 0.5, c.z + sz.z * 0.46);
         root.add(lights);
@@ -486,6 +487,13 @@ export function start() {
         root.add(aim);
         root.worldToLocal(aim.position.copy(nose.clone().add(new THREE.Vector3(0, 0, 10))));
         lights.target = aim;
+        const blob = new THREE.Mesh(
+            new THREE.CircleGeometry(1.2, 20),
+            new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.4, depthWrite: false })
+        );
+        blob.rotation.x = -Math.PI / 2;
+        blob.position.y = 0.02;
+        root.add(blob);
         fleet.push({ root, frame, eye, exhaust, door, lights, name });
     }
     function nearestVehicle() {
@@ -861,7 +869,10 @@ export function start() {
         sun.target.position.set(focus.x, 0, focus.z);
         sun.target.updateMatrixWorld();
 
-        if (location.search.includes('overview=1') && car) {
+        if (location.search.includes('street=1')) {
+            camera.position.set(-1.2, 2.2, 36);
+            camera.lookAt(1.5, 1.2, 72);
+        } else if (location.search.includes('overview=1') && car) {
             camera.position.set(28, 42, 8);
             camera.lookAt(0, 0, 90);
         } else if (view === 'first') {
